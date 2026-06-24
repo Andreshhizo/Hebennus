@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, watch, onMounted, onUnmounted, provide } from 'vue'
-import { RouterView, useRouter } from 'vue-router'
+import { RouterView, useRouter, useRoute } from 'vue-router'
 import AppNav        from './components/AppNav.vue'
 import AppFooter     from './components/AppFooter.vue'
 import CartDrawer    from './components/CartDrawer.vue'
@@ -110,6 +110,9 @@ function updateQty(idx, delta) {
 function openQuickBuy(product) { quickBuyProduct.value = product }
 
 const router = useRouter()
+const route  = useRoute()
+// El panel /admin no muestra la navegación, carrito ni footer de la tienda.
+const mostrarTienda = computed(() => !route.path.startsWith('/admin'))
 function goCheckout() {
   carritoOpen.value = false
   router.push('/checkout')
@@ -128,11 +131,12 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="announce">
-    Envíos a todo Perú &nbsp;·&nbsp; Pago contraentrega &nbsp;·&nbsp; WhatsApp 24/7
+  <div v-if="mostrarTienda" class="announce">
+    Envío gratis desde S/ 149 &nbsp;·&nbsp; Edición limitada
   </div>
 
   <AppNav
+    v-if="mostrarTienda"
     :scrolled="scrolled"
     :carrito-count="carritoCount"
     @open-cart="carritoOpen = true"
@@ -144,9 +148,10 @@ onUnmounted(() => {
     </Transition>
   </RouterView>
 
-  <AppFooter />
+  <AppFooter v-if="mostrarTienda" />
 
   <CartDrawer
+    v-if="mostrarTienda"
     :items="carrito"
     :open="carritoOpen"
     @close="carritoOpen = false"
@@ -157,11 +162,13 @@ onUnmounted(() => {
   />
 
   <ToastNotif
+    v-if="mostrarTienda"
     :toast="toast"
     @close="toast = null"
   />
 
   <QuickBuyModal
+    v-if="mostrarTienda"
     :product="quickBuyProduct"
     @close="quickBuyProduct = null"
   />
@@ -179,8 +186,12 @@ onUnmounted(() => {
   color: var(--text-2);
 }
 
-.page-enter-active,
-.page-leave-active { transition: opacity 0.18s ease; }
-.page-enter-from,
+.page-enter-active { transition: opacity 0.3s ease, transform 0.3s cubic-bezier(0.22, 1, 0.36, 1); }
+.page-leave-active { transition: opacity 0.15s ease; }
+.page-enter-from   { opacity: 0; transform: translateY(10px); }
 .page-leave-to     { opacity: 0; }
+@media (prefers-reduced-motion: reduce) {
+  .page-enter-active, .page-leave-active { transition: none; }
+  .page-enter-from { transform: none; }
+}
 </style>

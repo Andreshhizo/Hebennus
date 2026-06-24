@@ -1,4 +1,4 @@
-import { createRouter, createWebHashHistory } from 'vue-router'
+import { createRouter, createWebHistory } from 'vue-router'
 import HomePage           from '../pages/HomePage.vue'
 import ColeccionPage      from '../pages/ColeccionPage.vue'
 import LanzamientosPage   from '../pages/LanzamientosPage.vue'
@@ -14,11 +14,14 @@ const routes = [
   { path: '/lanzamientos',    component: LanzamientosPage,  meta: { title: 'Próximos Lanzamientos — Hebennus' } },
   { path: '/nosotros',        component: NosotrosPage,      meta: { title: 'Nosotros — Hebennus' } },
   { path: '/checkout',        component: CheckoutPage,      meta: { title: 'Finalizar pedido — Hebennus' } },
+  { path: '/cuenta',          component: () => import('../pages/AccountPage.vue'),  meta: { title: 'Mi cuenta — Hebennus' } },
+  { path: '/mis-pedidos',     component: () => import('../pages/MyOrdersPage.vue'), meta: { title: 'Mis pedidos — Hebennus' } },
+  { path: '/admin',           component: () => import('../pages/AdminPage.vue'), meta: { title: 'Panel — Hebennus' } },
   { path: '/:pathMatch(.*)*', component: NotFoundPage,      meta: { title: 'Página no encontrada — Hebennus' } },
 ]
 
 const router = createRouter({
-  history: createWebHashHistory(),
+  history: createWebHistory(),
   routes,
   scrollBehavior: () => ({ top: 0, behavior: 'smooth' }),
 })

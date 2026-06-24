@@ -265,7 +265,7 @@ function handleAdd() {
         <ul class="pdp__perks">
           <li>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="20 6 9 17 4 12"/></svg>
-            Envío a todo Perú
+            Envío a domicilio
           </li>
           <li>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="20 6 9 17 4 12"/></svg>

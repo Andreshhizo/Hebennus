@@ -68,8 +68,6 @@ import { WHATSAPP_NUMERO, INSTAGRAM, TIKTOK } from '../lib/config.js'
           <a :href="`https://wa.me/${WHATSAPP_NUMERO}`" target="_blank" rel="noopener noreferrer">
             Pedidos por WhatsApp
           </a>
-          <span>Envíos a todo Perú</span>
-          <span>Pago contraentrega</span>
           <span>Devoluciones en 7 días</span>
         </div>
       </div>

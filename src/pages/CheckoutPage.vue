@@ -1,19 +1,29 @@
 <script setup>
-import { ref, reactive, computed, inject, watchEffect, onMounted, onUnmounted } from 'vue'
+import { ref, reactive, computed, inject, watchEffect, onMounted, onUnmounted, nextTick } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import { createOrder } from '../lib/order.js'
-import { ENVIO_GRATIS_DESDE, COSTO_ENVIO } from '../lib/config.js'
+import { useAuth } from '../lib/useAuth.js'
+import { loadIzipaySdk, generateIzipayToken } from '../lib/izipay.js'
+import { ENVIO_GRATIS_DESDE, COSTO_ENVIO, IZIPAY_ENABLED, IZIPAY_MERCHANT_CODE, IZIPAY_PUBLIC_KEY } from '../lib/config.js'
 
 const router    = useRouter()
 const cart      = inject('cart', ref([]))
 const clearCart = inject('clearCart', () => {})
+const { user, signUp } = useAuth()
 
 const NOTES_MAX = 400
+const WELCOME_PCT = 0.10   // 10% de bienvenida al crear cuenta
+
+// ── Cuenta + consentimiento ──
+const crearCuenta  = ref(false)   // checkbox "crear cuenta y 10%"
+const password     = ref('')      // contraseña (solo si crea cuenta)
+const aceptaPromos = ref(false)   // consentimiento marketing (Ley 29733)
 
 const form = reactive({
   customer_name:  '',
   customer_phone: '',
   customer_email: '',
+  document:       '',   // DNI (requerido solo si Izipay está activo)
   notes:          '',
 })
 
@@ -23,13 +33,33 @@ const enviado    = ref(false)
 const errorEnvio = ref(null)
 const orderNumber = ref('')
 
+// ── Pago (Izipay) ──
+const izipayActivo = IZIPAY_ENABLED
+const pagando      = ref(false)   // cargando token + SDK
+const mostrarPago  = ref(false)   // formulario embebido visible
+const errorPago    = ref(null)
+
 // ── Totales ──
 const subtotal = computed(() => cart.value.reduce((s, i) => s + Number(i.price) * (i.qty ?? 1), 0))
 const envioGratis = computed(() => subtotal.value >= ENVIO_GRATIS_DESDE)
 const envio = computed(() => (envioGratis.value || subtotal.value === 0 ? 0 : COSTO_ENVIO))
-const total = computed(() => subtotal.value + envio.value)
+// El 10% se muestra solo si NO está logueado y marcó "crear cuenta".
+// El SERVIDOR revalida (cuenta nueva, 1ª compra) — el cliente solo previsualiza.
+const aplicaDescuento = computed(() => !user.value && crearCuenta.value)
+const descuento = computed(() => aplicaDescuento.value ? Math.round(subtotal.value * WELCOME_PCT * 100) / 100 : 0)
+const total = computed(() => Math.max(0, subtotal.value + envio.value - descuento.value))
 const vacio = computed(() => !cart.value.length)
 const faltaEnvioGratis = computed(() => Math.max(0, ENVIO_GRATIS_DESDE - subtotal.value))
+
+// ── Prellenar datos si el cliente ya inició sesión ──
+watchEffect(() => {
+  if (!user.value) return
+  const md = user.value.user_metadata || {}
+  if (!form.customer_email) form.customer_email = user.value.email || ''
+  if (!form.customer_name)  form.customer_name  = md.full_name || md.name || ''
+  if (!form.customer_phone) form.customer_phone = md.phone || ''
+  crearCuenta.value = false // ya tiene cuenta
+})
 
 // ── Carrito vacío → redirige a la colección (sin pisar la pantalla de éxito) ──
 watchEffect(() => {
@@ -44,6 +74,8 @@ const errores = computed(() => {
   const tel = form.customer_phone.replace(/\D/g, '')
   if (!/^9\d{8}$/.test(tel)) e.customer_phone = 'Celular inválido: 9 dígitos, empieza con 9.'
   if (!EMAIL_RE.test(form.customer_email.trim())) e.customer_email = 'Correo electrónico inválido.'
+  if (izipayActivo && !/^\d{8}$/.test(form.document.trim())) e.document = 'DNI inválido (8 dígitos).'
+  if (crearCuenta.value && !user.value && password.value.length < 6) e.password = 'Mínimo 6 caracteres.'
   if (form.notes.trim().length < 6) e.notes = 'Ingresa tu dirección de entrega.'
   return e
 })
@@ -65,19 +97,16 @@ onMounted(() => {
 onUnmounted(() => mq?.removeEventListener('change', onMq))
 const itemsVisibles = computed(() => esDesktop.value || resumenAbierto.value)
 
-// ── Confirmar pedido ──
-async function confirmar() {
-  Object.keys(form).forEach(k => { tocado[k] = true })
-  if (vacio.value || !valido.value || enviando.value) return
-
-  enviando.value = true
-  errorEnvio.value = null
-
-  const pedido = {
+// ── Payload del pedido ──
+function construirPedido() {
+  return {
     cliente: {
       customer_name:  form.customer_name.trim(),
       customer_phone: form.customer_phone.replace(/\D/g, ''),
       customer_email: form.customer_email.trim(),
+      document:       form.document.trim(),                          // compat Izipay
+      doc_tipo:       form.document.trim() ? 'DNI' : null,           // para la boleta
+      doc_numero:     form.document.trim() || null,
       notes:          form.notes.trim().slice(0, NOTES_MAX),
     },
     items: cart.value.map(i => ({
@@ -91,10 +120,63 @@ async function confirmar() {
     })),
     subtotal: subtotal.value,
     shipping: envio.value,
+    discount: descuento.value,          // previsualización; el servidor revalida
+    quiere_descuento: aplicaDescuento.value,
+    consent:  aceptaPromos.value,       // consentimiento de marketing
     total:    total.value,
   }
+}
 
+// ── Acción del botón ──
+async function confirmar() {
+  Object.keys(form).forEach(k => { tocado[k] = true })
+  tocado.password = true
+  if (vacio.value || !valido.value || enviando.value || pagando.value) return
+
+  // Si pidió crear cuenta y no está logueado, regístralo primero.
+  if (crearCuenta.value && !user.value) {
+    const ok = await registrarCuenta()
+    if (!ok) return
+  }
+
+  if (izipayActivo) await iniciarPago()
+  else await finalizarPedido()   // sin pasarela configurada → registra el pedido directo
+}
+
+// Crea la cuenta del cliente en el checkout (para el 10% + seguir sus pedidos).
+async function registrarCuenta() {
+  enviando.value = true
+  errorEnvio.value = null
   try {
+    const { session } = await signUp({
+      email: form.customer_email, password: password.value,
+      full_name: form.customer_name, phone: form.customer_phone.replace(/\D/g, ''),
+    })
+    // Si la confirmación de correo está activa (prod), no hay sesión aún:
+    // creamos el pedido como invitado y el 10% se aplicará al confirmar/loguear.
+    if (!session) {
+      errorEnvio.value = 'Cuenta creada ✓ Revisa tu correo para confirmarla. Continuamos con tu pedido.'
+      crearCuenta.value = false
+    }
+    return true
+  } catch (err) {
+    const m = err?.message || ''
+    errorEnvio.value = m.includes('already registered')
+      ? 'Ese correo ya tiene una cuenta. Inicia sesión para aplicar tu 10%.'
+      : (m || 'No se pudo crear la cuenta. Inténtalo de nuevo.')
+    return false
+  } finally {
+    enviando.value = false
+  }
+}
+
+// ── Registra el pedido (inserción + correo) y muestra el éxito ──
+async function finalizarPedido(payment = null) {
+  enviando.value = true
+  errorEnvio.value = null
+  try {
+    const pedido = construirPedido()
+    if (payment) pedido.payment = payment
     const res = await createOrder(pedido)
     orderNumber.value = res?.order_number ?? ''
     enviado.value = true   // antes de limpiar el carrito (evita el redirect)
@@ -103,6 +185,79 @@ async function confirmar() {
     errorEnvio.value = 'No pudimos registrar tu pedido. Revisa tu conexión e inténtalo de nuevo.'
   } finally {
     enviando.value = false
+  }
+}
+
+// ── Pago con Izipay (Web Core embebido) ──
+async function iniciarPago() {
+  pagando.value = true
+  errorPago.value = null
+  try {
+    const amount   = total.value.toFixed(2)
+    const orderRef = `HB-${Date.now()}`
+    const { token, transactionId } = await generateIzipayToken({ amount, orderNumber: orderRef })
+
+    await loadIzipaySdk()
+
+    const iziConfig = {
+      action: 'pay',
+      merchantCode: IZIPAY_MERCHANT_CODE,
+      transactionId,
+      order: {
+        orderNumber: orderRef,
+        currency: 'PEN',
+        amount,
+        processType: 'AT',
+        merchantBuyerId: form.customer_email.trim(),
+        dateTimeTransaction: Date.now().toString(),
+        payMethod: 'CARD',
+      },
+      billing: {
+        firstName:    form.customer_name.trim().split(' ')[0] || form.customer_name.trim(),
+        lastName:     form.customer_name.trim().split(' ').slice(1).join(' ') || '-',
+        email:        form.customer_email.trim(),
+        phoneNumber:  form.customer_phone.replace(/\D/g, ''),
+        street:       form.notes.trim().slice(0, 120),
+        city:         'Lima',
+        state:        'Lima',
+        country:      'PE',
+        postalCode:   '15000',
+        documentType: 'DNI',
+        document:     form.document.trim() || '00000000',
+      },
+      render: {
+        typeForm: 'embedded',
+        container: '#iframe-payment',
+        showButtonProcessForm: true,
+      },
+    }
+
+    mostrarPago.value = true
+    await nextTick()
+
+    const checkout = new window.Izipay({ config: iziConfig })
+    checkout.LoadForm({
+      authorization: token,
+      keyRSA: IZIPAY_PUBLIC_KEY,
+      callbackResponse: onPagoRespuesta,
+    })
+  } catch (err) {
+    errorPago.value = 'No se pudo iniciar el pago. Inténtalo de nuevo.'
+    mostrarPago.value = false
+  } finally {
+    pagando.value = false
+  }
+}
+
+// ── Respuesta del formulario de pago ──
+function onPagoRespuesta(response) {
+  // ⚠️ VERIFICA el código de éxito según tu cuenta Izipay (suele ser code '00').
+  const code = response?.code ?? response?.response?.code
+  if (String(code) === '00') {
+    mostrarPago.value = false
+    finalizarPedido({ provider: 'izipay', transactionId: response?.transactionId ?? null, code })
+  } else {
+    errorPago.value = response?.message || 'El pago no se completó. Intenta nuevamente.'
   }
 }
 </script>
@@ -118,7 +273,7 @@ async function confirmar() {
     <p class="state__num">N.° de pedido: <strong>{{ orderNumber }}</strong></p>
     <p class="state__msg">
       Enviamos la confirmación con el detalle a <strong>{{ form.customer_email }}</strong>.
-      Te contactaremos para coordinar la entrega (pago contraentrega).
+      Te contactaremos para coordinar la entrega.
     </p>
     <RouterLink to="/coleccion" class="state__cta">Seguir comprando</RouterLink>
   </section>
@@ -128,7 +283,7 @@ async function confirmar() {
       <div class="page-hero__inner">
         <span class="chip">Finalizar pedido</span>
         <h1 class="page-hero__title">Datos de envío</h1>
-        <p class="page-hero__sub">Pago contraentrega · Te enviaremos la confirmación por correo</p>
+        <p class="page-hero__sub">Te enviaremos la confirmación por correo</p>
       </div>
     </section>
 
@@ -173,6 +328,18 @@ async function confirmar() {
             </div>
           </div>
 
+          <div v-if="izipayActivo" class="form__group">
+            <label class="field__label" for="f-doc">DNI</label>
+            <input
+              id="f-doc" v-model="form.document" type="text" inputmode="numeric" maxlength="8"
+              class="field__input" :class="{ 'field__input--err': errorDe('document') }"
+              autocomplete="off" :aria-invalid="!!errorDe('document')"
+              :aria-describedby="errorDe('document') ? 'err-doc' : undefined"
+              @blur="marcar('document')"
+            />
+            <span v-if="errorDe('document')" id="err-doc" class="field__error" role="alert">{{ errores.document }}</span>
+          </div>
+
           <div class="form__group">
             <label class="field__label" for="f-notes">Dirección de entrega y notas</label>
             <textarea
@@ -187,6 +354,32 @@ async function confirmar() {
               <span v-if="errorDe('notes')" id="err-notes" class="field__error" role="alert">{{ errores.notes }}</span>
               <span class="field__count">{{ form.notes.length }}/{{ NOTES_MAX }}</span>
             </div>
+          </div>
+
+          <!-- ── Cuenta + consentimiento (opcionales) ── -->
+          <div class="acct-box">
+            <template v-if="!user">
+              <label class="acct-check">
+                <input type="checkbox" v-model="crearCuenta" />
+                <span>Crear mi cuenta y obtener <strong>10% de descuento</strong> en este pedido 🎁</span>
+              </label>
+              <div v-if="crearCuenta" class="form__group acct-pass">
+                <label class="field__label" for="f-pass">Crea una contraseña</label>
+                <input
+                  id="f-pass" v-model="password" type="password" class="field__input"
+                  :class="{ 'field__input--err': errorDe('password') }" autocomplete="new-password"
+                  @blur="marcar('password')"
+                />
+                <span v-if="errorDe('password')" class="field__error" role="alert">{{ errores.password }}</span>
+              </div>
+            </template>
+            <p v-else class="acct-logged">Comprando como <strong>{{ user.email }}</strong> ✓</p>
+
+            <label class="acct-check">
+              <input type="checkbox" v-model="aceptaPromos" />
+              <span>Quiero recibir promociones y novedades por correo.</span>
+            </label>
+            <p class="acct-legal">Tu correo se usa para enviarte tu boleta y la confirmación del pedido. Puedes cancelar las promociones cuando quieras.</p>
           </div>
         </form>
 
@@ -224,6 +417,9 @@ async function confirmar() {
               <div class="summary__line">
                 <span>Subtotal</span><span>S/ {{ subtotal.toFixed(2) }}</span>
               </div>
+              <div v-if="descuento > 0" class="summary__line summary__line--disc">
+                <span>Descuento 10% 🎁</span><span>- S/ {{ descuento.toFixed(2) }}</span>
+              </div>
               <div class="summary__line">
                 <span>Envío</span>
                 <span :class="{ 'summary__free': envioGratis }">{{ envioGratis ? 'Gratis' : `S/ ${envio.toFixed(2)}` }}</span>
@@ -240,17 +436,28 @@ async function confirmar() {
           </div>
 
           <p v-if="errorEnvio" class="summary__send-err" role="alert">{{ errorEnvio }}</p>
+          <p v-if="errorPago" class="summary__send-err" role="alert">{{ errorPago }}</p>
 
           <button
+            v-if="!mostrarPago"
             type="button" class="checkout__submit"
-            :class="{ 'checkout__submit--ready': valido && !enviando }"
-            :disabled="!valido || enviando" :aria-busy="enviando"
+            :class="{ 'checkout__submit--ready': valido && !enviando && !pagando }"
+            :disabled="!valido || enviando || pagando" :aria-busy="enviando || pagando"
             @click="confirmar"
           >
-            <span v-if="enviando" class="spinner" aria-hidden="true"></span>
-            {{ enviando ? 'Procesando…' : 'Confirmar pedido' }}
+            <span v-if="enviando || pagando" class="spinner" aria-hidden="true"></span>
+            <template v-if="enviando">Procesando…</template>
+            <template v-else-if="pagando">Cargando pago…</template>
+            <template v-else-if="izipayActivo">Pagar S/ {{ total.toFixed(2) }}</template>
+            <template v-else>Confirmar pedido</template>
           </button>
-          <p class="summary__note">Pago contraentrega · Recibirás un correo de confirmación.</p>
+
+          <!-- Formulario de pago embebido de Izipay -->
+          <div v-show="mostrarPago" id="iframe-payment" class="izipay-form"></div>
+
+          <p class="summary__note">
+            {{ izipayActivo ? 'Pago seguro procesado por Izipay.' : 'Recibirás un correo de confirmación.' }}
+          </p>
         </aside>
       </div>
     </section>
@@ -324,6 +531,15 @@ async function confirmar() {
 .field__error { font-size: 0.74rem; color: #e0566b; letter-spacing: 0.01em; }
 .field__count { font-size: 0.65rem; letter-spacing: 0.08em; color: var(--text-3); margin-left: auto; }
 
+/* ── ACCOUNT BOX ── */
+.acct-box { display: flex; flex-direction: column; gap: 0.8rem; padding: 1rem 1.1rem; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; }
+.acct-check { display: flex; gap: 0.6rem; align-items: flex-start; font-size: 0.84rem; color: var(--text-2); cursor: pointer; line-height: 1.4; }
+.acct-check input { margin-top: 0.15rem; width: 16px; height: 16px; flex-shrink: 0; accent-color: var(--accent); cursor: pointer; }
+.acct-check strong { color: var(--accent-3); }
+.acct-pass { margin-top: 0.1rem; }
+.acct-logged { font-size: 0.84rem; color: var(--text-2); }
+.acct-legal { font-size: 0.7rem; color: var(--text-3); line-height: 1.5; }
+
 /* ── SUMMARY ── */
 .summary {
   order: 1;
@@ -370,6 +586,7 @@ async function confirmar() {
 .summary__lines { display: flex; flex-direction: column; gap: 0.5rem; border-top: 1px solid var(--border); padding-top: 1rem; }
 .summary__line { display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--text-2); }
 .summary__free { color: var(--accent-2); font-weight: 600; }
+.summary__line--disc { color: var(--accent-2); font-weight: 600; }
 .summary__hint { font-size: 0.7rem; color: var(--accent-3); letter-spacing: 0.02em; }
 
 .summary__total {
@@ -393,6 +610,7 @@ async function confirmar() {
 .checkout__submit--ready:hover { background: var(--accent-deep); border-color: var(--accent-deep); }
 .checkout__submit:disabled { opacity: 0.6; cursor: not-allowed; }
 .summary__note { text-align: center; font-size: 0.68rem; color: var(--text-3); letter-spacing: 0.03em; }
+.izipay-form { margin-top: 1rem; min-height: 1px; }
 
 .spinner {
   width: 15px; height: 15px;

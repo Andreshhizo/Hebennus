@@ -1,7 +1,8 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import { useTheme } from '../lib/useTheme.js'
+import { useAuth } from '../lib/useAuth.js'
 
 defineProps({
   scrolled:     { type: Boolean, default: false },
@@ -10,9 +11,25 @@ defineProps({
 const emit = defineEmits(['open-cart'])
 
 const { isDark, toggle } = useTheme()
-const menuOpen = ref(false)
-const router   = useRouter()
-router.afterEach(() => { menuOpen.value = false })
+const { user, isAdmin, signOut } = useAuth()
+const menuOpen    = ref(false)
+const accountOpen = ref(false)
+const router      = useRouter()
+router.afterEach(() => { menuOpen.value = false; accountOpen.value = false })
+
+async function cerrarSesion() {
+  await signOut()
+  accountOpen.value = false
+  menuOpen.value = false
+  router.push('/')
+}
+
+// Cierra el menú de cuenta al hacer clic fuera de él.
+function onDocClick(e) {
+  if (accountOpen.value && !e.target.closest('.nav__account')) accountOpen.value = false
+}
+onMounted(()   => document.addEventListener('click', onDocClick))
+onUnmounted(() => document.removeEventListener('click', onDocClick))
 </script>
 
 <template>
@@ -53,6 +70,30 @@ router.afterEach(() => { menuOpen.value = false })
           </svg>
         </button>
 
+        <!-- Account -->
+        <div class="nav__account">
+          <button class="nav__acct" :aria-label="user ? 'Mi cuenta' : 'Iniciar sesión'" @click="accountOpen = !accountOpen">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+            </svg>
+            <span v-if="user && isAdmin" class="nav__acct-dot" aria-hidden="true"></span>
+          </button>
+          <Transition name="fade">
+            <div v-if="accountOpen" class="nav__menu" role="menu">
+              <template v-if="user">
+                <p class="nav__menu-email">{{ user.email }}</p>
+                <RouterLink to="/mis-pedidos" role="menuitem">Mis pedidos</RouterLink>
+                <RouterLink v-if="isAdmin" to="/admin" role="menuitem" class="nav__menu-admin">Administrar pedidos</RouterLink>
+                <button role="menuitem" @click="cerrarSesion">Salir</button>
+              </template>
+              <template v-else>
+                <RouterLink to="/cuenta" role="menuitem">Iniciar sesión</RouterLink>
+                <RouterLink to="/cuenta" role="menuitem" class="nav__menu-cta">Crear cuenta · 🎁</RouterLink>
+              </template>
+            </div>
+          </Transition>
+        </div>
+
         <!-- Cart -->
         <button
           class="nav__cart"
@@ -91,6 +132,20 @@ router.afterEach(() => { menuOpen.value = false })
         <RouterLink to="/lanzamientos">Lanzamientos</RouterLink>
         <RouterLink to="/nosotros">Nosotros</RouterLink>
       </nav>
+
+      <div class="mob-menu__account">
+        <template v-if="user">
+          <p class="mob-account__email">{{ user.email }}</p>
+          <RouterLink to="/mis-pedidos">Mis pedidos</RouterLink>
+          <RouterLink v-if="isAdmin" to="/admin" class="mob-account__admin">Administrar pedidos</RouterLink>
+          <button class="mob-account__out" @click="cerrarSesion">Salir</button>
+        </template>
+        <template v-else>
+          <RouterLink to="/cuenta" class="mob-account__in">Iniciar sesión</RouterLink>
+          <RouterLink to="/cuenta" class="mob-account__cta">Crear cuenta · 🎁 10%</RouterLink>
+        </template>
+      </div>
+
       <div class="mob-menu__theme">
         <button class="mob-theme-btn" @click="toggle">
           <template v-if="isDark">
@@ -197,6 +252,25 @@ router.afterEach(() => { menuOpen.value = false })
   padding: 0 3px;
 }
 
+/* ── ACCOUNT ── */
+.nav__account { position: relative; display: flex; align-items: center; }
+.nav__acct { position: relative; display: flex; align-items: center; color: var(--text-2); padding: 0.25rem; transition: color 0.2s; cursor: pointer; }
+.nav__acct:hover { color: var(--text-1); }
+.nav__acct-dot { position: absolute; top: 0; right: 0; width: 7px; height: 7px; background: var(--copper); border-radius: 50%; }
+.nav__menu {
+  position: absolute; top: calc(100% + 12px); right: 0; min-width: 210px;
+  background: var(--surface-1); border: 1px solid var(--border-mid);
+  box-shadow: 0 10px 34px rgba(0,0,0,0.22);
+  display: flex; flex-direction: column; padding: 0.4rem; z-index: 200;
+}
+.nav__menu a, .nav__menu button {
+  text-align: left; padding: 0.6rem 0.7rem; font-size: 0.82rem; color: var(--text-2);
+  border-radius: 6px; cursor: pointer; transition: background 0.15s, color 0.15s;
+}
+.nav__menu a:hover, .nav__menu button:hover { background: var(--surface-2); color: var(--text-1); }
+.nav__menu-email { padding: 0.5rem 0.7rem; font-size: 0.72rem; color: var(--text-3); border-bottom: 1px solid var(--border); margin-bottom: 0.3rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nav__menu-admin, .nav__menu-cta { color: var(--accent-3) !important; font-weight: 600; }
+
 /* ── HAMBURGER ── */
 .nav__burger {
   display: none;
@@ -280,6 +354,15 @@ router.afterEach(() => { menuOpen.value = false })
 .mob-menu__links a:last-child { border-bottom: none; }
 .mob-menu__links a:hover,
 .mob-menu__links a.router-link-active { color: var(--text-1); }
+
+.mob-menu__account {
+  display: flex; flex-direction: column; gap: 0.1rem;
+  padding: 1rem 1.5rem; border-top: 1px solid var(--border);
+}
+.mob-account__email { font-size: 0.74rem; color: var(--text-3); margin-bottom: 0.4rem; overflow: hidden; text-overflow: ellipsis; }
+.mob-menu__account a, .mob-menu__account button { text-align: left; padding: 0.65rem 0; font-size: 0.95rem; color: var(--text-2); cursor: pointer; }
+.mob-account__admin, .mob-account__cta { color: var(--accent-3); font-weight: 600; }
+.mob-account__out { color: #e0566b; }
 
 .mob-menu__theme {
   padding: 1.5rem;

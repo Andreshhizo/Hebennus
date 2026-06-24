@@ -115,3 +115,14 @@ a { color: inherit; text-decoration: none; }
 }
 
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+/* ── Animaciones globales (simples y elegantes) ───────────────────────────── */
+/* Suaviza todos los hovers de enlaces y botones. */
+button, a { transition: color 0.2s ease, background-color 0.2s ease, border-color 0.2s ease, opacity 0.2s ease, transform 0.2s ease; }
+
+/* Entradas reutilizables (los componentes con scope pueden usar estos nombres). */
+@keyframes hb-fade-up { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@keyframes hb-fade-in { from { opacity: 0; } to { opacity: 1; } }
+.hb-rise { animation: hb-fade-up 0.4s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.hb-fade { animation: hb-fade-in 0.4s ease both; }
+/* El bloque @media (prefers-reduced-motion) de arriba ya neutraliza estas animaciones. */
