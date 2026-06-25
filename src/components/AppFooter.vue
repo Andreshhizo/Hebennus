@@ -98,6 +98,8 @@ import { WHATSAPP_NUMERO, INSTAGRAM, TIKTOK } from '../lib/config.js'
 .foot {
   border-top: 1px solid var(--border);
   background: var(--surface-1);
+  border-top-left-radius: var(--radius-lg);
+  border-top-right-radius: var(--radius-lg);
 }
 .foot__main {
   max-width: 1200px;
@@ -112,12 +114,15 @@ import { WHATSAPP_NUMERO, INSTAGRAM, TIKTOK } from '../lib/config.js'
 /* ── BRAND ── */
 .foot__logo {
   display: block;
+  width: fit-content;
   font-family: var(--font-brand);
   font-size: 1.35rem;
   color: var(--text-1);
   letter-spacing: 0.04em;
   margin-bottom: 0.5rem;
+  transition: opacity 0.2s var(--ease-out), transform 0.2s var(--ease-out);
 }
+.foot__logo:hover { opacity: 0.85; transform: translateY(-1px); }
 .foot__tag {
   font-size: 0.75rem;
   color: var(--text-3);
@@ -138,9 +143,21 @@ import { WHATSAPP_NUMERO, INSTAGRAM, TIKTOK } from '../lib/config.js'
   color: var(--text-3);
   display: flex;
   align-items: center;
-  transition: color 0.2s;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border-mid);
+  background: var(--surface-2);
+  transition: color 0.25s var(--ease-out), transform 0.25s var(--ease-out), box-shadow 0.25s var(--ease-out), border-color 0.25s var(--ease-out), background 0.25s var(--ease-out);
 }
-.foot__social-link:hover { color: var(--text-1); }
+.foot__social-link:hover {
+  color: var(--text-1);
+  transform: translateY(-3px);
+  border-color: var(--accent);
+  box-shadow: var(--shadow-hover);
+}
+.foot__social-link:active { transform: scale(0.94); }
 
 /* ── COLUMNS ── */
 .foot__col-title {
@@ -164,7 +181,8 @@ import { WHATSAPP_NUMERO, INSTAGRAM, TIKTOK } from '../lib/config.js'
   transition: color 0.2s;
   line-height: 1.5;
 }
-.foot__nav a:hover { color: var(--text-1); }
+.foot__nav a { width: fit-content; transition: color 0.2s var(--ease-out), transform 0.2s var(--ease-out); }
+.foot__nav a:hover { color: var(--text-1); transform: translateX(3px); }
 .foot__nav span { cursor: default; }
 
 /* ── PAYMENTS ── */
@@ -177,11 +195,15 @@ import { WHATSAPP_NUMERO, INSTAGRAM, TIKTOK } from '../lib/config.js'
 .foot__pay-chip {
   font-size: 0.68rem;
   letter-spacing: 0.1em;
-  padding: 0.25rem 0.65rem;
+  padding: 0.3rem 0.75rem;
   border: 1px solid var(--border-mid);
+  border-radius: var(--radius-pill);
+  background: var(--surface-2);
   color: var(--text-2);
   font-family: var(--font-display);
+  transition: color 0.25s var(--ease-out), border-color 0.25s var(--ease-out), transform 0.25s var(--ease-out);
 }
+.foot__pay-chip:hover { color: var(--text-1); border-color: var(--accent); transform: translateY(-2px); }
 .foot__shipping-note {
   font-size: 0.75rem;
   color: var(--accent-2);

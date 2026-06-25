@@ -43,7 +43,7 @@ const pilares = [
 
   <!-- ░░ MISIÓN + VISIÓN ░░ -->
   <section class="mv">
-    <div class="mv__inner">
+    <div class="mv__inner" v-reveal>
       <article class="mv__card">
         <span class="mv__label">Misión</span>
         <p class="mv__text">
@@ -62,14 +62,14 @@ const pilares = [
   <!-- ░░ PILARES ░░ -->
   <section class="pilares">
     <div class="pilares__inner">
-      <header class="pilares__hd">
+      <header class="pilares__hd" v-reveal>
         <span class="chip">Ideales</span>
         <h2 class="pilares__title">Los 4 Pilares</h2>
         <p class="pilares__sub">
           Los valores que guían cada pieza que creamos y cada persona que viste Hebennus.
         </p>
       </header>
-      <div class="pilares__grid">
+      <div class="pilares__grid" v-reveal>
         <article v-for="p in pilares" :key="p.num" class="pilar">
           <span class="pilar__num">{{ p.num }}</span>
           <h3 class="pilar__nombre">{{ p.nombre }}</h3>
@@ -82,14 +82,14 @@ const pilares = [
   <!-- ░░ ETIMOLOGÍA ░░ -->
   <section class="nombre">
     <div class="nombre__inner">
-      <header class="nombre__hd">
+      <header class="nombre__hd" v-reveal>
         <span class="chip">Origen</span>
         <h2 class="nombre__title">¿Por qué Hebennus?</h2>
         <p class="nombre__intro">
           El nombre fue creado por Diana Hizo Ramírez, basado en esencias como la juventud, el renacimiento y la unión de sus integrantes.
         </p>
       </header>
-      <div class="nombre__grid">
+      <div class="nombre__grid" v-reveal>
         <div class="etim">
           <span class="etim__parte">Hebe</span>
           <div class="etim__line"></div>
@@ -123,7 +123,7 @@ const pilares = [
 
   <!-- ░░ CIERRE ░░ -->
   <section class="cierre">
-    <div class="cierre__inner">
+    <div class="cierre__inner" v-reveal>
       <blockquote class="cierre__quote">
         "Make it real,<br />Make it with Hebennus."
       </blockquote>
@@ -164,6 +164,7 @@ const pilares = [
   margin: 0 auto;
   position: relative;
   z-index: 1;
+  animation: hb-fade-up 0.8s var(--ease-out) both;
 }
 .chip {
   display: inline-block;
@@ -172,6 +173,10 @@ const pilares = [
   text-transform: uppercase;
   color: var(--accent-3);
   margin-bottom: 1.5rem;
+  padding: 0.4rem 0.95rem;
+  border-radius: var(--radius-pill);
+  background: var(--glow-color);
+  border: 1px solid var(--border-mid);
 }
 .nosotros-hero__title {
   display: flex;
@@ -223,15 +228,24 @@ const pilares = [
   margin: 0 auto;
   display: grid;
   grid-template-columns: 1fr 1fr;
-  border: 1px solid var(--border);
+  gap: 1.25rem;
 }
 .mv__card {
   padding: 3.5rem;
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
+  background: var(--surface-2);
+  border: 1px solid var(--border-mid);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-soft);
+  transition: transform 0.35s var(--ease-out), box-shadow 0.35s var(--ease-out), border-color 0.35s var(--ease-out);
 }
-.mv__card:first-child { border-right: 1px solid var(--border); }
+.mv__card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-hover);
+  border-color: rgba(34,211,238,.32);
+}
 .mv__label {
   font-size: 0.7rem;
   letter-spacing: 0.28em;
@@ -272,19 +286,38 @@ const pilares = [
 .pilares__grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  border: 1px solid var(--border);
+  gap: 1.25rem;
 }
 .pilar {
+  position: relative;
   padding: 3rem;
-  border-right: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   gap: 1rem;
+  background: var(--surface-2);
+  border: 1px solid var(--border-mid);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-soft);
+  overflow: hidden;
+  transition: transform 0.35s var(--ease-out), box-shadow 0.35s var(--ease-out), border-color 0.35s var(--ease-out);
 }
-.pilar:nth-child(even)   { border-right: none; }
-.pilar:nth-child(3),
-.pilar:nth-child(4)      { border-bottom: none; }
+.pilar::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%;
+  height: 3px;
+  background: var(--grad-cool);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.4s var(--ease-out);
+}
+.pilar:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-hover);
+  border-color: rgba(34,211,238,.32);
+}
+.pilar:hover::before { transform: scaleX(1); }
 .pilar__num {
   font-family: var(--font-display);
   font-variant-numeric: tabular-nums;
@@ -332,16 +365,24 @@ const pilares = [
 .nombre__grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  border: 1px solid var(--border);
+  gap: 1.25rem;
 }
 .etim {
   padding: 2.5rem;
-  border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
+  background: var(--surface-2);
+  border: 1px solid var(--border-mid);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-soft);
+  transition: transform 0.35s var(--ease-out), box-shadow 0.35s var(--ease-out), border-color 0.35s var(--ease-out);
 }
-.etim:last-child { border-right: none; }
+.etim:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-hover);
+  border-color: rgba(34,211,238,.32);
+}
 .etim__parte {
   font-family: var(--font-display);
   font-weight: 800;
@@ -350,10 +391,13 @@ const pilares = [
   letter-spacing: 0.02em;
 }
 .etim__line {
-  width: 2rem;
-  height: 1px;
-  background: var(--accent-2);
+  width: 2.5rem;
+  height: 3px;
+  border-radius: var(--radius-pill);
+  background: var(--grad-cool);
+  transition: width 0.4s var(--ease-out);
 }
+.etim:hover .etim__line { width: 3.5rem; }
 .etim__body { display: flex; flex-direction: column; gap: 0.6rem; }
 .etim__origen {
   font-size: 0.68rem;
@@ -390,6 +434,13 @@ const pilares = [
   align-items: center;
   gap: 3rem;
 }
+.cierre__inner::before {
+  content: '';
+  width: 56px;
+  height: 3px;
+  border-radius: var(--radius-pill);
+  background: var(--grad-cool);
+}
 .cierre__quote {
   font-family: var(--font-display);
   font-weight: 800;
@@ -410,9 +461,13 @@ const pilares = [
   font-weight: 500;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  transition: all 0.25s ease;
+  border-radius: var(--radius-pill);
+  transition: transform 0.25s var(--ease-spring), background-color 0.25s var(--ease-out),
+              border-color 0.25s var(--ease-out), color 0.25s var(--ease-out), box-shadow 0.25s var(--ease-out);
   cursor: pointer;
 }
+.btn:hover  { transform: translateY(-2px); }
+.btn:active { transform: scale(0.97); }
 .btn--outline {
   background: transparent;
   color: var(--text-1);
@@ -426,12 +481,9 @@ const pilares = [
 /* ── RESPONSIVE ── */
 @media (max-width: 900px) {
   .nombre__grid { grid-template-columns: 1fr; }
-  .etim { border-right: none; border-bottom: 1px solid var(--border); }
-  .etim:last-child { border-bottom: none; }
 }
 @media (max-width: 800px) {
   .mv__inner { grid-template-columns: 1fr; }
-  .mv__card:first-child { border-right: none; border-bottom: 1px solid var(--border); }
 }
 @media (max-width: 600px) {
   .nosotros-hero { padding: 0 1.25rem 4rem; }
@@ -443,8 +495,6 @@ const pilares = [
   .mv__card { padding: 2.5rem 2rem; }
   .pilares { padding: 5rem 1.25rem; }
   .pilares__grid { grid-template-columns: 1fr; }
-  .pilar { border-right: none; border-bottom: 1px solid var(--border); }
-  .pilar:last-child { border-bottom: none; }
   .nombre { padding: 5rem 1.25rem; }
   .cierre { padding: 5rem 1.25rem; }
 }

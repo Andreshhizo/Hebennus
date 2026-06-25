@@ -35,8 +35,6 @@ async function fetchProduct(id) {
 onMounted(() => fetchProduct(route.params.id))
 watch(() => route.params.id, id => { if (id) fetchProduct(id) })
 
-const imagenes = computed(() => product.value?.images ?? [])
-
 const variantes = computed(() => product.value?.product_variants ?? [])
 
 const SIZE_ORD = ['XS','S','M','L','XL','XXL','Única','ÚNICA']
@@ -53,9 +51,20 @@ const tallas = computed(() => {
   })
 })
 
-// Colores únicos, en el orden en que aparecen en las variantes.
+// Colores disponibles = colores distintos no-nulos de las variantes.
 const colores      = computed(() => [...new Set(variantes.value.map(v => v.color).filter(Boolean))])
 const tieneColores = computed(() => colores.value.length > 0)
+
+// Color que rige la galería: el elegido por el usuario o, por defecto,
+// el primer color disponible (o ninguno si el producto no tiene colores).
+const colorGaleria = computed(() => colorElegido.value ?? colores.value[0] ?? null)
+
+// Imágenes de un color = images_by_color[color] ?? images plano ?? [].
+const imagenes = computed(() => {
+  const c = colorGaleria.value
+  if (c) return product.value?.images_by_color?.[c] ?? product.value?.images ?? []
+  return product.value?.images ?? []
+})
 
 // ¿Hay al menos una variante con stock para esta talla / este color?
 function tallaConStock(size)  { return variantes.value.some(v => v.size === size  && (v.stock ?? 0) > 0) }
@@ -77,6 +86,7 @@ const seleccionCompleta = computed(() =>
 )
 
 const stockTotal     = computed(() => variantes.value.reduce((s, v) => s + (v.stock ?? 0), 0))
+// Producto AGOTADO = todas las variantes con stock <= 0.
 const agotado        = computed(() => stockTotal.value === 0)
 const pocasUnidades  = computed(() => stockTotal.value > 0 && stockTotal.value <= STOCK_LOW_THRESHOLD)
 const precioFmt      = computed(() => `S/ ${Number(product.value?.price ?? 0).toFixed(2)}`)
@@ -86,16 +96,20 @@ const comboSinStock = computed(() => seleccionCompleta.value && stockSel.value <
 // Solo se puede agregar con talla + color elegidos y stock de esa variante específica.
 const puedeAgregar  = computed(() => seleccionCompleta.value && stockSel.value > 0 && !agotado.value)
 
-// Bonus: al elegir un color, la imagen principal salta a la primera foto de ese color.
-// Las imágenes están agrupadas por color en el mismo orden que `colores`.
-watch(colorElegido, (color) => {
-  if (!color) return
-  const ci = colores.value.indexOf(color)
-  const porColor = colores.value.length ? Math.floor(imagenes.value.length / colores.value.length) : 0
-  if (ci < 0 || porColor <= 0) return
-  const start = ci * porColor
-  if (start < imagenes.value.length) imagenIdx.value = start
-})
+// Al cambiar el color que rige la galería, reseteamos el carrusel a la primera foto.
+watch(colorGaleria, () => { imagenIdx.value = 0 })
+
+// Navegación del carrusel con wrap-around.
+function prevImg() {
+  const n = imagenes.value.length
+  if (n <= 1) return
+  imagenIdx.value = (imagenIdx.value - 1 + n) % n
+}
+function nextImg() {
+  const n = imagenes.value.length
+  if (n <= 1) return
+  imagenIdx.value = (imagenIdx.value + 1) % n
+}
 
 function handleAdd() {
   // El botón está deshabilitado hasta que haya talla + color con stock,
@@ -163,6 +177,7 @@ function handleAdd() {
               :src="imagenes[imagenIdx]"
               :alt="product.name"
               class="gallery__img"
+              :class="{ 'gallery__img--out': agotado }"
             />
             <div v-else :key="'ph'" class="gallery__placeholder">HEBENNUS</div>
           </Transition>
@@ -170,6 +185,33 @@ function handleAdd() {
           <div v-if="agotado" class="gallery__badge gallery__badge--out">Agotado</div>
           <div v-else-if="pocasUnidades" class="gallery__badge gallery__badge--low">
             Últimas {{ stockTotal }}
+          </div>
+
+          <!-- Carousel arrows -->
+          <template v-if="imagenes.length > 1">
+            <button
+              type="button"
+              class="gallery__arrow gallery__arrow--prev"
+              aria-label="Imagen anterior"
+              @click="prevImg"
+            >‹</button>
+            <button
+              type="button"
+              class="gallery__arrow gallery__arrow--next"
+              aria-label="Imagen siguiente"
+              @click="nextImg"
+            >›</button>
+          </template>
+
+          <!-- Carousel dots -->
+          <div v-if="imagenes.length > 1" class="gallery__dots" aria-hidden="true">
+            <button
+              v-for="(_, i) in imagenes"
+              :key="i"
+              class="gallery__dot"
+              :class="{ 'gallery__dot--active': imagenIdx === i }"
+              @click="imagenIdx = i"
+            ></button>
           </div>
         </div>
 
@@ -181,7 +223,7 @@ function handleAdd() {
             :class="{ 'gallery__thumb--active': imagenIdx === i }"
             @click="imagenIdx = i"
           >
-            <img :src="img" :alt="`${product.name} foto ${i + 1}`" />
+            <img :src="img" :alt="`${product.name} foto ${i + 1}`" :class="{ 'gallery__img--out': agotado }" />
           </button>
         </div>
       </div>
@@ -295,19 +337,19 @@ function handleAdd() {
   background-size: 1200px 100%;
   animation: shimmer 1.5s ease-in-out infinite;
 }
-.pdp-skel__gallery { aspect-ratio: 3/4; max-width: 520px; width: 100%; }
+.pdp-skel__gallery { aspect-ratio: 3/4; max-width: 520px; width: 100%; border-radius: var(--radius-lg); }
 .pdp-skel__info {
   display: flex;
   flex-direction: column;
   gap: 1rem;
   padding-top: 1rem;
 }
-.skel-line { border-radius: 2px; }
+.skel-line { border-radius: var(--radius-pill); }
 .skel-line--cat   { height: 11px; width: 30%; }
 .skel-line--name  { height: 32px; width: 85%; }
 .skel-line--price { height: 22px; width: 25%; }
 .skel-line--desc  { height: 12px; width: 90%; }
-.skel-line--btn   { height: 52px; width: 100%; margin-top: 1rem; }
+.skel-line--btn   { height: 52px; width: 100%; border-radius: var(--radius-pill); margin-top: 1rem; }
 
 /* ── NOT FOUND ── */
 .nf {
@@ -341,9 +383,9 @@ function handleAdd() {
   border-bottom: 1px solid var(--border-mid);
   padding-bottom: 2px;
   align-self: flex-start;
-  transition: color 0.2s, border-color 0.2s;
+  transition: color 0.2s var(--ease-out), border-color 0.2s var(--ease-out), transform 0.25s var(--ease-spring);
 }
-.nf__back:hover { color: var(--text-1); border-color: var(--text-1); }
+.nf__back:hover { color: var(--text-1); border-color: var(--text-1); transform: translateX(-3px); }
 
 /* ── WRAP ── */
 .pdp-wrap { max-width: 1200px; margin: 0 auto; padding: 2rem 2rem 5rem; }
@@ -376,6 +418,8 @@ function handleAdd() {
   position: relative;
   overflow: hidden;
   background: var(--surface-2);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-soft);
 }
 .img-swap-enter-active { transition: opacity 0.22s ease; }
 .img-swap-leave-active { transition: opacity 0.15s ease; }
@@ -387,6 +431,8 @@ function handleAdd() {
   object-fit: cover;
   display: block;
 }
+/* Producto agotado: escala de grises + oscurecido */
+.gallery__img--out { filter: grayscale(1) brightness(0.5); }
 .gallery__placeholder {
   width: 100%;
   aspect-ratio: 3 / 4;
@@ -404,29 +450,89 @@ function handleAdd() {
   font-size: 0.65rem;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  padding: 0.3rem 0.75rem;
+  padding: 0.35rem 0.85rem;
   font-family: var(--font-display);
   font-weight: 600;
+  border-radius: var(--radius-pill);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  box-shadow: 0 2px 12px rgba(0,0,0,0.25);
+  animation: hb-pop 0.35s var(--ease-spring) both;
 }
 .gallery__badge--out { background: var(--text-3); color: var(--ink); }
-.gallery__badge--low { background: var(--accent-2); color: #fff; }
+.gallery__badge--low { background: var(--grad-cool); color: #fff; }
+
+/* ── CAROUSEL ARROWS ── */
+.gallery__arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%) scale(0.95);
+  z-index: 5;
+  width: 2.6rem;
+  height: 2.6rem;
+  display: grid;
+  place-items: center;
+  background: rgba(0,0,0,0.4);
+  color: var(--text-1);
+  border: 1px solid rgba(255,255,255,0.25);
+  border-radius: var(--radius-pill);
+  font-size: 1.6rem;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0.65;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  transition: opacity 0.25s var(--ease-out), transform 0.3s var(--ease-spring),
+              background 0.2s var(--ease-out), border-color 0.2s var(--ease-out);
+}
+.gallery__main:hover .gallery__arrow { opacity: 1; transform: translateY(-50%) scale(1); }
+.gallery__arrow:hover {
+  background: rgba(0,0,0,0.7);
+  border-color: rgba(255,255,255,0.55);
+  transform: translateY(-50%) scale(1.1);
+}
+.gallery__arrow:active { transform: translateY(-50%) scale(0.94); }
+.gallery__arrow:focus-visible { opacity: 1; transform: translateY(-50%) scale(1); outline: 2px solid var(--accent); outline-offset: 2px; }
+.gallery__arrow--prev { left: 0.75rem; }
+.gallery__arrow--next { right: 0.75rem; }
+
+/* ── CAROUSEL DOTS ── */
+.gallery__dots {
+  position: absolute;
+  bottom: 0.9rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 0.4rem;
+  z-index: 5;
+}
+.gallery__dot {
+  width: 7px; height: 7px;
+  border-radius: var(--radius-pill);
+  background: var(--overlay-dot);
+  cursor: pointer;
+  transition: background 0.25s var(--ease-out), transform 0.3s var(--ease-spring), width 0.3s var(--ease-spring);
+}
+.gallery__dot--active { background: var(--grad-cool); width: 22px; transform: scale(1.1); }
+.gallery__dot:hover:not(.gallery__dot--active) { background: var(--overlay-dot-hover); transform: scale(1.2); }
 
 .gallery__thumbs {
   display: flex;
   gap: 0.5rem;
-  margin-top: 0.6rem;
+  margin-top: 0.7rem;
 }
 .gallery__thumb {
   width: 64px; height: 80px;
   flex-shrink: 0;
   overflow: hidden;
   border: 1px solid transparent;
-  transition: border-color 0.18s;
+  border-radius: var(--radius-md);
+  transition: border-color 0.2s var(--ease-out), transform 0.25s var(--ease-spring), box-shadow 0.25s var(--ease-out);
   cursor: pointer;
 }
 .gallery__thumb img { width: 100%; height: 100%; object-fit: cover; }
-.gallery__thumb--active { border-color: var(--text-1); }
-.gallery__thumb:hover:not(.gallery__thumb--active) { border-color: var(--border-mid); }
+.gallery__thumb--active { border-color: var(--accent); transform: translateY(-3px); box-shadow: var(--shadow-soft); }
+.gallery__thumb:hover:not(.gallery__thumb--active) { border-color: var(--border-mid); transform: translateY(-3px); }
 
 /* ── INFO ── */
 .pdp__info { display: flex; flex-direction: column; gap: 1rem; }
@@ -483,23 +589,28 @@ function handleAdd() {
 
 .size-btn {
   min-width: 2.6rem;
-  padding: 0.5rem 0.65rem;
+  padding: 0.5rem 0.85rem;
   background: transparent;
   color: var(--text-2);
   border: 1px solid var(--border-mid);
+  border-radius: var(--radius-pill);
   font-size: 0.82rem;
   font-family: var(--font-body);
-  transition: all 0.15s ease;
+  transition: transform 0.25s var(--ease-spring), background 0.2s var(--ease-out),
+              border-color 0.2s var(--ease-out), color 0.2s var(--ease-out);
   cursor: pointer;
 }
 .size-btn:hover:not(:disabled):not(.size-btn--active) {
   border-color: var(--text-2);
   color: var(--text-1);
+  transform: translateY(-2px);
 }
+.size-btn:active:not(:disabled) { transform: scale(0.94); }
 .size-btn--active {
   background: var(--text-1);
   color: var(--ink);
   border-color: var(--text-1);
+  transform: translateY(-1px);
 }
 .size-btn--out {
   opacity: 0.3;
@@ -519,25 +630,29 @@ function handleAdd() {
   background: transparent;
   color: var(--text-3);
   border: 1px solid var(--border-mid);
+  border-radius: var(--radius-pill);
   font-size: 0.78rem;
   font-family: var(--font-display);
   font-weight: 500;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: transform 0.25s var(--ease-spring), background 0.25s var(--ease-out),
+              border-color 0.25s var(--ease-out), color 0.25s var(--ease-out), box-shadow 0.25s var(--ease-out);
   margin-top: 0.25rem;
 }
 .pdp__add--ready {
-  background: var(--text-1);
-  color: var(--ink);
-  border-color: var(--text-1);
+  background: var(--grad-cool);
+  color: #fff;
+  border-color: transparent;
+  box-shadow: 0 8px 22px var(--glow-color);
 }
 .pdp__add--ready:hover {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--ink);
+  transform: translateY(-2px);
+  box-shadow: 0 12px 30px var(--glow-color);
+  filter: brightness(1.05);
 }
+.pdp__add--ready:active { transform: scale(0.98); }
 .pdp__add--disabled { opacity: 0.5; cursor: not-allowed; }
 
 .pdp__perks {
@@ -552,12 +667,20 @@ function handleAdd() {
 .pdp__perks li {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
+  gap: 0.7rem;
   font-size: 0.78rem;
   color: var(--text-2);
   letter-spacing: 0.04em;
 }
-.pdp__perks svg { color: var(--accent-2); flex-shrink: 0; }
+.pdp__perks svg {
+  color: var(--accent-2);
+  flex-shrink: 0;
+  width: 1.5rem;
+  height: 1.5rem;
+  padding: 0.3rem;
+  border-radius: var(--radius-pill);
+  background: var(--glow-color);
+}
 
 /* ── RESPONSIVE ── */
 @media (max-width: 860px) {

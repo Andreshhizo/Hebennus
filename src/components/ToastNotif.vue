@@ -28,10 +28,10 @@ const emit = defineEmits(['close'])
 </template>
 
 <style scoped>
-.toast-enter-active { transition: opacity 0.25s ease, transform 0.3s cubic-bezier(0.34,1.26,0.64,1); }
-.toast-leave-active { transition: opacity 0.2s ease, transform 0.2s ease; }
-.toast-enter-from { opacity: 0; transform: translateX(100%); }
-.toast-leave-to   { opacity: 0; transform: translateX(110%); }
+.toast-enter-active { transition: opacity 0.3s var(--ease-out), transform 0.45s var(--ease-spring); }
+.toast-leave-active { transition: opacity 0.25s var(--ease-out), transform 0.25s var(--ease-out); }
+.toast-enter-from { opacity: 0; transform: translateX(120%) scale(0.92); }
+.toast-leave-to   { opacity: 0; transform: translateX(120%); }
 
 .toast {
   position: fixed;
@@ -43,7 +43,8 @@ const emit = defineEmits(['close'])
   gap: 0.85rem;
   background: var(--surface-2);
   border: 1px solid var(--border-mid);
-  box-shadow: var(--shadow-card);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-hover);
   padding: 0.85rem 1rem;
   max-width: 300px;
   width: 100%;
@@ -54,6 +55,7 @@ const emit = defineEmits(['close'])
   height: 64px;
   flex-shrink: 0;
   background: var(--surface-3);
+  border-radius: var(--radius-sm);
   overflow: hidden;
 }
 .toast__img img { width: 100%; height: 100%; object-fit: cover; }
@@ -87,10 +89,15 @@ const emit = defineEmits(['close'])
   color: var(--text-3);
   display: flex;
   align-items: center;
+  justify-content: center;
   flex-shrink: 0;
-  transition: color 0.2s;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius-pill);
+  transition: color 0.2s var(--ease-out), background 0.2s var(--ease-out), transform 0.2s var(--ease-out);
 }
-.toast__close:hover { color: var(--text-1); }
+.toast__close:hover { color: var(--text-1); background: var(--surface-3); }
+.toast__close:active { transform: scale(0.9); }
 
 @media (max-width: 480px) {
   .toast { right: 1rem; bottom: 1rem; max-width: calc(100vw - 2rem); }

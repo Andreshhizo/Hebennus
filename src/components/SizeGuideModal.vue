@@ -57,17 +57,17 @@ const emit = defineEmits(['close'])
 .fade-enter-active, .fade-leave-active { transition: opacity 0.25s ease; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }
 
-.slide-up-enter-active { transition: opacity 0.28s ease, transform 0.28s cubic-bezier(0.34,1.26,0.64,1); }
-.slide-up-leave-active { transition: opacity 0.2s ease, transform 0.2s ease; }
-.slide-up-enter-from { opacity: 0; transform: translateY(20px); }
-.slide-up-leave-to   { opacity: 0; transform: translateY(10px); }
+.slide-up-enter-active { transition: opacity 0.32s var(--ease-out), transform 0.4s var(--ease-spring); }
+.slide-up-leave-active { transition: opacity 0.2s var(--ease-out), transform 0.2s var(--ease-out); }
+.slide-up-enter-from { opacity: 0; transform: translate(-50%, -50%) scale(0.94); }
+.slide-up-leave-to   { opacity: 0; transform: translate(-50%, -50%) scale(0.97); }
 
 .overlay {
   position: fixed;
   inset: 0;
   background: rgba(0,0,0,0.65);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   z-index: 300;
 }
 .modal {
@@ -77,12 +77,13 @@ const emit = defineEmits(['close'])
   width: min(520px, 94vw);
   background: var(--surface-2);
   border: 1px solid var(--border-mid);
-  box-shadow: var(--shadow-card);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-hover);
   z-index: 301;
   display: flex;
   flex-direction: column;
   max-height: 90svh;
-  overflow-y: auto;
+  overflow: hidden auto;
 }
 .modal__head {
   display: flex;
@@ -133,7 +134,13 @@ const emit = defineEmits(['close'])
   color: var(--text-3);
   font-weight: 500;
 }
-.guide td { color: var(--text-1); }
+.guide td { color: var(--text-1); transition: background 0.2s var(--ease-out); }
+.guide tbody tr { transition: background 0.2s var(--ease-out); }
+.guide tbody tr:hover td { background: var(--surface-3); }
+.guide tbody tr:first-child td:first-child { border-top-left-radius: var(--radius-sm); }
+.guide tbody tr:first-child td:last-child { border-top-right-radius: var(--radius-sm); }
+.guide tbody tr:last-child td:first-child { border-bottom-left-radius: var(--radius-sm); }
+.guide tbody tr:last-child td:last-child { border-bottom-right-radius: var(--radius-sm); }
 .guide tr:last-child td { border-bottom: none; }
 .guide td:first-child { font-weight: 600; color: var(--accent-2); }
 

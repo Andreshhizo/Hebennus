@@ -99,14 +99,14 @@ const total = computed(() =>
 </template>
 
 <style scoped>
-.fade-enter-active, .fade-leave-active { transition: opacity 0.3s ease; }
+.fade-enter-active, .fade-leave-active { transition: opacity 0.35s var(--ease-out); }
 .fade-enter-from, .fade-leave-to { opacity: 0; }
 
 .overlay {
   position: fixed; inset: 0;
   background: rgba(0, 0, 0, 0.65);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
   z-index: 200;
 }
 .drawer {
@@ -115,11 +115,14 @@ const total = computed(() =>
   width: min(420px, 100vw);
   background: var(--surface-1);
   border-left: 1px solid var(--border);
+  border-top-left-radius: var(--radius-lg);
+  border-bottom-left-radius: var(--radius-lg);
+  box-shadow: var(--shadow-hover);
   z-index: 201;
   display: flex;
   flex-direction: column;
   transform: translateX(100%);
-  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.46s var(--ease-out);
 }
 .drawer--open { transform: translateX(0); }
 
@@ -176,11 +179,13 @@ const total = computed(() =>
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--text-2);
-  border-bottom: 1px solid var(--border-mid);
-  padding-bottom: 2px;
-  transition: color 0.2s, border-color 0.2s;
+  padding: 0.6rem 1.4rem;
+  border: 1px solid var(--border-mid);
+  border-radius: var(--radius-pill);
+  transition: color 0.2s var(--ease-out), border-color 0.2s var(--ease-out), transform 0.2s var(--ease-out), box-shadow 0.2s var(--ease-out);
 }
-.drawer__back:hover { color: var(--text-1); border-color: var(--text-1); }
+.drawer__back:hover { color: var(--text-1); border-color: var(--accent); transform: translateY(-2px); box-shadow: var(--shadow-soft); }
+.drawer__back:active { transform: scale(0.97); }
 
 .drawer__list {
   flex: 1;
@@ -195,11 +200,19 @@ const total = computed(() =>
   display: flex;
   gap: 1rem;
   align-items: center;
+  padding: 0.6rem;
+  margin: -0.6rem;
+  border-radius: var(--radius-md);
+  transition: background 0.25s var(--ease-out);
+  animation: drawer-item-in 0.4s var(--ease-out) both;
 }
+.drawer__item:hover { background: var(--surface-2); }
+@keyframes drawer-item-in { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: none; } }
 .drawer__item-img {
   width: 68px; height: 90px;
   flex-shrink: 0;
   background: var(--surface-2);
+  border-radius: var(--radius-sm);
   overflow: hidden;
 }
 .drawer__item-img img { width: 100%; height: 100%; object-fit: cover; }
@@ -224,19 +237,21 @@ const total = computed(() =>
   flex-shrink: 0;
 }
 .qty-btn {
-  width: 26px; height: 26px;
+  width: 27px; height: 27px;
   display: flex;
   align-items: center;
   justify-content: center;
   border: 1px solid var(--border-mid);
+  border-radius: var(--radius-pill);
   background: transparent;
   color: var(--text-2);
   font-size: 1rem;
   line-height: 1;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: border-color 0.2s var(--ease-out), color 0.2s var(--ease-out), background 0.2s var(--ease-out), transform 0.2s var(--ease-spring);
 }
-.qty-btn:hover { border-color: var(--text-1); color: var(--text-1); }
+.qty-btn:hover { border-color: var(--accent); color: var(--text-1); background: var(--surface-2); transform: scale(1.12); }
+.qty-btn:active { transform: scale(0.9); }
 .qty-num { font-size: 0.85rem; font-weight: 500; color: var(--text-1); min-width: 1.2rem; text-align: center; }
 
 /* ── FOOT ── */
@@ -262,15 +277,21 @@ const total = computed(() =>
   justify-content: center;
   gap: 0.6rem;
   padding: 1rem;
-  background: var(--accent);
-  color: var(--ink);
+  background: var(--grad-cool);
+  background-size: 160% 160%;
+  color: #fff;
+  border-radius: var(--radius-md);
   font-family: var(--font-display);
   font-size: 0.8rem;
-  font-weight: 600;
+  font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  transition: filter 0.2s;
+  box-shadow: var(--shadow-soft);
+  transition: transform 0.25s var(--ease-out), box-shadow 0.25s var(--ease-out), background-position 0.5s var(--ease-out);
 }
-.drawer__cta:hover { filter: brightness(1.08); }
+.drawer__cta:hover { transform: translateY(-2px); box-shadow: var(--shadow-hover); background-position: 100% 0; }
+.drawer__cta:hover svg { transform: translateX(3px); }
+.drawer__cta svg { transition: transform 0.25s var(--ease-out); }
+.drawer__cta:active { transform: scale(0.97); }
 .drawer__note { text-align: center; font-size: 0.7rem; color: var(--text-3); letter-spacing: 0.04em; }
 </style>

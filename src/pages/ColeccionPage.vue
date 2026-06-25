@@ -65,7 +65,7 @@ onMounted(async () => {
 <template>
 <div>
   <section class="page-hero">
-    <div class="page-hero__inner">
+    <div class="page-hero__inner" v-reveal>
       <span class="chip">SS25</span>
       <h1 class="page-hero__title">La Colección</h1>
       <p class="page-hero__sub">Oversize · Atlético · Cómodo</p>
@@ -141,7 +141,7 @@ onMounted(async () => {
     </div>
 
     <!-- Grid -->
-    <div v-else class="grid">
+    <div v-else class="grid" v-reveal>
       <ProductCard
         v-for="p in productos"
         :key="p.id"
@@ -166,6 +166,10 @@ onMounted(async () => {
   letter-spacing: 0.32em;
   text-transform: uppercase;
   color: var(--accent-3);
+  padding: 0.4rem 0.95rem;
+  border-radius: var(--radius-pill);
+  background: var(--glow-color);
+  border: 1px solid var(--border-mid);
 }
 .page-hero__title {
   font-family: var(--font-display);
@@ -234,17 +238,22 @@ onMounted(async () => {
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--text-3);
-  border: 1px solid transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
   background: transparent;
   cursor: pointer;
-  transition: all 0.18s ease;
+  transition: color 0.25s var(--ease-out), background-color 0.25s var(--ease-out),
+              border-color 0.25s var(--ease-out), transform 0.25s var(--ease-spring), box-shadow 0.25s var(--ease-out);
 }
-.filtro-btn:hover { color: var(--text-1); border-color: var(--border-mid); }
+.filtro-btn:hover { color: var(--text-1); border-color: var(--border-mid); transform: translateY(-2px); }
+.filtro-btn:active { transform: scale(0.97); }
 .filtro-btn--active {
   color: var(--ink);
   background: var(--text-1);
   border-color: var(--text-1);
+  box-shadow: var(--shadow-soft);
 }
+.filtro-btn--active:hover { color: var(--ink); }
 
 .orden {
   display: flex;
@@ -261,16 +270,18 @@ onMounted(async () => {
 .orden__select {
   background: var(--surface-2);
   border: 1px solid var(--border-mid);
+  border-radius: var(--radius-sm);
   color: var(--text-1);
   font-family: var(--font-body);
   font-size: 0.78rem;
-  padding: 0.4rem 0.8rem;
+  padding: 0.5rem 0.9rem;
   cursor: pointer;
   outline: none;
-  transition: border-color 0.2s;
+  transition: border-color 0.2s, box-shadow 0.25s var(--ease-out);
   appearance: auto;
 }
-.orden__select:focus { border-color: var(--accent); }
+.orden__select:hover  { border-color: var(--border-mid); box-shadow: var(--shadow-soft); }
+.orden__select:focus  { border-color: var(--accent); }
 
 /* ── COUNT ── */
 .catalog__count {
@@ -292,23 +303,32 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 1rem;
-  padding: 6rem 1rem;
+  gap: 1.25rem;
+  padding: 5rem 1.5rem;
+  margin-top: 1.5rem;
   text-align: center;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-soft);
+  animation: hb-fade-up 0.5s var(--ease-out) both;
 }
 .state__msg { font-family: var(--font-display); font-size: 1.5rem; font-weight: 300; color: var(--text-1); }
 .state--err .state__msg { color: var(--copper-light); }
 .state__reset {
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--text-2);
-  border-bottom: 1px solid var(--border-mid);
-  padding-bottom: 2px;
+  color: var(--text-1);
+  padding: 0.55rem 1.4rem;
+  border: 1px solid var(--border-mid);
+  border-radius: var(--radius-pill);
   cursor: pointer;
-  transition: color 0.2s, border-color 0.2s;
+  transition: color 0.25s var(--ease-out), background-color 0.25s var(--ease-out),
+              border-color 0.25s var(--ease-out), transform 0.25s var(--ease-spring);
 }
-.state__reset:hover { color: var(--text-1); border-color: var(--text-1); }
+.state__reset:hover { border-color: var(--text-1); background: var(--glow-color); transform: translateY(-2px); }
+.state__reset:active { transform: scale(0.97); }
 
 @media (max-width: 1024px) { .grid { grid-template-columns: repeat(3, 1fr); } }
 @media (max-width: 720px)  { .grid { grid-template-columns: repeat(2, 1fr); gap: 1rem; } }

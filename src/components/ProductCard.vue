@@ -16,10 +16,21 @@ const imagenIdx    = ref(0)
 const sacudir      = ref(false)
 const guideOpen    = ref(false)
 
-const imagenes = computed(() => props.product.images ?? [])
-const imagen   = computed(() => imagenes.value[imagenIdx.value] ?? imagenes.value[0] ?? null)
-
 const variantes = computed(() => props.product.product_variants ?? [])
+
+// Colores disponibles = colores distintos no-nulos de las variantes.
+const colores = computed(() => [...new Set(variantes.value.map(v => v.color).filter(Boolean))])
+
+// Por defecto la galería muestra el primer color disponible (o la lista plana si no hay colores).
+const colorGaleria = computed(() => colores.value[0] ?? null)
+
+// Imágenes de un color = images_by_color[color] ?? images plano ?? [].
+const imagenes = computed(() => {
+  const c = colorGaleria.value
+  if (c) return props.product.images_by_color?.[c] ?? props.product.images ?? []
+  return props.product.images ?? []
+})
+const imagen   = computed(() => imagenes.value[imagenIdx.value] ?? imagenes.value[0] ?? null)
 
 const SIZE_ORD = ['XS','S','M','L','XL','XXL','Única','ÚNICA']
 // Tallas únicas (deduplicadas) y ordenadas — varias variantes con la misma talla
@@ -45,6 +56,7 @@ const varianteActiva = computed(() => {
 })
 
 const stockTotal    = computed(() => variantes.value.reduce((s, v) => s + (v.stock ?? 0), 0))
+// Producto AGOTADO = todas las variantes con stock <= 0 (o sin variantes con stock).
 const agotado       = computed(() => stockTotal.value === 0)
 const pocasUnidades = computed(() => stockTotal.value > 0 && stockTotal.value <= STOCK_LOW_THRESHOLD)
 
@@ -53,6 +65,18 @@ const precioFmt = computed(() => `S/ ${Number(props.product.price).toFixed(2)}`)
 function onHover() { if (imagenes.value.length > 1) imagenIdx.value = 1 }
 function onLeave() { imagenIdx.value = 0 }
 function irA(idx)  { imagenIdx.value = idx }
+
+// Navegación del carrusel con wrap-around.
+function prevImg() {
+  const n = imagenes.value.length
+  if (n <= 1) return
+  imagenIdx.value = (imagenIdx.value - 1 + n) % n
+}
+function nextImg() {
+  const n = imagenes.value.length
+  if (n <= 1) return
+  imagenIdx.value = (imagenIdx.value + 1) % n
+}
 
 function handleAdd() {
   if (agotado.value) return
@@ -86,6 +110,7 @@ function handleAdd() {
           :alt="product.name"
           loading="lazy"
           class="card__img"
+          :class="{ 'card__img--out': agotado }"
         />
         <div v-else :key="'placeholder'" class="card__placeholder" aria-hidden="true">
           <span>HEBENNUS</span>
@@ -95,6 +120,22 @@ function handleAdd() {
       <!-- Stock badge -->
       <div v-if="agotado" class="card__badge card__badge--out">Agotado</div>
       <div v-else-if="pocasUnidades" class="card__badge card__badge--low">Últimas {{ stockTotal }}</div>
+
+      <!-- Carousel arrows -->
+      <template v-if="imagenes.length > 1">
+        <button
+          type="button"
+          class="card__arrow card__arrow--prev"
+          aria-label="Imagen anterior"
+          @click.stop="prevImg"
+        >‹</button>
+        <button
+          type="button"
+          class="card__arrow card__arrow--next"
+          aria-label="Imagen siguiente"
+          @click.stop="nextImg"
+        >›</button>
+      </template>
 
       <!-- Image dots -->
       <div v-if="imagenes.length > 1" class="card__dots" aria-hidden="true">
@@ -179,12 +220,14 @@ function handleAdd() {
   display: flex;
   flex-direction: column;
   background: var(--card-bg);
-  box-shadow: var(--shadow-card);
-  transition: box-shadow 0.3s ease, transform 0.3s ease;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-soft);
+  overflow: hidden;
+  transition: box-shadow 0.4s var(--ease-out), transform 0.4s var(--ease-out);
 }
 .card:hover {
-  box-shadow: var(--shadow-card-hover);
-  transform: translateY(-3px);
+  box-shadow: var(--shadow-hover);
+  transform: translateY(-4px);
 }
 
 /* ── MEDIA ── */
@@ -193,14 +236,17 @@ function handleAdd() {
   aspect-ratio: 3 / 4;
   background: var(--surface-2);
   overflow: hidden;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
 }
 .card__img {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transition: transform 0.7s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  transition: transform 0.8s var(--ease-out), filter 0.4s var(--ease-out);
 }
-.card:hover .card__img { transform: scale(1.04); }
+.card:hover .card__img { transform: scale(1.05); }
+/* Producto agotado: escala de grises + oscurecido */
+.card__img--out { filter: grayscale(1) brightness(0.5); }
 
 .img-swap-enter-active { transition: opacity 0.22s ease; }
 .img-swap-leave-active { transition: opacity 0.15s ease; }
@@ -228,12 +274,50 @@ function handleAdd() {
   font-size: 0.6rem;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  padding: 0.25rem 0.6rem;
+  padding: 0.3rem 0.7rem;
   font-weight: 600;
   font-family: var(--font-display);
+  border-radius: var(--radius-pill);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  box-shadow: 0 2px 10px rgba(0,0,0,0.25);
+  animation: hb-pop 0.35s var(--ease-spring) both;
 }
-.card__badge--out { background: rgba(0,0,0,0.7); color: var(--text-2); }
-.card__badge--low { background: var(--accent-2); color: #fff; }
+.card__badge--out { background: rgba(0,0,0,0.65); color: var(--text-2); }
+.card__badge--low { background: var(--grad-cool); color: #fff; }
+
+/* ── CAROUSEL ARROWS ── */
+.card__arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%) scale(0.9);
+  z-index: 11;
+  width: 2.1rem;
+  height: 2.1rem;
+  display: grid;
+  place-items: center;
+  background: rgba(0,0,0,0.4);
+  color: var(--text-1);
+  border: 1px solid rgba(255,255,255,0.25);
+  border-radius: var(--radius-pill);
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  transition: opacity 0.3s var(--ease-out), transform 0.3s var(--ease-spring), background 0.2s var(--ease-out), border-color 0.2s var(--ease-out);
+}
+.card:hover .card__arrow { opacity: 1; transform: translateY(-50%) scale(1); }
+.card__arrow:hover {
+  background: rgba(0,0,0,0.7);
+  border-color: rgba(255,255,255,0.55);
+  transform: translateY(-50%) scale(1.1);
+}
+.card__arrow:active { transform: translateY(-50%) scale(0.94); }
+.card__arrow:focus-visible { opacity: 1; transform: translateY(-50%) scale(1); outline: 2px solid var(--accent); outline-offset: 2px; }
+.card__arrow--prev { left: 0.6rem; }
+.card__arrow--next { right: 0.6rem; }
 
 /* ── DOTS ── */
 .card__dots {
@@ -250,12 +334,12 @@ function handleAdd() {
 .card:hover .card__dots { opacity: 1; }
 .card__dot {
   width: 5px; height: 5px;
-  border-radius: 50%;
+  border-radius: var(--radius-pill);
   background: var(--overlay-dot);
-  transition: background 0.2s, transform 0.2s;
+  transition: background 0.25s var(--ease-out), transform 0.3s var(--ease-spring), width 0.3s var(--ease-spring);
 }
-.card__dot--active { background: var(--text-1); transform: scale(1.3); }
-.card__dot:hover:not(.card__dot--active) { background: var(--overlay-dot-hover); }
+.card__dot--active { background: var(--grad-cool); width: 16px; transform: scale(1.15); }
+.card__dot:hover:not(.card__dot--active) { background: var(--overlay-dot-hover); transform: scale(1.2); }
 
 /* ── HOVER OVERLAY ── */
 .card__overlay {
@@ -276,32 +360,41 @@ function handleAdd() {
   pointer-events: auto;
 }
 .card__overlay-btn {
-  padding: 0.55rem 1.4rem;
+  padding: 0.6rem 1.5rem;
   font-size: 0.68rem;
   letter-spacing: 0.16em;
   text-transform: uppercase;
   font-family: var(--font-display);
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.18s ease;
+  border-radius: var(--radius-pill);
+  transform: translateY(8px);
+  opacity: 0;
+  transition: transform 0.35s var(--ease-spring), opacity 0.3s var(--ease-out),
+              background 0.2s var(--ease-out), border-color 0.2s var(--ease-out), color 0.2s var(--ease-out);
 }
+.card:hover .card__overlay-btn { transform: translateY(0); opacity: 1; }
+.card:hover .card__overlay-btn--quick { transition-delay: 0.05s; }
+.card__overlay-btn:active { transform: scale(0.96); }
 .card__overlay-btn--ver {
   background: var(--text-1);
   color: var(--ink);
   border: 1px solid var(--text-1);
 }
 .card__overlay-btn--ver:hover {
-  background: var(--copper);
-  border-color: var(--copper);
+  background: var(--grad-cool);
+  border-color: transparent;
   color: #fff;
 }
 .card__overlay-btn--quick {
-  background: transparent;
+  background: rgba(255,255,255,0.06);
   color: var(--text-1);
   border: 1px solid rgba(255,255,255,0.45);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
 }
 .card__overlay-btn--quick:hover {
-  background: rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.16);
   border-color: rgba(255,255,255,0.75);
 }
 
@@ -373,23 +466,28 @@ function handleAdd() {
 }
 .size-btn {
   min-width: 2.2rem;
-  padding: 0.35rem 0.45rem;
+  padding: 0.35rem 0.5rem;
   background: transparent;
   color: var(--text-2);
   border: 1px solid var(--border-mid);
+  border-radius: var(--radius-pill);
   font-size: 0.74rem;
   font-family: var(--font-body);
-  transition: all 0.15s ease;
+  transition: transform 0.25s var(--ease-spring), background 0.2s var(--ease-out),
+              border-color 0.2s var(--ease-out), color 0.2s var(--ease-out);
   cursor: pointer;
 }
 .size-btn:hover:not(:disabled):not(.size-btn--active) {
   border-color: var(--text-2);
   color: var(--text-1);
+  transform: translateY(-2px);
 }
+.size-btn:active:not(:disabled) { transform: scale(0.94); }
 .size-btn--active {
   background: var(--text-1);
   color: var(--ink);
   border-color: var(--text-1);
+  transform: translateY(-1px);
 }
 .size-btn--out {
   opacity: 0.3;
@@ -408,28 +506,32 @@ function handleAdd() {
 /* ── ADD BUTTON ── */
 .card__add {
   margin-top: auto;
-  padding: 0.75rem 1rem;
+  padding: 0.8rem 1rem;
   width: 100%;
   background: transparent;
   color: var(--text-3);
   border: 1px solid var(--border-mid);
+  border-radius: var(--radius-pill);
   font-size: 0.72rem;
   font-family: var(--font-display);
   font-weight: 500;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: transform 0.25s var(--ease-spring), background 0.25s var(--ease-out),
+              border-color 0.25s var(--ease-out), color 0.25s var(--ease-out), box-shadow 0.25s var(--ease-out);
 }
 .card__add--ready {
-  background: var(--text-1);
-  color: var(--ink);
-  border-color: var(--text-1);
+  background: var(--grad-cool);
+  color: #fff;
+  border-color: transparent;
+  box-shadow: 0 6px 18px var(--glow-color);
 }
 .card__add--ready:hover {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--ink);
+  transform: translateY(-2px);
+  box-shadow: 0 10px 26px var(--glow-color);
+  filter: brightness(1.05);
 }
+.card__add--ready:active { transform: scale(0.97); }
 .card__add--disabled { opacity: 0.45; cursor: not-allowed; }
 </style>

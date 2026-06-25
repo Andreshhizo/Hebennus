@@ -50,7 +50,7 @@ function pad(n) { return String(n).padStart(2, '0') }
 <div>
   <!-- ░░ HERO ░░ -->
   <section class="page-hero">
-    <div class="page-hero__inner">
+    <div class="page-hero__inner" v-reveal>
       <span class="chip">Exclusivo</span>
       <h1 class="page-hero__title">Próximos<br />Lanzamientos</h1>
       <p class="page-hero__sub">Sé el primero en enterarte</p>
@@ -59,7 +59,7 @@ function pad(n) { return String(n).padStart(2, '0') }
 
   <!-- ░░ COUNTDOWN ░░ -->
   <section class="countdown-section">
-    <div class="countdown-inner">
+    <div class="countdown-inner" v-reveal>
       <p class="countdown__label">Próximo drop en</p>
       <div class="countdown__grid">
         <div class="cd-cell">
@@ -100,7 +100,7 @@ function pad(n) { return String(n).padStart(2, '0') }
       </div>
 
       <!-- Grid -->
-      <div v-else class="drops__grid">
+      <div v-else class="drops__grid" v-reveal>
         <article v-for="p in lanzamientos" :key="p.id" class="drop-card">
           <div class="drop-card__media">
             <img
@@ -126,7 +126,7 @@ function pad(n) { return String(n).padStart(2, '0') }
       </div>
 
       <!-- CTA WhatsApp -->
-      <div class="notify">
+      <div class="notify" v-reveal>
         <div class="notify__text">
           <h2 class="notify__title">Sé el primero en saber</h2>
           <p class="notify__desc">
@@ -161,6 +161,10 @@ function pad(n) { return String(n).padStart(2, '0') }
   letter-spacing: 0.32em;
   text-transform: uppercase;
   color: var(--accent-3);
+  padding: 0.4rem 0.95rem;
+  border-radius: var(--radius-pill);
+  background: var(--glow-color);
+  border: 1px solid var(--border-mid);
 }
 .page-hero__title {
   font-family: var(--font-display);
@@ -212,8 +216,14 @@ function pad(n) { return String(n).padStart(2, '0') }
   min-width: 4rem;
   background: var(--surface-3);
   border: 1px solid var(--border-mid);
-  padding: 0.75rem 0.5rem;
-  box-shadow: var(--shadow-sm);
+  border-radius: var(--radius-md);
+  padding: 0.9rem 0.6rem;
+  box-shadow: var(--shadow-soft);
+  transition: transform 0.3s var(--ease-out), box-shadow 0.3s var(--ease-out);
+}
+.cd-cell:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-hover);
 }
 .cd-num {
   font-family: var(--font-display);
@@ -247,7 +257,21 @@ function pad(n) { return String(n).padStart(2, '0') }
   margin-bottom: 4rem;
 }
 
-.drop-card { display: flex; flex-direction: column; }
+.drop-card {
+  display: flex;
+  flex-direction: column;
+  background: var(--surface-2);
+  border: 1px solid var(--border-mid);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  box-shadow: var(--shadow-soft);
+  transition: transform 0.35s var(--ease-out), box-shadow 0.35s var(--ease-out), border-color 0.35s var(--ease-out);
+}
+.drop-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-hover);
+  border-color: rgba(34,211,238,.32);
+}
 .drop-card__media {
   position: relative;
   aspect-ratio: 3 / 4;
@@ -258,9 +282,9 @@ function pad(n) { return String(n).padStart(2, '0') }
   width: 100%; height: 100%;
   object-fit: cover;
   filter: brightness(0.75);
-  transition: transform 0.7s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  transition: transform 0.7s var(--ease-out), filter 0.5s var(--ease-out);
 }
-.drop-card:hover .drop-card__img { transform: scale(1.04); }
+.drop-card:hover .drop-card__img { transform: scale(1.05); filter: brightness(0.85); }
 .drop-card__placeholder {
   width: 100%; height: 100%;
   display: grid;
@@ -282,12 +306,18 @@ function pad(n) { return String(n).padStart(2, '0') }
 }
 .drop-card__soon {
   font-family: var(--font-display);
-  font-size: 0.8rem;
-  color: var(--accent-2);
+  font-size: 0.72rem;
+  color: var(--text-1);
   letter-spacing: 0.12em;
   text-transform: uppercase;
+  padding: 0.4rem 0.9rem;
+  border-radius: var(--radius-pill);
+  background: rgba(7,11,20,.55);
+  border: 1px solid var(--overlay-border);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
 }
-.drop-card__body { padding: 1.1rem 0 1.4rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.drop-card__body { padding: 1.1rem 1.25rem 1.4rem; display: flex; flex-direction: column; gap: 0.4rem; }
 .drop-card__meta { font-size: 0.68rem; color: var(--accent-3); letter-spacing: 0.2em; text-transform: uppercase; }
 .drop-card__name { font-family: var(--font-display); font-size: 1rem; font-weight: 500; color: var(--text-1); }
 .drop-card__desc {
@@ -301,21 +331,40 @@ function pad(n) { return String(n).padStart(2, '0') }
 }
 
 /* ── EMPTY ── */
-.empty { padding: 4rem 0; margin-bottom: 4rem; }
+.empty {
+  padding: 4rem 2rem;
+  margin-bottom: 4rem;
+  text-align: center;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-soft);
+}
 .empty__title { font-family: var(--font-display); font-size: 1.5rem; font-weight: 300; color: var(--text-1); margin-bottom: 0.5rem; }
 .empty__sub   { font-size: 0.8rem; color: var(--text-3); letter-spacing: 0.08em; }
 
 /* ── NOTIFY ── */
 .notify {
+  position: relative;
   background: var(--surface-1);
   border: 1px solid var(--border-mid);
-  box-shadow: var(--shadow-sm);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-soft);
   padding: 3.5rem;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 2rem;
   flex-wrap: wrap;
+  overflow: hidden;
+}
+.notify::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%;
+  height: 4px;
+  background: var(--grad-cool);
 }
 .notify__title {
   font-family: var(--font-display);
@@ -333,17 +382,20 @@ function pad(n) { return String(n).padStart(2, '0') }
   padding: 1rem 2rem;
   background: var(--accent);
   color: var(--ink);
+  border-radius: var(--radius-pill);
   font-family: var(--font-display);
   font-size: 0.78rem;
   font-weight: 600;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   white-space: nowrap;
-  transition: filter 0.2s;
+  box-shadow: var(--shadow-soft);
+  transition: filter 0.25s var(--ease-out), transform 0.25s var(--ease-spring), box-shadow 0.25s var(--ease-out);
   flex-shrink: 0;
 }
 .notify__btn svg { fill: #25D366; }
-.notify__btn:hover { filter: brightness(1.1); }
+.notify__btn:hover { filter: brightness(1.1); transform: translateY(-2px); box-shadow: var(--shadow-hover); }
+.notify__btn:active { transform: scale(0.97); }
 
 @media (max-width: 900px) { .drops__grid { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: 600px) {

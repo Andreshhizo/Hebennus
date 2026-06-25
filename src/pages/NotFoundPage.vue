@@ -27,6 +27,7 @@ import { RouterLink } from 'vue-router'
   max-width: 1200px;
   width: 100%;
   margin: 0 auto;
+  animation: hb-fade-up 0.7s var(--ease-out) both;
 }
 .chip {
   display: inline-block;
@@ -35,6 +36,10 @@ import { RouterLink } from 'vue-router'
   text-transform: uppercase;
   color: var(--accent-3);
   margin-bottom: 1.5rem;
+  padding: 0.4rem 0.95rem;
+  border-radius: var(--radius-pill);
+  background: var(--glow-color);
+  border: 1px solid var(--border-mid);
 }
 .not-found__title {
   display: flex;
@@ -64,14 +69,18 @@ import { RouterLink } from 'vue-router'
   background: var(--text-1);
   color: var(--ink);
   border: 1px solid var(--text-1);
+  border-radius: var(--radius-pill);
   font-family: var(--font-display);
   font-size: 0.75rem;
   font-weight: 500;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  transition: all 0.25s ease;
+  box-shadow: var(--shadow-soft);
+  transition: transform 0.25s var(--ease-spring), background-color 0.25s var(--ease-out),
+              border-color 0.25s var(--ease-out), color 0.25s var(--ease-out), box-shadow 0.25s var(--ease-out);
 }
-.btn:hover { background: var(--accent); border-color: var(--accent); color: var(--ink); }
+.btn:hover  { background: var(--accent); border-color: var(--accent); color: var(--ink); transform: translateY(-2px); box-shadow: var(--shadow-hover); }
+.btn:active { transform: scale(0.97); }
 
 @media (max-width: 600px) {
   .not-found { padding: 4rem 1.25rem; }

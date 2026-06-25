@@ -53,11 +53,11 @@ onMounted(async () => {
   <!-- ░░ FEATURED PRODUCTS ░░ -->
   <section class="featured" v-if="cargando || productos.length">
     <div class="featured__inner">
-      <header class="featured__hd">
+      <header class="featured__hd" v-reveal>
         <span class="chip">New In</span>
         <h2 class="featured__title">Últimas Piezas</h2>
       </header>
-      <div class="grid">
+      <div class="grid" v-reveal>
         <template v-if="cargando">
           <SkeletonCard v-for="i in 4" :key="i" />
         </template>
@@ -70,7 +70,7 @@ onMounted(async () => {
           />
         </template>
       </div>
-      <div class="featured__more">
+      <div class="featured__more" v-reveal>
         <RouterLink to="/coleccion" class="btn btn--outline">Ver toda la colección</RouterLink>
       </div>
     </div>
@@ -79,8 +79,8 @@ onMounted(async () => {
   <!-- ░░ PILARES ░░ -->
   <section class="pilares" aria-label="Nuestros pilares">
     <div class="pilares__inner">
-      <p class="pilares__eyebrow">Lo que nos define</p>
-      <div class="pilares__grid">
+      <p class="pilares__eyebrow" v-reveal>Lo que nos define</p>
+      <div class="pilares__grid" v-reveal>
         <div class="pilar">
           <span class="pilar__num">01</span>
           <h3 class="pilar__name">Unión</h3>
@@ -102,13 +102,13 @@ onMounted(async () => {
           <p class="pilar__desc">Seguridad en cada paso. Sabemos lo que queremos lograr.</p>
         </div>
       </div>
-      <RouterLink to="/nosotros" class="pilares__link">Conoce nuestra historia →</RouterLink>
+      <RouterLink to="/nosotros" class="pilares__link" v-reveal>Conoce nuestra historia →</RouterLink>
     </div>
   </section>
 
   <!-- ░░ MANIFESTO ░░ -->
   <section class="manifesto" aria-label="Manifiesto">
-    <div class="manifesto__inner">
+    <div class="manifesto__inner" v-reveal>
       <blockquote class="manifesto__quote">
         "Make it real,<br />Make it with Hebennus."
       </blockquote>
@@ -159,6 +159,7 @@ onMounted(async () => {
   width: 100%;
   margin: 0 auto;
   padding: 0 2rem 5rem;
+  animation: hb-fade-up 0.8s var(--ease-out) both;
 }
 .hero__eyebrow {
   display: block;
@@ -250,18 +251,24 @@ onMounted(async () => {
   font-weight: 500;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  transition: all 0.25s ease;
+  border-radius: var(--radius-pill);
+  transition: transform 0.25s var(--ease-spring), background-color 0.25s var(--ease-out),
+              border-color 0.25s var(--ease-out), color 0.25s var(--ease-out), box-shadow 0.25s var(--ease-out);
   cursor: pointer;
 }
+.btn:hover { transform: translateY(-2px); }
+.btn:active { transform: scale(0.97); }
 .btn--fill {
   background: var(--text-1);
   color: var(--ink);
   border: 1px solid var(--text-1);
+  box-shadow: var(--shadow-soft);
 }
 .btn--fill:hover {
   background: var(--accent);
   border-color: var(--accent);
   color: var(--ink);
+  box-shadow: var(--shadow-hover);
 }
 .btn--outline {
   background: transparent;
@@ -283,6 +290,10 @@ onMounted(async () => {
   letter-spacing: 0.32em;
   text-transform: uppercase;
   color: var(--accent-3);
+  padding: 0.4rem 0.95rem;
+  border-radius: var(--radius-pill);
+  background: var(--glow-color);
+  border: 1px solid var(--border-mid);
 }
 .featured__title {
   font-family: var(--font-display);
@@ -313,28 +324,51 @@ onMounted(async () => {
 }
 .pilares__inner { max-width: 1200px; margin: 0 auto; }
 .pilares__eyebrow {
+  display: inline-block;
   font-size: 0.7rem;
   letter-spacing: 0.3em;
   text-transform: uppercase;
   color: var(--copper);
   margin-bottom: 3rem;
+  padding-bottom: 0.6rem;
+  border-bottom: 2px solid transparent;
+  border-image: var(--grad-cool) 1;
 }
 .pilares__grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 0;
-  border: 1px solid var(--border-mid);
-  box-shadow: var(--shadow-sm);
+  gap: 1rem;
 }
 .pilar {
+  position: relative;
   padding: 2.5rem 2rem;
   background: var(--surface-2);
-  border-right: 1px solid var(--border-mid);
+  border: 1px solid var(--border-mid);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-soft);
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+  overflow: hidden;
+  transition: transform 0.3s var(--ease-out), box-shadow 0.3s var(--ease-out), border-color 0.3s var(--ease-out);
 }
-.pilar:last-child { border-right: none; }
+.pilar::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%;
+  height: 3px;
+  background: var(--grad-cool);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.4s var(--ease-out);
+}
+.pilar:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-hover);
+  border-color: rgba(34,211,238,.32);
+}
+.pilar:hover::before { transform: scaleX(1); }
 .pilar__num {
   font-family: var(--font-display);
   font-variant-numeric: tabular-nums;
@@ -380,6 +414,13 @@ onMounted(async () => {
   align-items: center;
   gap: 2.5rem;
 }
+.manifesto__inner::before {
+  content: '';
+  width: 56px;
+  height: 3px;
+  border-radius: var(--radius-pill);
+  background: var(--grad-cool);
+}
 .manifesto__quote {
   font-family: var(--font-display);
   font-size: clamp(1.7rem, 4vw, 3rem);
@@ -399,9 +440,6 @@ onMounted(async () => {
 @media (max-width: 1024px) {
   .grid { grid-template-columns: repeat(3, 1fr); }
   .pilares__grid { grid-template-columns: repeat(2, 1fr); }
-  .pilar:nth-child(2) { border-right: none; }
-  .pilar:nth-child(1),
-  .pilar:nth-child(2) { border-bottom: 1px solid var(--border-mid); }
 }
 @media (max-width: 720px) {
   .grid { grid-template-columns: repeat(2, 1fr); gap: 1rem; }
@@ -414,8 +452,6 @@ onMounted(async () => {
   .featured  { padding: 4rem 1.25rem 2.5rem; }
   .pilares   { padding: 4rem 1.25rem; }
   .pilares__grid { grid-template-columns: 1fr; }
-  .pilar { border-right: none; border-bottom: 1px solid var(--border-mid); }
-  .pilar:last-child { border-bottom: none; }
   .manifesto { padding: 4rem 1.25rem; }
 }
 </style>

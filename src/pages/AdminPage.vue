@@ -5,8 +5,11 @@
 import { ref, computed, onMounted, nextTick } from 'vue'
 import { supabase } from '../lib/supabase.js'
 import AdminCustomers from '../components/AdminCustomers.vue'
+import AdminProducts from '../components/AdminProducts.vue'
 
-const vista = ref('pedidos')   // 'pedidos' | 'clientes'
+const vista = ref('pedidos')   // 'pedidos' | 'clientes' | 'productos'
+
+const TITULOS = { pedidos: 'Pedidos', clientes: 'Clientes', productos: 'Productos' }
 const ESTADOS = ['pendiente', 'confirmado', 'enviado', 'entregado', 'cancelado', 'reembolsado']
 const ESTADO_COLOR = {
   pendiente:  '#e0a23b',
@@ -161,7 +164,7 @@ onMounted(async () => {
   <div v-else class="dash">
     <header class="dash__top">
       <div>
-        <h1 class="dash__title">{{ vista === 'pedidos' ? 'Pedidos' : 'Clientes' }}</h1>
+        <h1 class="dash__title">{{ TITULOS[vista] }}</h1>
         <p v-if="vista === 'pedidos'" class="dash__meta">{{ totalPedidos }} pedidos · {{ pendientes }} pendientes</p>
       </div>
       <div class="dash__actions">
@@ -174,6 +177,7 @@ onMounted(async () => {
     <div class="dash__tabs">
       <button :class="['dtab', { 'dtab--on': vista === 'pedidos' }]" @click="vista = 'pedidos'">Pedidos</button>
       <button :class="['dtab', { 'dtab--on': vista === 'clientes' }]" @click="vista = 'clientes'">Clientes</button>
+      <button :class="['dtab', { 'dtab--on': vista === 'productos' }]" @click="vista = 'productos'">Productos</button>
     </div>
 
     <template v-if="vista === 'pedidos'">
@@ -248,7 +252,9 @@ onMounted(async () => {
     </ul>
     </template>
 
-    <AdminCustomers v-else @ver-pedido="verPedido" />
+    <AdminCustomers v-else-if="vista === 'clientes'" @ver-pedido="verPedido" />
+
+    <AdminProducts v-else-if="vista === 'productos'" />
   </div>
 </div>
 </template>

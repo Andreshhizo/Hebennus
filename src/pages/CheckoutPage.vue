@@ -287,7 +287,7 @@ function onPagoRespuesta(response) {
 
   <template v-else>
     <section class="page-hero">
-      <div class="page-hero__inner">
+      <div class="page-hero__inner" v-reveal>
         <span class="chip">Finalizar pedido</span>
         <h1 class="page-hero__title">Datos de envío</h1>
         <p class="page-hero__sub">Te enviaremos la confirmación por correo</p>
@@ -485,9 +485,13 @@ function onPagoRespuesta(response) {
 .chip {
   display: inline-block;
   font-size: 0.68rem;
-  letter-spacing: 0.32em;
+  letter-spacing: 0.28em;
   text-transform: uppercase;
   color: var(--accent-3);
+  padding: 0.35rem 0.9rem;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border-mid);
+  background: var(--surface-2);
 }
 .page-hero__title {
   font-family: var(--font-display);
@@ -524,24 +528,25 @@ function onPagoRespuesta(response) {
 .field__input {
   background: var(--surface-2);
   border: 1px solid var(--border-mid);
+  border-radius: var(--radius-sm);
   color: var(--text-1);
   font-family: var(--font-body);
   font-size: 0.95rem;
   padding: 0.75rem 0.85rem;
   outline: none;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  transition: border-color 0.2s var(--ease-out), box-shadow 0.2s var(--ease-out);
   width: 100%;
 }
 .field__input::placeholder { color: var(--text-3); }
 .field__input:focus-visible { border-color: var(--accent); box-shadow: 0 0 0 3px var(--glow-color); }
 .field__input--err { border-color: #e0566b; }
-.field__textarea { resize: vertical; line-height: 1.5; }
+.field__textarea { resize: vertical; line-height: 1.5; border-radius: var(--radius-md); }
 .field__foot { display: flex; justify-content: space-between; gap: 1rem; align-items: baseline; }
 .field__error { font-size: 0.74rem; color: #e0566b; letter-spacing: 0.01em; }
 .field__count { font-size: 0.65rem; letter-spacing: 0.08em; color: var(--text-3); margin-left: auto; }
 
 /* ── ACCOUNT BOX ── */
-.acct-box { display: flex; flex-direction: column; gap: 0.8rem; padding: 1rem 1.1rem; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; }
+.acct-box { display: flex; flex-direction: column; gap: 0.8rem; padding: 1.1rem 1.2rem; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-md); box-shadow: var(--shadow-soft); }
 .acct-check { display: flex; gap: 0.6rem; align-items: flex-start; font-size: 0.84rem; color: var(--text-2); cursor: pointer; line-height: 1.4; }
 .acct-check input { margin-top: 0.15rem; width: 16px; height: 16px; flex-shrink: 0; accent-color: var(--accent); cursor: pointer; }
 .acct-check strong { color: var(--accent-3); }
@@ -554,8 +559,9 @@ function onPagoRespuesta(response) {
   order: 1;
   background: var(--card-bg);
   border: 1px solid var(--border-mid);
-  box-shadow: var(--shadow-sm);
-  padding: 1.25rem;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-soft);
+  padding: 1.4rem;
   display: flex;
   flex-direction: column;
   gap: 1rem;
@@ -565,13 +571,20 @@ function onPagoRespuesta(response) {
   align-items: center;
   justify-content: space-between;
   width: 100%;
+  padding: 0.65rem 0.9rem;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
   font-family: var(--font-display);
   font-size: 0.72rem;
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--text-1);
   font-weight: 600;
+  transition: border-color 0.2s var(--ease-out), background 0.2s var(--ease-out);
 }
+.summary__toggle:hover { border-color: var(--border-mid); background: var(--surface-3); }
+.summary__toggle:active { transform: scale(0.99); }
 .summary__toggle-total { color: var(--text-1); }
 .summary__title {
   font-size: 0.72rem;
@@ -583,7 +596,7 @@ function onPagoRespuesta(response) {
 }
 .summary__list { list-style: none; display: flex; flex-direction: column; gap: 1rem; margin-top: 0.25rem; }
 .summary__item { display: flex; gap: 0.8rem; align-items: flex-start; }
-.summary__item-img { width: 48px; height: 62px; flex-shrink: 0; background: var(--surface-2); overflow: hidden; }
+.summary__item-img { width: 48px; height: 62px; flex-shrink: 0; background: var(--surface-2); border-radius: var(--radius-sm); overflow: hidden; }
 .summary__item-img img { width: 100%; height: 100%; object-fit: cover; }
 .summary__item-ph { width: 100%; height: 100%; display: grid; place-items: center; font-family: var(--font-display); color: var(--text-3); }
 .summary__item-info { flex: 1; min-width: 0; }
@@ -612,15 +625,25 @@ function onPagoRespuesta(response) {
   width: 100%; padding: 1rem;
   background: var(--surface-3); color: var(--text-3);
   border: 1px solid var(--border-mid);
+  border-radius: var(--radius-md);
   font-family: var(--font-display); font-size: 0.78rem; font-weight: 700;
   letter-spacing: 0.14em; text-transform: uppercase; cursor: pointer;
-  transition: all 0.2s ease;
+  transition: transform 0.25s var(--ease-out), box-shadow 0.25s var(--ease-out),
+              background-position 0.5s var(--ease-out), background-color 0.25s var(--ease-out),
+              border-color 0.25s var(--ease-out), color 0.25s var(--ease-out), opacity 0.2s var(--ease-out);
 }
-.checkout__submit--ready { background: var(--accent); border-color: var(--accent); color: var(--ink); }
-.checkout__submit--ready:hover { background: var(--accent-deep); border-color: var(--accent-deep); }
-.checkout__submit:disabled { opacity: 0.6; cursor: not-allowed; }
+.checkout__submit--ready {
+  background: var(--grad-cool);
+  background-size: 160% 160%;
+  border-color: transparent;
+  color: #fff;
+  box-shadow: var(--shadow-soft);
+}
+.checkout__submit--ready:hover { transform: translateY(-2px); box-shadow: var(--shadow-hover); background-position: 100% 0; }
+.checkout__submit--ready:active { transform: scale(0.97); }
+.checkout__submit:disabled { opacity: 0.6; cursor: not-allowed; transform: none; box-shadow: none; }
 .summary__note { text-align: center; font-size: 0.68rem; color: var(--text-3); letter-spacing: 0.03em; }
-.izipay-form { margin-top: 1rem; min-height: 1px; }
+.izipay-form { margin-top: 1rem; min-height: 1px; border-radius: var(--radius-md); overflow: hidden; }
 
 .spinner {
   width: 15px; height: 15px;
@@ -636,18 +659,32 @@ function onPagoRespuesta(response) {
 .state {
   max-width: 560px; margin: 0 auto; padding: 5rem 1.5rem; text-align: center;
   display: flex; flex-direction: column; align-items: center; gap: 1rem;
+  animation: hb-fade-up 0.55s var(--ease-out) both;
 }
-.state__icon { color: var(--accent-2); }
+@keyframes hb-fade-up { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+.state__icon {
+  color: var(--accent-2);
+  background: var(--surface-2);
+  border-radius: var(--radius-pill);
+  padding: 1rem;
+  box-shadow: var(--shadow-soft);
+  animation: state-pop 0.5s var(--ease-spring) both;
+}
+@keyframes state-pop { 0% { transform: scale(0); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
 .state__title { font-family: var(--font-display); font-size: 1.7rem; font-weight: 800; text-transform: uppercase; letter-spacing: -0.01em; color: var(--text-1); }
 .state__num { font-size: 0.9rem; color: var(--text-2); letter-spacing: 0.04em; }
 .state__msg { font-size: 0.9rem; color: var(--text-2); line-height: 1.7; }
 .state__cta {
-  margin-top: 0.5rem; padding: 0.85rem 2rem;
+  margin-top: 0.5rem; padding: 0.9rem 2.2rem;
   background: var(--text-1); color: var(--ink);
+  border-radius: var(--radius-pill);
+  box-shadow: var(--shadow-soft);
   font-family: var(--font-display); font-size: 0.75rem; font-weight: 600;
-  letter-spacing: 0.14em; text-transform: uppercase; transition: background 0.2s, color 0.2s;
+  letter-spacing: 0.14em; text-transform: uppercase;
+  transition: background 0.25s var(--ease-out), color 0.25s var(--ease-out), transform 0.25s var(--ease-out), box-shadow 0.25s var(--ease-out);
 }
-.state__cta:hover { background: var(--accent); color: var(--ink); }
+.state__cta:hover { background: var(--accent); color: var(--ink); transform: translateY(-2px); box-shadow: var(--shadow-hover); }
+.state__cta:active { transform: scale(0.97); }
 
 /* ── DESKTOP (mobile-first → enhancement) ── */
 @media (min-width: 861px) {
