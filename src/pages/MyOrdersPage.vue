@@ -17,16 +17,17 @@ const expandido = ref(null)
 const EN_CURSO   = ['pendiente', 'confirmado', 'enviado']
 const ESTADO_LABEL = {
   pendiente: 'Pendiente', confirmado: 'Confirmado', enviado: 'Enviado',
-  entregado: 'Entregado', cancelado: 'Cancelado',
+  entregado: 'Entregado', cancelado: 'Cancelado', reembolsado: 'Reembolsado',
 }
 const ESTADO_COLOR = {
   pendiente: '#e0a23b', confirmado: '#5b8def', enviado: '#7c5cff',
-  entregado: '#2ecc8f', cancelado: '#e0566b',
+  entregado: '#2ecc8f', cancelado: '#e0566b', reembolsado: '#9aa0b0',
 }
 
 const enCurso    = computed(() => pedidos.value.filter(o => EN_CURSO.includes(o.status)))
 const entregados = computed(() => pedidos.value.filter(o => o.status === 'entregado'))
-const pasados    = computed(() => pedidos.value.filter(o => o.status === 'cancelado'))
+// Catch-all: cualquier estado que NO esté en curso ni sea entregado (cancelado, reembolsado, futuros).
+const pasados    = computed(() => pedidos.value.filter(o => !EN_CURSO.includes(o.status) && o.status !== 'entregado'))
 
 async function cargar() {
   cargando.value = true; error.value = ''
@@ -82,7 +83,7 @@ onMounted(() => { if (user.value) cargar() })
       <section v-for="grupo in [
         { titulo: 'En curso', items: enCurso },
         { titulo: 'Entregados', items: entregados },
-        { titulo: 'Cancelados', items: pasados },
+        { titulo: 'Cancelados / Reembolsados', items: pasados },
       ]" :key="grupo.titulo" v-show="grupo.items.length" class="grupo">
         <h2 class="grupo__titulo">{{ grupo.titulo }} <span class="grupo__count">{{ grupo.items.length }}</span></h2>
         <ul class="orders">

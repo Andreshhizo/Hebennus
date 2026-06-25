@@ -31,6 +31,7 @@ const tocado     = reactive({})
 const enviando   = ref(false)
 const enviado    = ref(false)
 const errorEnvio = ref(null)
+const avisoCuenta = ref(null)   // aviso neutro/éxito (NO error): p.ej. "Cuenta creada, revisa tu correo"
 const orderNumber = ref('')
 
 // ── Pago (Izipay) ──
@@ -131,6 +132,10 @@ function construirPedido() {
 async function confirmar() {
   Object.keys(form).forEach(k => { tocado[k] = true })
   tocado.password = true
+  // Limpia mensajes previos al reintentar (evita ver errores/avisos viejos).
+  errorEnvio.value = null
+  errorPago.value = null
+  avisoCuenta.value = null
   if (vacio.value || !valido.value || enviando.value || pagando.value) return
 
   // Si pidió crear cuenta y no está logueado, regístralo primero.
@@ -155,7 +160,7 @@ async function registrarCuenta() {
     // Si la confirmación de correo está activa (prod), no hay sesión aún:
     // creamos el pedido como invitado y el 10% se aplicará al confirmar/loguear.
     if (!session) {
-      errorEnvio.value = 'Cuenta creada ✓ Revisa tu correo para confirmarla. Continuamos con tu pedido.'
+      avisoCuenta.value = 'Cuenta creada ✓ Revisa tu correo para confirmarla. Continuamos con tu pedido.'
       crearCuenta.value = false
     }
     return true
@@ -251,6 +256,8 @@ async function iniciarPago() {
 
 // ── Respuesta del formulario de pago ──
 function onPagoRespuesta(response) {
+  // Guard anti-doble-envío: si el callback se dispara dos veces, no reprocesar.
+  if (enviado.value || enviando.value) return
   // ⚠️ VERIFICA el código de éxito según tu cuenta Izipay (suele ser code '00').
   const code = response?.code ?? response?.response?.code
   if (String(code) === '00') {
@@ -361,8 +368,9 @@ function onPagoRespuesta(response) {
             <template v-if="!user">
               <label class="acct-check">
                 <input type="checkbox" v-model="crearCuenta" />
-                <span>Crear mi cuenta y obtener <strong>10% de descuento</strong> en este pedido 🎁</span>
+                <span>Crear mi cuenta y obtener <strong>10% de descuento</strong> 🎁</span>
               </label>
+              <p v-if="crearCuenta" class="acct-legal">El 10% se aplica al confirmar tu cuenta desde el correo. Si la confirmación está pendiente, este pedido se registra sin el descuento.</p>
               <div v-if="crearCuenta" class="form__group acct-pass">
                 <label class="field__label" for="f-pass">Crea una contraseña</label>
                 <input
@@ -435,6 +443,7 @@ function onPagoRespuesta(response) {
             <span class="summary__total-amt">S/ {{ total.toFixed(2) }}</span>
           </div>
 
+          <p v-if="avisoCuenta" class="summary__note-ok" role="status" aria-live="polite">{{ avisoCuenta }}</p>
           <p v-if="errorEnvio" class="summary__send-err" role="alert">{{ errorEnvio }}</p>
           <p v-if="errorPago" class="summary__send-err" role="alert">{{ errorPago }}</p>
 
@@ -596,6 +605,7 @@ function onPagoRespuesta(response) {
 .summary__total span:first-child { font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-2); }
 .summary__total-amt { font-family: var(--font-display); font-size: 1.3rem; font-weight: 700; color: var(--text-1); }
 .summary__send-err { font-size: 0.76rem; color: #e0566b; }
+.summary__note-ok { font-size: 0.76rem; color: var(--accent-2); line-height: 1.5; }
 
 .checkout__submit {
   display: inline-flex; align-items: center; justify-content: center; gap: 0.55rem;

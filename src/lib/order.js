@@ -8,19 +8,41 @@
 // stub para poder probar el flujo completo. En producción los errores se propagan.
 
 import { supabase } from './supabase.js'
+import { FunctionsHttpError } from '@supabase/supabase-js'
 
 export async function createOrder(pedido) {
-  try {
-    const { data, error } = await supabase.functions.invoke('create-order', { body: pedido })
-    if (error) throw error
-    if (data?.error) throw new Error(data.error)
-    return data // { order_number }
-  } catch (err) {
+  const { data, error } = await supabase.functions.invoke('create-order', { body: pedido })
+
+  // La función SÍ corrió y devolvió un status no-2xx: es un error REAL del
+  // backend (validación, RLS, etc.). Propagar siempre, incluso en DEV.
+  if (error instanceof FunctionsHttpError) {
+    let mensaje = error.message
+    try {
+      const cuerpo = await error.context.json()
+      if (cuerpo?.error) mensaje = cuerpo.error
+    } catch {
+      // El cuerpo no es JSON parseable; conservamos error.message.
+    }
+    console.error('[Hebennus] create-order devolvió error del backend:', mensaje)
+    throw new Error(mensaje)
+  }
+
+  // Errores de conectividad: la función está inalcanzable / no desplegada
+  // (FunctionsFetchError, FunctionsRelayError). Solo aquí cae el stub en DEV.
+  if (error) {
     if (import.meta.env.DEV) {
-      console.warn('[Hebennus] create-order no disponible — stub en dev:', err?.message ?? err)
+      console.error('[Hebennus] create-order inalcanzable — stub en dev:', error?.message ?? error)
       console.info('[Hebennus] Pedido (stub):', pedido)
       return { order_number: 'HB-DEV001', stub: true }
     }
-    throw err
+    throw error
   }
+
+  // Error de negocio devuelto en el cuerpo de una respuesta 2xx: nunca stub.
+  if (data?.error) {
+    console.error('[Hebennus] create-order devolvió error de negocio:', data.error)
+    throw new Error(data.error)
+  }
+
+  return data // { order_number, ... }
 }
