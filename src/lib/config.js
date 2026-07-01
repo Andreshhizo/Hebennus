@@ -21,11 +21,9 @@ export const STOCK_LOW_THRESHOLD = 5
 export const ENVIO_GRATIS_DESDE = 149
 export const COSTO_ENVIO        = 10
 
-// ── Izipay (Web Core, formulario embebido) ──
-// Valores PÚBLICOS (van en el frontend). El token de sesión se genera server-side
-// en la Edge Function `izipay-token`. SDK sandbox; en producción usa el de checkout.izipay.pe.
-export const IZIPAY_MERCHANT_CODE = import.meta.env.VITE_IZIPAY_MERCHANT_CODE ?? ''
-export const IZIPAY_PUBLIC_KEY    = import.meta.env.VITE_IZIPAY_PUBLIC_KEY ?? ''
-export const IZIPAY_SDK_URL       = 'https://sandbox-checkout.izipay.pe/payments/v1/js/index.js'
-// El checkout usa Izipay solo si hay credenciales; si no, registra el pedido directo.
-export const IZIPAY_ENABLED       = Boolean(IZIPAY_MERCHANT_CODE && IZIPAY_PUBLIC_KEY)
+// ── Izipay (Lyra / krypton, formulario embebido oficial) ──
+// El formToken y la public key se generan/entregan SIEMPRE server-side desde la
+// Edge Function `izipay-formtoken`; el frontend nunca guarda credenciales.
+// Solo se controla aquí si la pasarela está habilitada y el endpoint de la API.
+export const IZIPAY_ENABLED  = import.meta.env.VITE_IZIPAY_ENABLED === 'true'
+export const IZIPAY_ENDPOINT = 'https://api.micuentaweb.pe'

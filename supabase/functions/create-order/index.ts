@@ -5,29 +5,26 @@
 //   3) VALIDA el 10% de bienvenida (solo usuario autenticado, 1ª compra).
 //   4) Inserta pedido + ítems de forma atómica vía RPC create_order.
 //   5) Guarda el contacto de marketing si dio consentimiento.
-//   6) Envía el correo de confirmación (cliente + copia a la tienda) por Resend.
+//   6) Contraentrega: envía el correo (cliente + copia tienda) vía _shared/email.ts.
+//      Izipay: NO envía correo aquí (lo hace izipay-ipn al confirmar el pago).
 // La service_role y la RESEND_API_KEY viven SOLO aquí; nunca llegan al navegador.
 //
 // Secrets: RESEND_API_KEY (obligatorio para correo), RESEND_FROM, STORE_EMAIL.
 // SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY los inyecta Supabase.
 // Deploy: supabase functions deploy create-order
+//
+// Pago Izipay (diferido): si payment_method === 'izipay', el pedido se crea como
+// 'pendiente', el stock NO se descuenta (defer_stock=true) y NO se envía correo
+// aquí. El correo y el descuento de stock los hace izipay-ipn al confirmar el pago.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { buildHtml, enviarResend, type ItemPedido } from '../_shared/email.ts'
 
 const ENVIO_GRATIS_DESDE = 149
 const COSTO_ENVIO        = 10
 const WELCOME_PCT        = 0.10
 
-interface ItemPedido {
-  product_id?: string | null
-  name: string
-  size: string
-  color: string | null
-  qty: number
-  unit_price: number
-  subtotal: number
-}
 interface Pedido {
   cliente: {
     customer_name: string
@@ -36,10 +33,13 @@ interface Pedido {
     notes?: string
     doc_tipo?: string | null
     doc_numero?: string | null
+    comprobante_tipo?: string | null
+    razon_social?: string | null
   }
   items: ItemPedido[]
   quiere_descuento?: boolean
   consent?: boolean
+  payment_method?: string
 }
 
 const corsHeaders = {
@@ -57,72 +57,6 @@ function json(obj: unknown, status = 200): Response {
 
 const round2 = (n: number) => Math.round(n * 100) / 100
 
-function escapeHtml(str: unknown): string {
-  return String(str ?? '')
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;').replace(/'/g, '&#39;')
-}
-
-function buildHtml(
-  c: Pedido['cliente'],
-  items: ItemPedido[],
-  totals: { subtotal: number; shipping: number; discount: number; total: number },
-  orderNumber: string,
-  dest: 'cliente' | 'tienda',
-): string {
-  const filas = items.map((it) => {
-    const color = it.color ? ` / ${escapeHtml(it.color)}` : ''
-    return `<tr>
-      <td style="padding:8px 0;border-bottom:1px solid #eee;">${escapeHtml(it.name)}
-        <span style="color:#888;"> — Talla ${escapeHtml(it.size)}${color} × ${it.qty}</span></td>
-      <td style="padding:8px 0;border-bottom:1px solid #eee;text-align:right;white-space:nowrap;">S/ ${it.subtotal.toFixed(2)}</td>
-    </tr>`
-  }).join('')
-
-  const intro = dest === 'cliente'
-    ? `¡Gracias por tu pedido! 🎉 Tu número de pedido es <strong>${escapeHtml(orderNumber)}</strong>. Lo estamos preparando con cariño.`
-    : `Nuevo pedido <strong>${escapeHtml(orderNumber)}</strong> de ${escapeHtml(c.customer_name)}.`
-
-  const envio = totals.shipping > 0 ? `S/ ${totals.shipping.toFixed(2)}` : 'Gratis'
-  const filaDesc = totals.discount > 0
-    ? `<tr><td style="padding:0 0 8px;color:#2ecc8f;">Descuento bienvenida (10%)</td><td style="padding:0 0 8px;text-align:right;color:#2ecc8f;">- S/ ${totals.discount.toFixed(2)}</td></tr>`
-    : ''
-
-  return `<!doctype html><html><body style="margin:0;background:#f4f6fb;font-family:Arial,Helvetica,sans-serif;color:#0b0f1a;">
-  <div style="max-width:560px;margin:0 auto;padding:32px 24px;">
-    <h1 style="font-size:22px;letter-spacing:3px;margin:0 0 4px;">HEBENNUS</h1>
-    <p style="color:#5b8def;font-size:11px;letter-spacing:2px;text-transform:uppercase;margin:0 0 24px;">Confirmación de pedido · ${escapeHtml(orderNumber)}</p>
-    <p style="font-size:14px;line-height:1.6;">${intro}</p>
-    <table style="width:100%;border-collapse:collapse;font-size:14px;margin:16px 0;">
-      ${filas}
-      <tr><td style="padding:8px 0;color:#555;">Subtotal</td><td style="padding:8px 0;text-align:right;color:#555;">S/ ${totals.subtotal.toFixed(2)}</td></tr>
-      ${filaDesc}
-      <tr><td style="padding:0 0 8px;color:#555;">Envío</td><td style="padding:0 0 8px;text-align:right;color:#555;">${envio}</td></tr>
-      <tr><td style="padding:12px 0;font-weight:bold;border-top:1px solid #ddd;">TOTAL</td>
-          <td style="padding:12px 0;text-align:right;font-weight:bold;border-top:1px solid #ddd;">S/ ${totals.total.toFixed(2)}</td></tr>
-    </table>
-    <h2 style="font-size:12px;text-transform:uppercase;letter-spacing:1px;color:#888;margin:24px 0 8px;">Datos de envío</h2>
-    <p style="font-size:14px;line-height:1.7;margin:0;">
-      ${escapeHtml(c.customer_name)}<br/>
-      ${escapeHtml(c.customer_email)} · ${escapeHtml(c.customer_phone)}<br/>
-      ${escapeHtml(c.notes ?? '')}
-    </p>
-    <p style="font-size:12px;color:#888;margin-top:32px;">Te contactaremos para coordinar la entrega. — Hebennus, Lima.</p>
-  </div></body></html>`
-}
-
-async function enviarResend(apiKey: string, payload: Record<string, unknown>): Promise<void> {
-  const res = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  })
-  if (!res.ok) {
-    const detail = await res.text().catch(() => '')
-    throw new Error(`Resend ${res.status}: ${detail.slice(0, 300)}`)
-  }
-}
-
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
   if (req.method !== 'POST') return json({ error: 'Método no permitido' }, 405)
@@ -133,9 +67,26 @@ Deno.serve(async (req: Request) => {
   // Validación mínima del payload.
   const c = pedido?.cliente
   const emailOk = typeof c?.customer_email === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(c.customer_email)
-  const phoneOk = typeof c?.customer_phone === 'string' && /^\d{9}$/.test(c.customer_phone)
+  const phoneOk = typeof c?.customer_phone === 'string' && /^9\d{8}$/.test(c.customer_phone)
   if (!c?.customer_name?.trim() || !emailOk || !phoneOk || !Array.isArray(pedido.items) || pedido.items.length === 0) {
     return json({ error: 'Pedido inválido' }, 400)
+  }
+
+  // Método de pago: 'izipay' (tarjeta/Yape automático), 'yape_manual' (WhatsApp)
+  // o 'contraentrega' (default). En izipay y yape_manual el stock se DIFIERE.
+  const ALLOWED_METHODS = ['izipay', 'yape_manual', 'contraentrega']
+  const paymentMethod = ALLOWED_METHODS.includes(pedido.payment_method ?? '')
+    ? (pedido.payment_method as string)
+    : 'contraentrega'
+  const deferStock = paymentMethod === 'izipay' || paymentMethod === 'yape_manual'
+
+  // Comprobante: boleta (DNI, 8 díg.) o factura (RUC, 11 díg.). El documento es
+  // obligatorio para pagos online (izipay / yape_manual).
+  const comprobanteTipo = c?.comprobante_tipo === 'factura' ? 'factura' : 'boleta'
+  const docNum = String(c?.doc_numero ?? '').replace(/\D/g, '')
+  const docOk = comprobanteTipo === 'factura' ? /^\d{11}$/.test(docNum) : /^\d{8}$/.test(docNum)
+  if (deferStock && !docOk) {
+    return json({ error: comprobanteTipo === 'factura' ? 'RUC inválido (11 dígitos)' : 'DNI inválido (8 dígitos)' }, 400)
   }
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!
@@ -185,26 +136,31 @@ Deno.serve(async (req: Request) => {
   }
   const total = Math.max(0, round2(subtotal + shipping - discount))
 
-  // 5) Inserción atómica vía RPC (con valores ya validados).
+  // 5) (paymentMethod y deferStock ya se determinaron arriba, junto a la validación.)
+
+  // 6) Inserción atómica vía RPC (con valores ya validados).
   const rpcPayload = {
     cliente: {
       customer_name: c.customer_name.trim(),
       customer_phone: c.customer_phone,
       customer_email: c.customer_email.trim(),
       notes: c.notes ?? '',
-      doc_tipo: c.doc_tipo ?? null,
-      doc_numero: c.doc_numero ?? null,
-      comprobante_tipo: 'boleta',
+      doc_tipo: comprobanteTipo === 'factura' ? 'RUC' : 'DNI',
+      doc_numero: docNum || null,
+      comprobante_tipo: comprobanteTipo,
+      razon_social: comprobanteTipo === 'factura' ? (c.razon_social ?? null) : null,
     },
     items,
     subtotal, shipping, discount, discount_reason: discountReason, total,
     user_id: userId,
+    payment_method: paymentMethod,
+    defer_stock: deferStock,
   }
   const { data: result, error: rpcError } = await admin.rpc('create_order', { payload: rpcPayload })
   if (rpcError) return json({ error: 'No se pudo registrar el pedido', detail: rpcError.message }, 500)
   const orderNumber: string = result?.order_number ?? '—'
 
-  // 6) Contacto de marketing (con consentimiento, Ley 29733).
+  // 7) Contacto de marketing (con consentimiento, Ley 29733).
   if (pedido.consent === true) {
     try {
       await admin.from('marketing_contacts').upsert(
@@ -221,7 +177,17 @@ Deno.serve(async (req: Request) => {
     } catch { /* no debe tumbar el pedido */ }
   }
 
-  // 7) Correo de confirmación (no debe tumbar el pedido si falla).
+  // 8) Pago diferido (izipay / yape_manual): NO se envía correo aquí ni se descontó
+  //    stock. El pedido queda 'pendiente'. Para izipay, izipay-ipn/izipay-validate
+  //    confirmarán el pago (marcar_pedido_pagado) y enviarán el correo. Para
+  //    yape_manual, el dueño confirma en /admin (admin_marcar_pagado). Devolvemos
+  //    order_number + total para que el front pida el formToken (izipay) o arme el
+  //    mensaje de WhatsApp con el monto real del servidor (yape_manual).
+  if (deferStock) {
+    return json({ order_number: orderNumber, total, discount, payment_method: paymentMethod })
+  }
+
+  // 9) Correo de confirmación (contraentrega; no debe tumbar el pedido si falla).
   const totals = { subtotal, shipping, discount, total }
   const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
   const FROM  = Deno.env.get('RESEND_FROM') ?? 'Hebennus <onboarding@resend.dev>'

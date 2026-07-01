@@ -12,6 +12,17 @@ const isAdmin = ref(false)
 const ready   = ref(false)
 let initialized = false
 
+// Borra cualquier token de sesión de Supabase del navegador. Es la RED DE SEGURIDAD
+// del logout: aunque supabase.auth.signOut() no limpie el storage, garantizamos que
+// no quede sesión (el bug era que el token persistía y al recargar volvías a entrar).
+export function purgeSupabaseTokens() {
+  try {
+    for (const k of Object.keys(localStorage)) {
+      if (k.startsWith('sb-') && k.includes('auth-token')) localStorage.removeItem(k)
+    }
+  } catch (_) { /* noop */ }
+}
+
 async function checkAdmin() {
   if (!user.value) { isAdmin.value = false; return }
   try {
@@ -79,16 +90,22 @@ export function useAuth() {
   }
 
   async function signOut() {
-    // Limpia SIEMPRE el estado local, aunque la llamada al servidor falle
-    // (sesión expirada, sin red…). Si no, "Salir" parecía no hacer nada y la
-    // sesión seguía guardada en el navegador al relanzar.
-    try {
-      await supabase.auth.signOut()
-    } catch (_) {
-      try { await supabase.auth.signOut({ scope: 'local' }) } catch (_) { /* noop */ }
-    }
+    // 1) Logout inmediato en la UI (no depende de la red).
     user.value = null
     isAdmin.value = false
+    // 2) Revoca el refresh_token en el SERVIDOR (global) con timeout corto, para que
+    //    el token no siga siendo válido aunque alguien lo hubiera copiado antes.
+    try {
+      await Promise.race([
+        supabase.auth.signOut({ scope: 'global' }),
+        new Promise((r) => setTimeout(r, 2500)),
+      ])
+    } catch (_) { /* noop */ }
+    // 3) Limpia la sesión local.
+    try { await supabase.auth.signOut({ scope: 'local' }) } catch (_) { /* noop */ }
+    // 4) Red de seguridad: borra explícitamente el token guardado (el bug era que
+    //    signOut no lo eliminaba y al recargar volvía la sesión).
+    purgeSupabaseTokens()
   }
 
   return { user, isAdmin, ready, signUp, signIn, signOut, signInWithGoogle, resendConfirmation, verifyEmailCode }

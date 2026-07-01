@@ -4,12 +4,19 @@
 // que estén en la tabla `admins` pueden leer/gestionar pedidos.
 import { ref, computed, onMounted, nextTick } from 'vue'
 import { supabase } from '../lib/supabase.js'
+import { purgeSupabaseTokens } from '../lib/useAuth.js'
 import AdminCustomers from '../components/AdminCustomers.vue'
 import AdminProducts from '../components/AdminProducts.vue'
+import AdminPaymentTests from '../components/AdminPaymentTests.vue'
 
-const vista = ref('pedidos')   // 'pedidos' | 'clientes' | 'productos'
+// Solo en desarrollo mostramos la pestaña "Tests de pago" (la tabla payment_tests
+// no existe en producción). import.meta.env.DEV no es accesible desde el template,
+// por eso lo exponemos como constante.
+const DEV = import.meta.env.DEV
 
-const TITULOS = { pedidos: 'Pedidos', clientes: 'Clientes', productos: 'Productos' }
+const vista = ref('pedidos')   // 'pedidos' | 'clientes' | 'productos' | 'tests' (solo en dev)
+
+const TITULOS = { pedidos: 'Pedidos', clientes: 'Clientes', productos: 'Productos', tests: 'Tests de pago' }
 const ESTADOS = ['pendiente', 'confirmado', 'enviado', 'entregado', 'cancelado', 'reembolsado']
 const ESTADO_COLOR = {
   pendiente:  '#e0a23b',
@@ -19,6 +26,13 @@ const ESTADO_COLOR = {
   cancelado:  '#e0566b',
   reembolsado:'#9aa0b0',
 }
+// Método de pago en formato legible para el panel
+const METODO_PAGO_LABEL = {
+  izipay:        'Tarjeta/Izipay',
+  yape_manual:   'Yape (manual)',
+  contraentrega: 'Contraentrega',
+}
+function metodoPagoLabel(m) { return METODO_PAGO_LABEL[m] || m || '—' }
 
 // ── Auth ──
 const cargando   = ref(true)
@@ -35,6 +49,7 @@ const cargandoPed    = ref(false)
 const pedidosError   = ref('')
 const expandido      = ref(null)
 const filtro         = ref('todos')
+const marcandoPagado = ref(null)   // id del pedido que se está marcando como pagado (evita doble click)
 
 const pedidosFiltrados = computed(() =>
   filtro.value === 'todos' ? pedidos.value : pedidos.value.filter(o => o.status === filtro.value)
@@ -91,10 +106,19 @@ async function ingresar() {
 }
 
 async function salir() {
-  await supabase.auth.signOut()
+  // Limpia el estado de inmediato.
   session.value = null
   esAdmin.value = false
   pedidos.value = []
+  // Revoca en el servidor (con timeout), limpia local y borra el token explícito.
+  try {
+    await Promise.race([
+      supabase.auth.signOut({ scope: 'global' }),
+      new Promise((r) => setTimeout(r, 2500)),
+    ])
+  } catch (_) { /* noop */ }
+  try { await supabase.auth.signOut({ scope: 'local' }) } catch (_) { /* noop */ }
+  purgeSupabaseTokens()
 }
 
 async function cambiarEstado(pedido, nuevo) {
@@ -104,6 +128,32 @@ async function cambiarEstado(pedido, nuevo) {
   if (error) {
     pedido.status = anterior
     pedidosError.value = 'No se pudo actualizar el estado: ' + error.message
+  }
+}
+
+// Confirmación manual del Yape: llama a la RPC SECURITY DEFINER que marca pagado,
+// descuenta stock y es idempotente. Solo aplica al flujo yape_manual.
+async function marcarPagado(pedido) {
+  if (marcandoPagado.value) return // ya hay uno en proceso
+  if (!confirm(`¿Marcar como PAGADO el pedido ${pedido.order_number || ('#' + pedido.id)}? Esto descontará el stock.`)) return
+  marcandoPagado.value = pedido.id
+  pedidosError.value = ''
+  try {
+    const { error } = await supabase.rpc('admin_marcar_pagado', { p_order_number: pedido.order_number })
+    if (error) {
+      const msg = error.message || ''
+      if (msg.includes('STOCK_INSUFICIENTE')) {
+        pedidosError.value = 'No se pudo marcar pagado: ya no hay stock suficiente para este pedido. Revisa el inventario.'
+      } else if (msg.includes('NO_AUTORIZADO')) {
+        pedidosError.value = 'No tienes permisos de administrador.'
+      } else {
+        pedidosError.value = 'No se pudo marcar pagado: ' + msg
+      }
+      return
+    }
+    await cargarPedidos() // refresca para reflejar payment_status='pagado'
+  } finally {
+    marcandoPagado.value = null
   }
 }
 
@@ -178,6 +228,8 @@ onMounted(async () => {
       <button :class="['dtab', { 'dtab--on': vista === 'pedidos' }]" @click="vista = 'pedidos'">Pedidos</button>
       <button :class="['dtab', { 'dtab--on': vista === 'clientes' }]" @click="vista = 'clientes'">Clientes</button>
       <button :class="['dtab', { 'dtab--on': vista === 'productos' }]" @click="vista = 'productos'">Productos</button>
+      <!-- Solo en desarrollo: la tabla payment_tests no existe en producción. -->
+      <button v-if="DEV" :class="['dtab', { 'dtab--on': vista === 'tests' }]" @click="vista = 'tests'">Tests de pago</button>
     </div>
 
     <template v-if="vista === 'pedidos'">
@@ -206,6 +258,11 @@ onMounted(async () => {
           </div>
           <div class="order__right">
             <span class="order__total">{{ money(o.total) }}</span>
+            <!-- Estado de pago -->
+            <span
+              class="badge"
+              :style="{ '--c': o.payment_status === 'pagado' ? '#2ecc8f' : (o.payment_status === 'fallido' ? '#e0566b' : '#e0a23b') }"
+            >{{ o.payment_status === 'pagado' ? 'Pagado' : (o.payment_status === 'fallido' ? 'Pago fallido' : 'Pago pendiente') }}</span>
             <span class="badge" :style="{ '--c': ESTADO_COLOR[o.status] || '#888' }">{{ o.status }}</span>
             <span class="order__caret">{{ expandido === o.id ? '▲' : '▼' }}</span>
           </div>
@@ -236,9 +293,19 @@ onMounted(async () => {
                 <span class="order__notes">{{ o.notes }}</span>
               </p>
               <p class="order__p order__p--muted">
-                Pago: {{ o.payment_method }} · Comprobante: {{ o.comprobante_tipo }}
+                Pago: {{ metodoPagoLabel(o.payment_method) }} · {{ o.payment_status === 'pagado' ? 'Pagado' : (o.payment_status === 'fallido' ? 'Pago fallido' : 'Pago pendiente') }} · Comprobante: {{ o.comprobante_tipo }}
                 <template v-if="o.doc_numero"> ({{ o.doc_tipo }} {{ o.doc_numero }})</template>
               </p>
+              <!-- Confirmación manual del Yape (solo si está pendiente y es yape_manual) -->
+              <button
+                v-if="o.payment_status !== 'pagado' && o.payment_method === 'yape_manual'"
+                class="order__pagado"
+                :disabled="marcandoPagado === o.id"
+                @click="marcarPagado(o)"
+              >
+                <span v-if="marcandoPagado === o.id" class="spinner spinner--sm"></span>
+                {{ marcandoPagado === o.id ? 'Procesando…' : '✓ Marcar pagado' }}
+              </button>
               <label class="order__estado">
                 Estado:
                 <select :value="o.status" @change="cambiarEstado(o, $event.target.value)">
@@ -255,6 +322,9 @@ onMounted(async () => {
     <AdminCustomers v-else-if="vista === 'clientes'" @ver-pedido="verPedido" />
 
     <AdminProducts v-else-if="vista === 'productos'" />
+
+    <!-- Solo en desarrollo: registro de pruebas de pago. -->
+    <AdminPaymentTests v-else-if="DEV && vista === 'tests'" />
   </div>
 </div>
 </template>
@@ -332,6 +402,13 @@ onMounted(async () => {
 .order__p { font-size: 0.85rem; line-height: 1.6; color: var(--text-2); }
 .order__p--muted { color: var(--text-3); font-size: 0.78rem; margin-top: 0.5rem; }
 .order__notes { color: var(--text-3); }
+.order__pagado {
+  margin-top: 0.75rem; padding: 0.55rem 0.9rem; font-size: 0.74rem; font-weight: 700;
+  letter-spacing: 0.05em; cursor: pointer; background: #2ecc8f; border: 1px solid #2ecc8f;
+  color: var(--ink); display: inline-flex; align-items: center; gap: 0.45rem;
+}
+.order__pagado:hover { filter: brightness(1.05); }
+.order__pagado:disabled { opacity: 0.6; cursor: not-allowed; }
 .order__estado { display: block; margin-top: 1rem; font-size: 0.78rem; color: var(--text-2); }
 .order__estado select { margin-left: 0.5rem; padding: 0.4rem 0.6rem; background: var(--surface-2); border: 1px solid var(--border-mid); color: var(--text-1); text-transform: capitalize; }
 

@@ -123,9 +123,19 @@ provide('openQuickBuy', openQuickBuy)
 provide('cart',         carrito)
 provide('clearCart',    clearCart)
 
-onMounted(()   => window.addEventListener('scroll', onScroll, { passive: true }))
+// Sincroniza el carrito entre pestañas: si cambia en otra pestaña, recargamos.
+// El evento 'storage' solo se dispara en LAS OTRAS pestañas, no en la que escribió.
+function onStorage(e) {
+  if (e.key === CART_KEY) carrito.value = loadCart()
+}
+
+onMounted(() => {
+  window.addEventListener('scroll', onScroll, { passive: true })
+  window.addEventListener('storage', onStorage)
+})
 onUnmounted(() => {
   window.removeEventListener('scroll', onScroll)
+  window.removeEventListener('storage', onStorage)
   clearTimeout(toastTimer)
 })
 </script>

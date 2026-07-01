@@ -58,6 +58,7 @@ import { WHATSAPP_NUMERO, INSTAGRAM, TIKTOK } from '../lib/config.js'
           <RouterLink to="/coleccion">Colección</RouterLink>
           <RouterLink to="/lanzamientos">Lanzamientos</RouterLink>
           <RouterLink to="/nosotros">Nosotros</RouterLink>
+          <RouterLink to="/privacidad">Política de privacidad</RouterLink>
         </nav>
       </div>
 
