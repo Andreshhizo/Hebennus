@@ -8,3 +8,6 @@ dist
 # Supabase CLI (local)
 supabase/.temp
 supabase/.branches
+
+# Screenshots locales (pueden contener credenciales — nunca subir)
+Screenshot*.png
