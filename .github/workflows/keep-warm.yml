@@ -1,0 +1,29 @@
+name: keep-warm
+
+# Mantiene despierto el proyecto Supabase (free) para que NO se pause por
+# inactividad (se pausa tras ~7 días sin tráfico → el sitio quedaría "caído"
+# hasta reactivarlo a mano). Un golpecito de lectura al catálogo alcanza.
+#
+# - Corre 2 veces al día (amplio margen contra la ventana de 7 días).
+# - La key es la PUBLISHABLE/anon (pública por diseño; ya va en el frontend,
+#   la seguridad real es RLS). No expone nada sensible.
+# - No toca Vercel: pega directo a la API REST de Supabase.
+
+on:
+  schedule:
+    - cron: '23 6 * * *'    # 06:23 UTC (~01:23 Perú)
+    - cron: '23 18 * * *'   # 18:23 UTC (~13:23 Perú)
+  workflow_dispatch: {}      # permite dispararlo a mano desde la pestaña Actions
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase (evita la pausa del free tier)
+        run: |
+          KEY="sb_publishable_ieemdj1csnQqzzP2UMcmfA_4FyXeNCo"
+          URL="https://lvodqgscealzkjywhyas.supabase.co/rest/v1/products?select=id&limit=1"
+          code=$(curl -sS -o /dev/null -w "%{http_code}" -H "apikey: $KEY" -H "Authorization: Bearer $KEY" "$URL")
+          echo "Supabase respondió HTTP $code"
+          # 200/206 = OK. Cualquier 2xx cuenta como actividad y resetea el timer.
+          case "$code" in 2*) exit 0 ;; *) echo "::warning::respuesta inesperada: $code"; exit 0 ;; esac
