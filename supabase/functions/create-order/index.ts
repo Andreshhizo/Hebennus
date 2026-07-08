@@ -128,11 +128,14 @@ Deno.serve(async (req: Request) => {
   //    Provincia se coordina aparte por WhatsApp.
   const shipping = subtotal === 0 || subtotal >= ENVIO_GRATIS_DESDE ? 0 : COSTO_ENVIO
 
-  // 4) Descuento de bienvenida (server-side): solo usuario autenticado, 1ª compra.
+  // 4) Descuento de bienvenida (server-side): 10% al PRIMER pedido de cada correo
+  //    (con o sin cuenta). Autoritativo: recalcula e ignora el discount del cliente.
   let discount = 0
   let discountReason: string | null = null
-  if (userId && pedido.quiere_descuento) {
-    const { count } = await admin.from('orders').select('id', { count: 'exact', head: true }).eq('user_id', userId)
+  if (pedido.quiere_descuento) {
+    // Escapamos los comodines de LIKE (% y _) para un match exacto case-insensitive.
+    const emailLike = c.customer_email.trim().replace(/[%_]/g, '\\$&')
+    const { count } = await admin.from('orders').select('id', { count: 'exact', head: true }).ilike('customer_email', emailLike)
     if ((count ?? 0) === 0) { discount = round2(subtotal * WELCOME_PCT); discountReason = 'bienvenida_10' }
   }
   const total = Math.max(0, round2(subtotal + shipping - discount))

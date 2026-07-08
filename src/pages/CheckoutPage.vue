@@ -10,7 +10,7 @@ import { validarEmail, validarTelefonoPE, validarDNI, validarRUC, validarTexto, 
 const router    = useRouter()
 const cart      = inject('cart', ref([]))
 const clearCart = inject('clearCart', () => {})
-const { user, signUp } = useAuth()
+const { user } = useAuth()
 
 const WELCOME_PCT = 0.10
 const round2 = (n) => Math.round(n * 100) / 100
@@ -29,9 +29,8 @@ const form = reactive({
 const tocado = reactive({})
 
 // ── Beneficio 10% + consentimiento ──
-const beneficio    = ref('')        // '' | 'si' | 'no'  (paso 3, usuario nuevo)
-const password     = ref('')
-const aceptaPromos = ref(false)     // checkbox de promos para usuario ya logueado
+const beneficio    = ref('')        // '' | 'si' | 'no'  (opt-in del 10% de bienvenida)
+const aceptaPromos = ref(false)     // consentimiento de promos (Ley 29733)
 
 // ── Pago ──
 const metodoPago = ref(IZIPAY_ENABLED ? 'tarjeta' : 'yape_manual')  // 'tarjeta' | 'yape_auto' | 'yape_manual'
@@ -87,7 +86,7 @@ const envioGratis = computed(() => subtotal.value >= ENVIO_GRATIS_DESDE)
 const envio = computed(() => (envioGratis.value || subtotal.value === 0 ? 0 : COSTO_ENVIO))
 const faltaEnvioGratis = computed(() => Math.max(0, ENVIO_GRATIS_DESDE - subtotal.value))
 // Vista previa del 10%: solo usuario nuevo que eligió el beneficio. El servidor revalida.
-const aplicaDescuento = computed(() => !user.value && beneficio.value === 'si')
+const aplicaDescuento = computed(() => beneficio.value === 'si')
 const descuento = computed(() => aplicaDescuento.value ? round2(subtotal.value * WELCOME_PCT) : 0)
 const total = computed(() => Math.max(0, subtotal.value + envio.value - descuento.value))
 const vacio = computed(() => !cart.value.length)
@@ -132,7 +131,6 @@ const errores = computed(() => {
   if (!validarTexto(form.distrito))     e.distrito = 'Falta el distrito.'
   if (!validarTexto(form.calle))        e.calle = 'Falta la calle / avenida.'
   if (!/^\d+$/.test(form.numero))       e.numero = 'Ingresa el número (solo dígitos).'
-  if (!user.value && beneficio.value === 'si' && password.value.length < 6) e.password = 'Mínimo 6 caracteres.'
   return e
 })
 function marcar(campo) { tocado[campo] = true }
@@ -141,7 +139,7 @@ function errorDe(campo) { return tocado[campo] ? errores.value[campo] : null }
 // Campos por paso (para marcar "tocado" al intentar avanzar).
 const camposPaso = {
   1: ['nombres', 'apellidos', 'email', 'telefono', 'departamento', 'provincia', 'distrito', 'calle', 'numero'],
-  2: ['password'],
+  2: [],
 }
 function pasoValido(n) {
   const e = errores.value
@@ -149,11 +147,7 @@ function pasoValido(n) {
     return !e.nombres && !e.apellidos && !e.email && !e.telefono &&
       !e.departamento && !e.provincia && !e.distrito && !e.calle && !e.numero
   }
-  if (n === 2) {
-    if (user.value) return true
-    if (beneficio.value === 'si') return !e.password
-    return beneficio.value === 'no'
-  }
+  // Paso 2 (beneficio): opcional, siempre válido. Paso 3 (pago): sin campos.
   return true
 }
 const puedePagar = computed(() => pasoValido(1) && pasoValido(2) && !procesando.value)
@@ -232,7 +226,7 @@ function construirPedido() {
     shipping: envio.value,
     discount: descuento.value,
     quiere_descuento: aplicaDescuento.value,
-    consent:  user.value ? aceptaPromos.value : (beneficio.value === 'si'),
+    consent:  aceptaPromos.value,
     total:    total.value,
     payment_method: backendMethod(),
   }
@@ -251,34 +245,11 @@ async function pagar() {
   }
   procesando.value = true
   try {
-    // Crea la cuenta si eligió el beneficio y no está logueado.
-    if (!user.value && beneficio.value === 'si') {
-      const ok = await registrarCuenta()
-      if (!ok) return
-    }
+    // El 10% ya NO crea cuenta: el backend lo valida por correo (primer pedido).
     if (metodoPago.value === 'yape_manual') await pagarYapeManual()
     else await iniciarPagoIzipay()
   } finally {
     procesando.value = false
-  }
-}
-
-async function registrarCuenta() {
-  try {
-    const { session } = await signUp({
-      email: form.email.trim(),
-      password: password.value,
-      full_name: `${form.nombres.trim()} ${form.apellidos.trim()}`.trim(),
-      phone: soloDigitos(form.telefono),
-    })
-    if (!session) avisoCuenta.value = 'Cuenta creada ✓ Revisa tu correo para confirmarla. Continuamos con tu pedido.'
-    return true
-  } catch (err) {
-    const m = err?.message || ''
-    errorPago.value = m.includes('already registered')
-      ? 'Ese correo ya tiene una cuenta. Inicia sesión para aplicar tu 10%.'
-      : (m || 'No se pudo crear la cuenta. Inténtalo de nuevo.')
-    return false
   }
 }
 
@@ -496,37 +467,25 @@ const metodoLabel = computed(() =>
             <!-- ░ PASO 2 · BENEFICIO ░ -->
             <fieldset v-show="paso === 2" class="wstep">
               <legend class="wstep__title">Tu beneficio</legend>
-              <template v-if="!user">
-                <div class="benefit">
-                  <p class="benefit__head">🎁 <strong>10% de descuento</strong> para nuevos clientes</p>
-                  <p class="benefit__sub">Crea tu cuenta y acepta recibir nuestras novedades para activar tu 10% al instante.</p>
-                  <label class="benefit__opt" :class="{ 'benefit__opt--on': beneficio === 'si' }">
-                    <input type="radio" value="si" v-model="beneficio" />
-                    <span>Sí, quiero mi <strong>10%</strong> y recibir promos, lanzamientos y novedades por correo.</span>
-                  </label>
-                  <div v-if="beneficio === 'si'" class="form__group benefit__pass">
-                    <label class="field__label" for="f-pass">Crea una contraseña</label>
-                    <input id="f-pass" v-model="password" type="password" class="field__input"
-                      :class="{ 'field__input--err': errorDe('password') }" autocomplete="new-password"
-                      @blur="marcar('password')" />
-                    <span v-if="errorDe('password')" class="field__error" role="alert">{{ errores.password }}</span>
-                    <span v-if="descuento > 0" class="benefit__chip">−S/ {{ descuento.toFixed(2) }} aplicado a tu total</span>
-                  </div>
-                  <label class="benefit__opt" :class="{ 'benefit__opt--on': beneficio === 'no' }">
-                    <input type="radio" value="no" v-model="beneficio" />
-                    <span>No, gracias. Prefiero comprar sin descuento.</span>
-                  </label>
-                  <p class="benefit__legal">El 10% se confirma al validar tu cuenta desde el correo. Si queda pendiente, registramos tu pedido y lo aplicamos al activarla. Tu correo siempre se usa para enviarte tu boleta y la confirmación; puedes darte de baja de las promos cuando quieras. Consulta nuestra <RouterLink to="/privacidad" target="_blank">política de privacidad</RouterLink>.</p>
-                </div>
-              </template>
-              <template v-else>
-                <p class="acct-logged">Comprando como <strong>{{ user.email }}</strong> ✓</p>
+              <div class="benefit">
+                <p v-if="user" class="acct-logged">Comprando como <strong>{{ user.email }}</strong> ✓</p>
+                <p class="benefit__head">🎁 <strong>10% de descuento</strong> de bienvenida</p>
+                <p class="benefit__sub">Solo para tu primer pedido. Se aplica al instante a tu total.</p>
+                <label class="benefit__opt" :class="{ 'benefit__opt--on': beneficio === 'si' }">
+                  <input type="radio" value="si" v-model="beneficio" />
+                  <span>Sí, quiero mi <strong>10%</strong> de bienvenida.</span>
+                </label>
+                <span v-if="descuento > 0" class="benefit__chip">−S/ {{ descuento.toFixed(2) }} aplicado a tu total</span>
+                <label class="benefit__opt" :class="{ 'benefit__opt--on': beneficio === 'no' }">
+                  <input type="radio" value="no" v-model="beneficio" />
+                  <span>No, gracias. Prefiero comprar sin descuento.</span>
+                </label>
                 <label class="benefit__opt">
                   <input type="checkbox" v-model="aceptaPromos" />
-                  <span>Quiero recibir promociones y novedades por correo.</span>
+                  <span>Quiero recibir promociones, lanzamientos y novedades por correo.</span>
                 </label>
-                <p class="benefit__legal">Tu correo se usa para enviarte tu boleta y la confirmación del pedido. Consulta nuestra <RouterLink to="/privacidad" target="_blank">política de privacidad</RouterLink>.</p>
-              </template>
+                <p class="benefit__legal">El 10% aplica solo a tu <strong>primer pedido</strong> (por correo). Tu correo se usa para enviarte tu boleta y la confirmación; puedes darte de baja de las promos cuando quieras. Consulta nuestra <RouterLink to="/privacidad" target="_blank">política de privacidad</RouterLink>.</p>
+              </div>
             </fieldset>
 
             <!-- ░ PASO 4 · PAGO ░ -->
