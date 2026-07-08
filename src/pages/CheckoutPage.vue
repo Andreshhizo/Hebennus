@@ -690,8 +690,8 @@ const metodoLabel = computed(() =>
         <div class="pay-trust">
           <p class="pay-trust__sec">🔒 Pago cifrado · Procesado por Izipay · No guardamos tu tarjeta</p>
           <span class="pay-trust__cards" aria-label="Aceptamos Visa y Mastercard">
-            <img class="pay-card pay-card--visa" src="/visa.png" alt="Visa" />
-            <img class="pay-card pay-card--mc" src="/mastercard.svg" alt="Mastercard" />
+            <img class="pay-logo pay-logo--visa" src="/visa.png" alt="Visa" />
+            <img class="pay-logo pay-logo--mc" src="/mastercard.svg" alt="Mastercard" />
           </span>
         </div>
       </div>
@@ -837,9 +837,9 @@ const metodoLabel = computed(() =>
 .pay-trust { margin-top: 1rem; padding-top: 0.9rem; border-top: 1px solid var(--border-mid); display: flex; flex-direction: column; align-items: center; gap: 0.6rem; }
 .pay-trust__sec { margin: 0; font-size: 0.72rem; color: var(--text-3); text-align: center; line-height: 1.5; }
 .pay-trust__cards { display: flex; align-items: center; gap: 0.7rem; }
-.pay-card { display: block; width: auto; }
-.pay-card--visa { height: 16px; }
-.pay-card--mc { height: 22px; }
+.pay-logo { display: block; width: auto; }
+.pay-logo--visa { height: 16px; }
+.pay-logo--mc { height: 22px; }
 
 @keyframes pm-fade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes pm-pop { from { opacity: 0; transform: translateY(14px) scale(0.98); } to { opacity: 1; transform: none; } }
