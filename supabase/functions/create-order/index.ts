@@ -80,13 +80,13 @@ Deno.serve(async (req: Request) => {
     : 'contraentrega'
   const deferStock = paymentMethod === 'izipay' || paymentMethod === 'yape_manual'
 
-  // Comprobante: boleta (DNI, 8 díg.) o factura (RUC, 11 díg.). El documento es
-  // obligatorio para pagos online (izipay / yape_manual).
+  // Comprobante: factura (RUC, 11 díg.) o boleta (consumidor final, SIN DNI).
+  // Solo la factura exige documento; la boleta se emite sin DNI (SUNAT lo permite
+  // para consumidor final < S/700).
   const comprobanteTipo = c?.comprobante_tipo === 'factura' ? 'factura' : 'boleta'
   const docNum = String(c?.doc_numero ?? '').replace(/\D/g, '')
-  const docOk = comprobanteTipo === 'factura' ? /^\d{11}$/.test(docNum) : /^\d{8}$/.test(docNum)
-  if (deferStock && !docOk) {
-    return json({ error: comprobanteTipo === 'factura' ? 'RUC inválido (11 dígitos)' : 'DNI inválido (8 dígitos)' }, 400)
+  if (deferStock && comprobanteTipo === 'factura' && !/^\d{11}$/.test(docNum)) {
+    return json({ error: 'RUC inválido (11 dígitos)' }, 400)
   }
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!

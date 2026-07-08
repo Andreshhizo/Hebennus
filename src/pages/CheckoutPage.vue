@@ -130,14 +130,13 @@ const errores = computed(() => {
   if (form.comprobante === 'factura') {
     if (!validarRUC(form.ruc))            e.ruc = 'RUC inválido (11 dígitos).'
     if (!validarTexto(form.razon_social, 2)) e.razon_social = 'Ingresa la razón social.'
-  } else {
-    if (!validarDNI(form.dni))            e.dni = 'DNI inválido (8 dígitos).'
   }
+  // Boleta: NO se pide DNI (SUNAT permite boleta a consumidor final sin documento).
   if (!validarTexto(form.departamento)) e.departamento = 'Falta el departamento.'
   if (!validarTexto(form.provincia))    e.provincia = 'Falta la provincia.'
   if (!validarTexto(form.distrito))     e.distrito = 'Falta el distrito.'
   if (!validarTexto(form.calle))        e.calle = 'Falta la calle / avenida.'
-  if (!validarTexto(form.numero))       e.numero = 'Falta el número.'
+  if (!/^\d+$/.test(form.numero))       e.numero = 'Ingresa el número (solo dígitos).'
   if (!user.value && beneficio.value === 'si' && password.value.length < 6) e.password = 'Mínimo 6 caracteres.'
   return e
 })
@@ -146,14 +145,14 @@ function errorDe(campo) { return tocado[campo] ? errores.value[campo] : null }
 
 // Campos por paso (para marcar "tocado" al intentar avanzar).
 const camposPaso = {
-  1: ['nombres', 'apellidos', 'email', 'telefono', 'dni', 'ruc', 'razon_social'],
+  1: ['nombres', 'apellidos', 'email', 'telefono', 'ruc', 'razon_social'],
   2: ['departamento', 'provincia', 'distrito', 'calle', 'numero'],
   3: ['password'],
 }
 function pasoValido(n) {
   const e = errores.value
   if (n === 1) {
-    const docErr = form.comprobante === 'factura' ? (e.ruc || e.razon_social) : e.dni
+    const docErr = form.comprobante === 'factura' ? (e.ruc || e.razon_social) : null
     return !e.nombres && !e.apellidos && !e.email && !e.telefono && !docErr
   }
   if (n === 2) return !e.departamento && !e.provincia && !e.distrito && !e.calle && !e.numero
@@ -450,14 +449,7 @@ const metodoLabel = computed(() =>
               <!-- Comprobante: boleta (DNI) / factura (RUC) -->
               <div class="doc">
                 <template v-if="form.comprobante === 'boleta'">
-                  <div class="form__group">
-                    <label class="field__label" for="f-dni">DNI <span class="req">*</span></label>
-                    <input id="f-dni" v-model="form.dni" type="text" inputmode="numeric" maxlength="8"
-                      class="field__input" :class="{ 'field__input--err': errorDe('dni') }"
-                      @blur="marcar('dni')" />
-                    <span v-if="errorDe('dni')" class="field__error" role="alert">{{ errores.dni }}</span>
-                    <span class="field__hint">Lo usamos para tu boleta electrónica.</span>
-                  </div>
+                  <p class="field__hint">Tu boleta electrónica se genera con tu pedido — no necesitas ingresar DNI.</p>
                   <button type="button" class="doc__toggle" @click="form.comprobante = 'factura'">¿Necesitas factura? Ingresa tu RUC</button>
                 </template>
                 <template v-else>
@@ -516,8 +508,9 @@ const metodoLabel = computed(() =>
                 </div>
                 <div class="form__group">
                   <label class="field__label" for="f-num">Número</label>
-                  <input id="f-num" v-model="form.numero" type="text" class="field__input"
-                    :class="{ 'field__input--err': errorDe('numero') }" @blur="marcar('numero')" />
+                  <input id="f-num" v-model="form.numero" type="text" inputmode="numeric"
+                    class="field__input" :class="{ 'field__input--err': errorDe('numero') }"
+                    @input="form.numero = form.numero.replace(/\D/g, '')" @blur="marcar('numero')" />
                   <span v-if="errorDe('numero')" class="field__error" role="alert">{{ errores.numero }}</span>
                 </div>
               </div>

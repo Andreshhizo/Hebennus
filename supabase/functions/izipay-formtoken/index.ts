@@ -64,7 +64,7 @@ Deno.serve(async (req: Request) => {
   // Leer el pedido por order_number (datos validados en create-order).
   const { data: order, error: orderError } = await admin
     .from('orders')
-    .select('total, customer_email, customer_name, doc_numero, customer_phone, notes')
+    .select('total, customer_email, customer_name, doc_numero, doc_tipo, customer_phone, notes')
     .eq('order_number', orderNumber)
     .maybeSingle()
 
@@ -79,6 +79,20 @@ Deno.serve(async (req: Request) => {
 
   const { firstName, lastName } = splitName(order.customer_name)
 
+  // Solo mandamos el documento si el pedido lo tiene (factura RUC / boleta con DNI).
+  // Para boleta a consumidor final (sin DNI) omitimos identityType/identityCode.
+  const billingDetails: Record<string, unknown> = {
+    firstName,
+    lastName,
+    phoneNumber: order.customer_phone,
+    country: 'PE',
+    language: 'es',
+  }
+  if (order.doc_numero) {
+    billingDetails.identityType = order.doc_tipo === 'RUC' ? 'RUC' : 'DNI'
+    billingDetails.identityCode = order.doc_numero
+  }
+
   // amount va en CÉNTIMOS (S/ 1.00 → 100).
   const izipayBody = {
     amount: Math.round(total * 100),
@@ -86,15 +100,7 @@ Deno.serve(async (req: Request) => {
     orderId: orderNumber,
     customer: {
       email: order.customer_email,
-      billingDetails: {
-        firstName,
-        lastName,
-        phoneNumber: order.customer_phone,
-        identityType: 'DNI',
-        identityCode: order.doc_numero ?? '',
-        country: 'PE',
-        language: 'es',
-      },
+      billingDetails,
     },
   }
 
