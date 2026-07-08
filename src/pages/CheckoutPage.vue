@@ -402,8 +402,8 @@ const metodoLabel = computed(() =>
 
           <form class="form" novalidate @submit.prevent="paso < TOTAL_PASOS ? siguiente() : pagar()">
             <!-- ░ PASO 1 · DATOS ░ -->
-            <fieldset v-show="paso === 1" class="wstep wstep--card">
-              <legend class="wstep__title">Tus datos</legend>
+            <div v-show="paso === 1" class="wstep wstep--card">
+              <p class="wstep__title">Tus datos</p>
               <div class="form__row">
                 <div class="form__group">
                   <label class="field__label" for="f-nom">Nombres</label>
@@ -437,11 +437,11 @@ const metodoLabel = computed(() =>
                 </div>
               </div>
 
-            </fieldset>
+            </div>
 
             <!-- ░ PASO 1 (cont.) · DIRECCIÓN ░ -->
-            <fieldset v-show="paso === 1" class="wstep wstep--card">
-              <legend class="wstep__title">Dirección de entrega</legend>
+            <div v-show="paso === 1" class="wstep wstep--card">
+              <p class="wstep__title">Dirección de entrega</p>
               <div class="form__row">
                 <div class="form__group">
                   <label class="field__label" for="f-dep">Departamento</label>
@@ -490,9 +490,9 @@ const metodoLabel = computed(() =>
                 <textarea id="f-ref" v-model="form.referencias" class="field__input field__textarea" rows="2"
                   maxlength="200" placeholder="Color de puerta, piso, entre calles…"></textarea>
               </div>
-            </fieldset>
+            </div>
 
-            <!-- ░ PASO 3 · BENEFICIO ░ -->
+            <!-- ░ PASO 2 · BENEFICIO ░ -->
             <fieldset v-show="paso === 2" class="wstep">
               <legend class="wstep__title">Tu beneficio</legend>
               <template v-if="!user">
@@ -698,9 +698,9 @@ const metodoLabel = computed(() =>
 
 .form { display: flex; flex-direction: column; gap: 1.4rem; }
 .wstep { border: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 1rem; animation: hb-fade-up 0.4s var(--ease-out) both; }
-.wstep__title { font-family: var(--font-display); font-size: 1rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-1); padding: 0; }
+.wstep__title { font-family: var(--font-display); font-size: 1rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-1); padding: 0; margin: 0; }
 /* Cada sección del paso 1 como tarjeta separada (Tus datos / Dirección) */
-.wstep--card { background: var(--surface-1); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 1.4rem 1.3rem; }
+.wstep--card { background: var(--surface-1); border: 1px solid var(--border-mid); border-radius: var(--radius-lg); padding: 1.5rem; box-shadow: var(--shadow-soft); }
 .form__row { display: grid; grid-template-columns: 1fr; gap: 1rem; }
 .form__group { display: flex; flex-direction: column; gap: 0.4rem; }
 .field__label { font-size: 0.68rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-2); font-weight: 600; }
