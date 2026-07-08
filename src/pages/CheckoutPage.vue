@@ -191,9 +191,17 @@ onMounted(() => {
 })
 onUnmounted(() => { mq?.removeEventListener('change', onMq); removeForms(); document.body.style.overflow = '' })
 
-// Bloquea el scroll del fondo mientras el modal de pago está abierto.
+// El formulario de tarjeta de Izipay se renderiza EMBEBIDO en la página. NO se
+// bloquea el scroll (si se bloqueaba, el usuario no podía bajar a llenar la tarjeta).
+// Al abrirse, llevamos la vista al formulario para que quede a la mano.
 watch(mostrarPago, (abierto) => {
-  if (typeof document !== 'undefined') document.body.style.overflow = abierto ? 'hidden' : ''
+  if (typeof document === 'undefined') return
+  document.body.style.overflow = ''   // nunca bloquear el scroll
+  if (abierto) {
+    nextTick(() => setTimeout(() => {
+      document.getElementById('izipay-form')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }, 300))
+  }
 })
 const itemsVisibles = computed(() => esDesktop.value || resumenAbierto.value)
 
