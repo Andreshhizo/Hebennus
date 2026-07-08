@@ -545,8 +545,8 @@ const metodoLabel = computed(() =>
 
               <!-- Info de envíos al comprar (términos completos en /privacidad) -->
               <div class="ship-note">
-                🚚 <strong>Enviamos los sábados y domingos.</strong> Tomamos pedidos de <strong>lunes a jueves</strong>; los de viernes a domingo se despachan la semana siguiente (así evitamos retrasos). Envío a <strong>Lima S/ 10</strong>; <strong>provincia se coordina por WhatsApp</strong> y el precio puede variar.
-                <RouterLink to="/privacidad" class="ship-note__link">Ver más →</RouterLink>
+                🚚 Tomamos pedidos de <strong>lunes a jueves</strong>. Los <strong>preparamos el viernes</strong> (te confirmamos por WhatsApp o la web) y <strong>entregamos sábados y domingos</strong>. Los pedidos de viernes a domingo pasan a la semana siguiente. Envío a <strong>Lima S/ 10</strong>; <strong>provincia se coordina por WhatsApp</strong> (el precio puede variar).
+                <RouterLink to="/privacidad" target="_blank" class="ship-note__link">Ver más →</RouterLink>
               </div>
 
               <p v-if="avisoCuenta" class="summary__note-ok" role="status" aria-live="polite">{{ avisoCuenta }}</p>
