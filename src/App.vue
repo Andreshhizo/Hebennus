@@ -142,7 +142,7 @@ onUnmounted(() => {
 
 <template>
   <div v-if="mostrarTienda" class="announce">
-    Envío gratis desde S/ 149 &nbsp;·&nbsp; Edición limitada
+    Envíos sáb y dom &nbsp;·&nbsp; Pedidos lun a jue &nbsp;·&nbsp; Edición limitada
   </div>
 
   <AppNav

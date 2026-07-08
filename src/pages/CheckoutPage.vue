@@ -4,7 +4,7 @@ import { RouterLink, useRouter } from 'vue-router'
 import { createOrder } from '../lib/order.js'
 import { useAuth } from '../lib/useAuth.js'
 import { getFormToken, montarFormularioIzipay, removeForms } from '../lib/izipay.js'
-import { ENVIO_GRATIS_DESDE, COSTO_ENVIO, IZIPAY_ENABLED, WHATSAPP_NUMERO } from '../lib/config.js'
+import { COSTO_ENVIO, IZIPAY_ENABLED, WHATSAPP_NUMERO } from '../lib/config.js'
 import { validarEmail, validarTelefonoPE, validarDNI, validarRUC, validarTexto, soloDigitos } from '../lib/validation.js'
 
 const router    = useRouter()
@@ -82,14 +82,13 @@ watch(enviado, (v) => { if (v) { try { sessionStorage.removeItem(CHECKOUT_KEY) }
 
 // ── Totales ──
 const subtotal = computed(() => cart.value.reduce((s, i) => s + Number(i.price) * (i.qty ?? 1), 0))
-const envioGratis = computed(() => subtotal.value >= ENVIO_GRATIS_DESDE)
-const envio = computed(() => (envioGratis.value || subtotal.value === 0 ? 0 : COSTO_ENVIO))
+// Envío: Lima costo fijo; provincia se coordina aparte. Sin envío gratis.
+const envio = computed(() => (subtotal.value === 0 ? 0 : COSTO_ENVIO))
 // Vista previa del 10%: solo usuario nuevo que eligió el beneficio. El servidor revalida.
 const aplicaDescuento = computed(() => !user.value && beneficio.value === 'si')
 const descuento = computed(() => aplicaDescuento.value ? round2(subtotal.value * WELCOME_PCT) : 0)
 const total = computed(() => Math.max(0, subtotal.value + envio.value - descuento.value))
 const vacio = computed(() => !cart.value.length)
-const faltaEnvioGratis = computed(() => Math.max(0, ENVIO_GRATIS_DESDE - subtotal.value))
 
 // ── Prellenar si ya inició sesión ──
 watchEffect(() => {
@@ -544,6 +543,12 @@ const metodoLabel = computed(() =>
                 </label>
               </div>
 
+              <!-- Info de envíos al comprar (términos completos en /privacidad) -->
+              <div class="ship-note">
+                🚚 <strong>Enviamos los sábados y domingos.</strong> Tomamos pedidos de <strong>lunes a jueves</strong>; los de viernes a domingo se despachan la semana siguiente (así evitamos retrasos). Envío a <strong>Lima S/ 10</strong>; <strong>provincia se coordina por WhatsApp</strong> y el precio puede variar.
+                <RouterLink to="/privacidad" class="ship-note__link">Ver más →</RouterLink>
+              </div>
+
               <p v-if="avisoCuenta" class="summary__note-ok" role="status" aria-live="polite">{{ avisoCuenta }}</p>
               <p v-if="errorPago" class="summary__send-err" role="alert">{{ errorPago }}</p>
 
@@ -604,12 +609,10 @@ const metodoLabel = computed(() =>
                 <span>Descuento 10% 🎁</span><span>- S/ {{ descuento.toFixed(2) }}</span>
               </div>
               <div class="summary__line">
-                <span>Envío</span>
-                <span :class="{ 'summary__free': envioGratis }">{{ envioGratis ? 'Gratis' : `S/ ${envio.toFixed(2)}` }}</span>
+                <span>Envío <small class="summary__note-inline">(Lima)</small></span>
+                <span>S/ {{ envio.toFixed(2) }}</span>
               </div>
-              <p v-if="!envioGratis && faltaEnvioGratis > 0" class="summary__hint">
-                Te faltan S/ {{ faltaEnvioGratis.toFixed(2) }} para envío gratis.
-              </p>
+              <p class="summary__hint">Provincia: se coordina por WhatsApp (el precio puede variar).</p>
             </div>
           </div>
 
@@ -825,13 +828,16 @@ const metodoLabel = computed(() =>
 .summary__item-sub { font-size: 0.82rem; color: var(--text-1); font-weight: 600; white-space: nowrap; }
 .summary__lines { display: flex; flex-direction: column; gap: 0.5rem; border-top: 1px solid var(--border); padding-top: 1rem; }
 .summary__line { display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--text-2); }
-.summary__free { color: var(--accent-2); font-weight: 600; }
+.summary__note-inline { color: var(--text-3); font-size: 0.72rem; }
 .summary__line--disc { color: var(--accent-2); font-weight: 600; }
 .summary__hint { font-size: 0.7rem; color: var(--accent-3); letter-spacing: 0.02em; }
 .summary__total { display: flex; justify-content: space-between; align-items: baseline; border-top: 1px solid var(--border); padding-top: 1rem; }
 .summary__total span:first-child { font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-2); }
 .summary__total-amt { font-family: var(--font-display); font-size: 1.3rem; font-weight: 700; color: var(--text-1); }
 .summary__send-err { font-size: 0.76rem; color: #e0566b; }
+.ship-note { margin-top: 0.2rem; padding: 0.85rem 1rem; background: var(--surface-2); border: 1px solid var(--border-mid); border-radius: var(--radius-md); font-size: 0.76rem; line-height: 1.55; color: var(--text-2); }
+.ship-note strong { color: var(--text-1); font-weight: 600; }
+.ship-note__link { display: inline-block; margin-top: 0.3rem; color: var(--accent-3); text-decoration: underline; text-underline-offset: 2px; font-weight: 600; }
 .summary__note-ok { font-size: 0.76rem; color: var(--accent-2); line-height: 1.5; }
 .summary__note { text-align: center; font-size: 0.68rem; color: var(--text-3); letter-spacing: 0.03em; }
 .trust { display: flex; flex-wrap: wrap; gap: 0.5rem 0.9rem; border-top: 1px solid var(--border); padding-top: 0.9rem; font-size: 0.68rem; color: var(--text-3); }

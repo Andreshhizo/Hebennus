@@ -17,8 +17,8 @@ export const NEXT_DROP_DATE = '2026-09-01T00:00:00'
 // Umbral de "pocas unidades" por producto
 export const STOCK_LOW_THRESHOLD = 5
 
-// Envío — gratis desde este monto (S/); por debajo, se cobra COSTO_ENVIO.
-export const ENVIO_GRATIS_DESDE = 149
+// Envío — Lima: costo fijo (S/). Provincia: se coordina por WhatsApp y el precio
+// puede variar. NO hay envío gratis por monto.
 export const COSTO_ENVIO        = 10
 
 // ── Izipay (Lyra / krypton, formulario embebido oficial) ──
