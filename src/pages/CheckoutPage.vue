@@ -678,7 +678,7 @@ const metodoLabel = computed(() =>
         <div class="pay-brands">
           <span class="pay-brands__chip"><img src="/logo.jpeg" alt="Hebennus" /></span>
           <span class="pay-brands__x" aria-hidden="true">×</span>
-          <span class="pay-brands__izipay">izipay</span>
+          <img class="pay-brands__izipay" src="/izipay-logo.png" alt="Izipay" />
         </div>
 
         <p class="pay-modal__eyebrow">Pago 100% seguro</p>
@@ -690,16 +690,8 @@ const metodoLabel = computed(() =>
         <div class="pay-trust">
           <p class="pay-trust__sec">🔒 Pago cifrado · Procesado por Izipay · No guardamos tu tarjeta</p>
           <span class="pay-trust__cards" aria-label="Aceptamos Visa y Mastercard">
-            <svg class="pay-card" viewBox="0 0 48 30" width="40" height="25" role="img" aria-label="Visa">
-              <rect width="48" height="30" rx="4" fill="#fff" />
-              <text x="24" y="20" text-anchor="middle" font-family="Arial, sans-serif" font-weight="700" font-style="italic" font-size="13" letter-spacing="0.4" fill="#1A1F71">VISA</text>
-            </svg>
-            <svg class="pay-card" viewBox="0 0 48 30" width="40" height="25" role="img" aria-label="Mastercard">
-              <rect width="48" height="30" rx="4" fill="#fff" />
-              <circle cx="19.5" cy="15" r="8.5" fill="#EB001B" />
-              <circle cx="28.5" cy="15" r="8.5" fill="#F79E1B" />
-              <path d="M24 8.6a8.5 8.5 0 0 0 0 12.8 8.5 8.5 0 0 0 0-12.8z" fill="#FF5F00" />
-            </svg>
+            <img class="pay-card pay-card--visa" src="/visa-02.png" alt="Visa" />
+            <img class="pay-card pay-card--mc" src="/Mastercard-logo.svg" alt="Mastercard" />
           </span>
         </div>
       </div>
@@ -839,13 +831,15 @@ const metodoLabel = computed(() =>
 .pay-brands { display: flex; align-items: center; justify-content: center; gap: 0.7rem; margin-bottom: 0.9rem; }
 .pay-brands__chip { width: 38px; height: 38px; border-radius: 10px; background: #fff; display: grid; place-items: center; box-shadow: 0 2px 8px rgba(0,0,0,0.25); flex: none; }
 .pay-brands__chip img { width: 30px; height: 30px; object-fit: contain; }
-.pay-brands__x { color: var(--text-3); font-size: 0.95rem; font-weight: 600; }
-.pay-brands__izipay { font-family: var(--font-display, inherit); font-weight: 800; font-size: 1.35rem; letter-spacing: -0.02em; color: #ff4d4f; }
+.pay-brands__x { color: var(--text-3); font-size: 1.1rem; font-weight: 600; }
+.pay-brands__izipay { height: 24px; width: auto; display: block; }
 /* Sellos de confianza */
 .pay-trust { margin-top: 1rem; padding-top: 0.9rem; border-top: 1px solid var(--border-mid); display: flex; flex-direction: column; align-items: center; gap: 0.6rem; }
 .pay-trust__sec { margin: 0; font-size: 0.72rem; color: var(--text-3); text-align: center; line-height: 1.5; }
-.pay-trust__cards { display: flex; align-items: center; gap: 0.5rem; }
-.pay-card { border-radius: 4px; box-shadow: 0 1px 4px rgba(0,0,0,0.2); }
+.pay-trust__cards { display: flex; align-items: center; gap: 0.4rem; }
+.pay-card { display: block; width: auto; }
+.pay-card--visa { height: 46px; }   /* trae padding/sombra propios */
+.pay-card--mc { height: 30px; }
 
 @keyframes pm-fade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes pm-pop { from { opacity: 0; transform: translateY(14px) scale(0.98); } to { opacity: 1; transform: none; } }
