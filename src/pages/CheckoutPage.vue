@@ -16,14 +16,12 @@ const WELCOME_PCT = 0.10
 const round2 = (n) => Math.round(n * 100) / 100
 
 // ── Estado del wizard ──
-const paso = ref(1)                 // 1·Datos 2·Dirección 3·Beneficio 4·Pago
-const TOTAL_PASOS = 4
+const paso = ref(1)                 // 1·Datos+Dirección 2·Beneficio 3·Pago
+const TOTAL_PASOS = 3
 
 // ── Formulario ──
 const form = reactive({
   nombres: '', apellidos: '', email: '', telefono: '',
-  comprobante: 'boleta',            // 'boleta' (DNI) | 'factura' (RUC)
-  dni: '', ruc: '', razon_social: '',
   // Dirección (texto simple)
   departamento: '', provincia: '', distrito: '',
   calle: '', numero: '', urbanizacion: '', referencias: '',
@@ -127,11 +125,7 @@ const errores = computed(() => {
   if (!validarTexto(form.apellidos, 2)) e.apellidos = 'Ingresa tus apellidos.'
   if (!validarEmail(form.email))        e.email = 'Correo electrónico inválido.'
   if (!validarTelefonoPE(form.telefono)) e.telefono = 'Celular: 9 dígitos, empieza con 9.'
-  if (form.comprobante === 'factura') {
-    if (!validarRUC(form.ruc))            e.ruc = 'RUC inválido (11 dígitos).'
-    if (!validarTexto(form.razon_social, 2)) e.razon_social = 'Ingresa la razón social.'
-  }
-  // Boleta: NO se pide DNI (SUNAT permite boleta a consumidor final sin documento).
+  // Comprobante: siempre boleta a consumidor final (sin DNI ni RUC).
   if (!validarTexto(form.departamento)) e.departamento = 'Falta el departamento.'
   if (!validarTexto(form.provincia))    e.provincia = 'Falta la provincia.'
   if (!validarTexto(form.distrito))     e.distrito = 'Falta el distrito.'
@@ -145,25 +139,23 @@ function errorDe(campo) { return tocado[campo] ? errores.value[campo] : null }
 
 // Campos por paso (para marcar "tocado" al intentar avanzar).
 const camposPaso = {
-  1: ['nombres', 'apellidos', 'email', 'telefono', 'ruc', 'razon_social'],
-  2: ['departamento', 'provincia', 'distrito', 'calle', 'numero'],
-  3: ['password'],
+  1: ['nombres', 'apellidos', 'email', 'telefono', 'departamento', 'provincia', 'distrito', 'calle', 'numero'],
+  2: ['password'],
 }
 function pasoValido(n) {
   const e = errores.value
   if (n === 1) {
-    const docErr = form.comprobante === 'factura' ? (e.ruc || e.razon_social) : null
-    return !e.nombres && !e.apellidos && !e.email && !e.telefono && !docErr
+    return !e.nombres && !e.apellidos && !e.email && !e.telefono &&
+      !e.departamento && !e.provincia && !e.distrito && !e.calle && !e.numero
   }
-  if (n === 2) return !e.departamento && !e.provincia && !e.distrito && !e.calle && !e.numero
-  if (n === 3) {
+  if (n === 2) {
     if (user.value) return true
     if (beneficio.value === 'si') return !e.password
     return beneficio.value === 'no'
   }
   return true
 }
-const puedePagar = computed(() => pasoValido(1) && pasoValido(2) && pasoValido(3) && !procesando.value)
+const puedePagar = computed(() => pasoValido(1) && pasoValido(2) && !procesando.value)
 
 // ── Navegación del wizard ──
 function siguiente() {
@@ -216,15 +208,14 @@ function backendMethod() {
   return metodoPago.value === 'yape_manual' ? 'yape_manual' : 'izipay'
 }
 function construirPedido() {
-  const esFactura = form.comprobante === 'factura'
   return {
     cliente: {
       customer_name:  `${form.nombres.trim()} ${form.apellidos.trim()}`.trim(),
       customer_phone: soloDigitos(form.telefono),
       customer_email: form.email.trim(),
-      comprobante_tipo: form.comprobante,
-      doc_numero:     esFactura ? soloDigitos(form.ruc) : soloDigitos(form.dni),
-      razon_social:   esFactura ? form.razon_social.trim() : null,
+      comprobante_tipo: 'boleta',
+      doc_numero:     null,
+      razon_social:   null,
       notes:          direccionTexto(),
     },
     items: cart.value.map(i => ({
@@ -401,7 +392,7 @@ const metodoLabel = computed(() =>
         <div class="wizard">
           <!-- Barra de pasos -->
           <ol class="steps" aria-label="Progreso del checkout">
-            <li v-for="(t, i) in ['Datos','Dirección','Beneficio','Pago']" :key="i"
+            <li v-for="(t, i) in ['Datos','Beneficio','Pago']" :key="i"
                 class="step" :class="{ 'step--active': paso === i + 1, 'step--done': paso > i + 1 }"
                 @click="irAPaso(i + 1)">
               <span class="step__n">{{ paso > i + 1 ? '✓' : i + 1 }}</span>
@@ -446,34 +437,10 @@ const metodoLabel = computed(() =>
                 </div>
               </div>
 
-              <!-- Comprobante: boleta (DNI) / factura (RUC) -->
-              <div class="doc">
-                <template v-if="form.comprobante === 'boleta'">
-                  <p class="field__hint">Tu boleta electrónica se genera con tu pedido — no necesitas ingresar DNI.</p>
-                  <button type="button" class="doc__toggle" @click="form.comprobante = 'factura'">¿Necesitas factura? Ingresa tu RUC</button>
-                </template>
-                <template v-else>
-                  <div class="form__group">
-                    <label class="field__label" for="f-ruc">RUC <span class="req">*</span></label>
-                    <input id="f-ruc" v-model="form.ruc" type="text" inputmode="numeric" maxlength="11"
-                      class="field__input" :class="{ 'field__input--err': errorDe('ruc') }"
-                      @blur="marcar('ruc')" />
-                    <span v-if="errorDe('ruc')" class="field__error" role="alert">{{ errores.ruc }}</span>
-                  </div>
-                  <div class="form__group">
-                    <label class="field__label" for="f-rs">Razón social <span class="req">*</span></label>
-                    <input id="f-rs" v-model="form.razon_social" type="text" class="field__input"
-                      :class="{ 'field__input--err': errorDe('razon_social') }" autocomplete="organization"
-                      @blur="marcar('razon_social')" />
-                    <span v-if="errorDe('razon_social')" class="field__error" role="alert">{{ errores.razon_social }}</span>
-                  </div>
-                  <button type="button" class="doc__toggle" @click="form.comprobante = 'boleta'">Prefiero boleta con DNI</button>
-                </template>
-              </div>
             </fieldset>
 
-            <!-- ░ PASO 2 · DIRECCIÓN ░ -->
-            <fieldset v-show="paso === 2" class="wstep">
+            <!-- ░ PASO 1 (cont.) · DIRECCIÓN ░ -->
+            <fieldset v-show="paso === 1" class="wstep">
               <legend class="wstep__title">Dirección de entrega</legend>
               <div class="form__row">
                 <div class="form__group">
@@ -526,7 +493,7 @@ const metodoLabel = computed(() =>
             </fieldset>
 
             <!-- ░ PASO 3 · BENEFICIO ░ -->
-            <fieldset v-show="paso === 3" class="wstep">
+            <fieldset v-show="paso === 2" class="wstep">
               <legend class="wstep__title">Tu beneficio</legend>
               <template v-if="!user">
                 <div class="benefit">
@@ -562,7 +529,7 @@ const metodoLabel = computed(() =>
             </fieldset>
 
             <!-- ░ PASO 4 · PAGO ░ -->
-            <fieldset v-show="paso === 4" class="wstep">
+            <fieldset v-show="paso === 3" class="wstep">
               <legend class="wstep__title">Método de pago</legend>
               <div class="pay-methods">
                 <label v-if="IZIPAY_ENABLED" class="pay-card" :class="{ 'pay-card--on': metodoPago === 'tarjeta' }">
