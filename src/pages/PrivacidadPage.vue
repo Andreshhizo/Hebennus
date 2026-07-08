@@ -78,7 +78,7 @@ const ACTUALIZADO = 'junio de 2026'
 
       <h2>7. Envíos y entregas</h2>
       <ul>
-        <li><strong>Costo de envío:</strong> Lima tiene un costo fijo de <strong>S/ 10</strong>. Los envíos a <strong>provincia se coordinan de forma interna con el comprador</strong> (por WhatsApp) y el <strong>precio puede variar</strong> según el destino. <strong>No realizamos envíos gratis.</strong></li>
+        <li><strong>Costo de envío:</strong> el envío a <strong>Lima</strong> cuesta <strong>S/ 10</strong> y es <strong>gratis</strong> cuando tu pedido alcanza <strong>S/ 119</strong> o más. Los envíos a <strong>provincia se coordinan de forma interna con el comprador</strong> (por WhatsApp) y el <strong>precio puede variar</strong> según el destino. <strong>No realizamos envíos gratis salvo que se alcance el monto mínimo indicado.</strong></li>
         <li><strong>Preparación y confirmación:</strong> los pedidos se <strong>preparan los viernes</strong>; ese día te <strong>confirmamos</strong> por WhatsApp o desde la web.</li>
         <li><strong>Entregas:</strong> se realizan los <strong>sábados y domingos</strong>.</li>
         <li><strong>Horario de pedidos:</strong> tomamos pedidos de <strong>lunes a jueves</strong>. Los pedidos realizados <strong>viernes, sábado o domingo</strong> pasan a la <strong>semana siguiente</strong>. Lo hacemos así para evitar retrasos y entregas tardías.</li>

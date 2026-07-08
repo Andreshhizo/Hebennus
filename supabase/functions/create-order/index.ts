@@ -21,7 +21,8 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { buildHtml, enviarResend, type ItemPedido } from '../_shared/email.ts'
 
-const COSTO_ENVIO        = 10   // Lima fijo; provincia se coordina aparte. Sin envío gratis.
+const ENVIO_GRATIS_DESDE = 119  // Lima: gratis desde este subtotal; por debajo, COSTO_ENVIO.
+const COSTO_ENVIO        = 10
 const WELCOME_PCT        = 0.10
 
 interface Pedido {
@@ -123,8 +124,9 @@ Deno.serve(async (req: Request) => {
   }
   subtotal = round2(subtotal)
 
-  // 3) Envío (server-side): Lima costo fijo; provincia se coordina aparte. Sin envío gratis.
-  const shipping = subtotal === 0 ? 0 : COSTO_ENVIO
+  // 3) Envío (server-side): Lima gratis desde ENVIO_GRATIS_DESDE; si no, COSTO_ENVIO.
+  //    Provincia se coordina aparte por WhatsApp.
+  const shipping = subtotal === 0 || subtotal >= ENVIO_GRATIS_DESDE ? 0 : COSTO_ENVIO
 
   // 4) Descuento de bienvenida (server-side): solo usuario autenticado, 1ª compra.
   let discount = 0

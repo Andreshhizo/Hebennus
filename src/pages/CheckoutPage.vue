@@ -4,7 +4,7 @@ import { RouterLink, useRouter } from 'vue-router'
 import { createOrder } from '../lib/order.js'
 import { useAuth } from '../lib/useAuth.js'
 import { getFormToken, montarFormularioIzipay, removeForms } from '../lib/izipay.js'
-import { COSTO_ENVIO, IZIPAY_ENABLED, WHATSAPP_NUMERO } from '../lib/config.js'
+import { ENVIO_GRATIS_DESDE, COSTO_ENVIO, IZIPAY_ENABLED, WHATSAPP_NUMERO } from '../lib/config.js'
 import { validarEmail, validarTelefonoPE, validarDNI, validarRUC, validarTexto, soloDigitos } from '../lib/validation.js'
 
 const router    = useRouter()
@@ -82,8 +82,10 @@ watch(enviado, (v) => { if (v) { try { sessionStorage.removeItem(CHECKOUT_KEY) }
 
 // ── Totales ──
 const subtotal = computed(() => cart.value.reduce((s, i) => s + Number(i.price) * (i.qty ?? 1), 0))
-// Envío: Lima costo fijo; provincia se coordina aparte. Sin envío gratis.
-const envio = computed(() => (subtotal.value === 0 ? 0 : COSTO_ENVIO))
+// Envío: Lima gratis desde ENVIO_GRATIS_DESDE; si no, S/COSTO_ENVIO. Provincia aparte.
+const envioGratis = computed(() => subtotal.value >= ENVIO_GRATIS_DESDE)
+const envio = computed(() => (envioGratis.value || subtotal.value === 0 ? 0 : COSTO_ENVIO))
+const faltaEnvioGratis = computed(() => Math.max(0, ENVIO_GRATIS_DESDE - subtotal.value))
 // Vista previa del 10%: solo usuario nuevo que eligió el beneficio. El servidor revalida.
 const aplicaDescuento = computed(() => !user.value && beneficio.value === 'si')
 const descuento = computed(() => aplicaDescuento.value ? round2(subtotal.value * WELCOME_PCT) : 0)
@@ -545,7 +547,7 @@ const metodoLabel = computed(() =>
 
               <!-- Info de envíos al comprar (términos completos en /privacidad) -->
               <div class="ship-note">
-                🚚 Tomamos pedidos de <strong>lunes a jueves</strong>. Los <strong>preparamos el viernes</strong> (te confirmamos por WhatsApp o la web) y <strong>entregamos sábados y domingos</strong>. Los pedidos de viernes a domingo pasan a la semana siguiente. Envío a <strong>Lima S/ 10</strong>; <strong>provincia se coordina por WhatsApp</strong> (el precio puede variar).
+                🚚 Tomamos pedidos de <strong>lunes a jueves</strong>. Los <strong>preparamos el viernes</strong> (te confirmamos por WhatsApp o la web) y <strong>entregamos sábados y domingos</strong>. Los pedidos de viernes a domingo pasan a la semana siguiente. Envío a <strong>Lima S/ 10 (gratis desde S/ 119)</strong>; <strong>provincia se coordina por WhatsApp</strong> (el precio puede variar).
                 <RouterLink to="/privacidad" target="_blank" class="ship-note__link">Ver más →</RouterLink>
               </div>
 
@@ -610,8 +612,9 @@ const metodoLabel = computed(() =>
               </div>
               <div class="summary__line">
                 <span>Envío <small class="summary__note-inline">(Lima)</small></span>
-                <span>S/ {{ envio.toFixed(2) }}</span>
+                <span :class="{ 'summary__free': envioGratis }">{{ envioGratis ? 'Gratis' : `S/ ${envio.toFixed(2)}` }}</span>
               </div>
+              <p v-if="!envioGratis && faltaEnvioGratis > 0" class="summary__hint">Te faltan S/ {{ faltaEnvioGratis.toFixed(2) }} para envío gratis (Lima).</p>
               <p class="summary__hint">Provincia: se coordina por WhatsApp (el precio puede variar).</p>
             </div>
           </div>
@@ -829,6 +832,7 @@ const metodoLabel = computed(() =>
 .summary__lines { display: flex; flex-direction: column; gap: 0.5rem; border-top: 1px solid var(--border); padding-top: 1rem; }
 .summary__line { display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--text-2); }
 .summary__note-inline { color: var(--text-3); font-size: 0.72rem; }
+.summary__free { color: var(--accent-2); font-weight: 600; }
 .summary__line--disc { color: var(--accent-2); font-weight: 600; }
 .summary__hint { font-size: 0.7rem; color: var(--accent-3); letter-spacing: 0.02em; }
 .summary__total { display: flex; justify-content: space-between; align-items: baseline; border-top: 1px solid var(--border); padding-top: 1rem; }

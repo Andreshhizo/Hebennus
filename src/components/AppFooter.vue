@@ -83,7 +83,7 @@ import { WHATSAPP_NUMERO, INSTAGRAM, TIKTOK } from '../lib/config.js'
           <span class="foot__pay-chip">Efectivo</span>
         </div>
         <p class="foot__shipping-note">
-          Envíos sáb y dom · Lima S/ 10<br />Provincia a coordinar
+          Envío gratis desde S/ 119 · Lima S/ 10<br />Provincia a coordinar
         </p>
       </div>
     </div>
