@@ -191,17 +191,11 @@ onMounted(() => {
 })
 onUnmounted(() => { mq?.removeEventListener('change', onMq); removeForms(); document.body.style.overflow = '' })
 
-// El formulario de tarjeta de Izipay se renderiza EMBEBIDO en la página. NO se
-// bloquea el scroll (si se bloqueaba, el usuario no podía bajar a llenar la tarjeta).
-// Al abrirse, llevamos la vista al formulario para que quede a la mano.
+// Modal de pago abierto → bloquea el scroll del FONDO (el form vive dentro del modal,
+// que scrollea su propio contenido si no entra en pantalla). Así el usuario solo puede
+// ingresar la tarjeta o cerrar el popup.
 watch(mostrarPago, (abierto) => {
-  if (typeof document === 'undefined') return
-  document.body.style.overflow = ''   // nunca bloquear el scroll
-  if (abierto) {
-    nextTick(() => setTimeout(() => {
-      document.getElementById('izipay-form')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-    }, 300))
-  }
+  if (typeof document !== 'undefined') document.body.style.overflow = abierto ? 'hidden' : ''
 })
 const itemsVisibles = computed(() => esDesktop.value || resumenAbierto.value)
 
@@ -605,11 +599,9 @@ const metodoLabel = computed(() =>
                 {{ metodoPago === 'yape_manual' ? 'Coordinaremos el pago por WhatsApp.' : 'Pago seguro procesado por Izipay.' }}
               </p>
 
-              <!-- Formulario de tarjeta en el POPUP NATIVO de Izipay (contenedor VACÍO
-                   + kr-popin → addForm/showForm lo abre). Es el único que completa bien
-                   el pago Y el desafío 3DS del banco. Lo dejamos bonito (blur del fondo,
-                   centrado, redondeado) con las CLASES REALES de krypton en el CSS global. -->
-              <div v-if="mostrarPago" id="izipay-form" class="izipay-form" kr-popin></div>
+              <!-- El formulario de tarjeta de Izipay se monta dentro del MODAL de abajo
+                   (Teleport al body). z-index moderado (600) para tapar el sitio pero NO
+                   el popup de 3DS del banco (que usa una capa más alta). -->
             </fieldset>
 
             <!-- Navegación -->
@@ -673,6 +665,21 @@ const metodoLabel = computed(() =>
       </div>
     </section>
   </template>
+
+  <!-- Popup de pago: overlay que bloquea el fondo. Solo se puede ingresar la tarjeta
+       o cerrar (botón ✕). Teleport al body + z-index moderado para NO tapar el 3DS. -->
+  <Teleport to="body">
+    <div v-if="mostrarPago" class="pay-modal" role="dialog" aria-modal="true" aria-label="Pago con tarjeta">
+      <div class="pay-modal__backdrop" aria-hidden="true"></div>
+      <div class="pay-modal__panel">
+        <button type="button" class="pay-modal__close" aria-label="Cerrar pago" @click="cerrarPago">✕</button>
+        <p class="pay-modal__eyebrow">Pago seguro · Izipay</p>
+        <h3 class="pay-modal__title">Pagar con tarjeta</h3>
+        <div id="izipay-form" class="izipay-form" kr-popin></div>
+        <p v-if="errorPago" class="pay-modal__err field__error" role="alert">{{ errorPago }}</p>
+      </div>
+    </div>
+  </Teleport>
 </div>
 </template>
 
@@ -789,7 +796,7 @@ const metodoLabel = computed(() =>
 .izipay-form { margin-top: 0.4rem; min-height: 1px; }
 
 /* ── POPUP PROPIO DE PAGO (Teleport al body) — bloquea y difumina todo el fondo ── */
-.pay-modal { position: fixed; inset: 0; z-index: 99990; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 1.5rem 1rem; }
+.pay-modal { position: fixed; inset: 0; z-index: 600; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 1.5rem 1rem; }
 .pay-modal__backdrop { position: fixed; inset: 0; background: rgba(6, 8, 16, 0.62); backdrop-filter: blur(7px); -webkit-backdrop-filter: blur(7px); animation: pm-fade 0.25s var(--ease-out) both; }
 .pay-modal__panel {
   position: relative; z-index: 1; width: 100%; max-width: 440px; margin: auto;
