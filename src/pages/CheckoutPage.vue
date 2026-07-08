@@ -402,7 +402,7 @@ const metodoLabel = computed(() =>
 
           <form class="form" novalidate @submit.prevent="paso < TOTAL_PASOS ? siguiente() : pagar()">
             <!-- ░ PASO 1 · DATOS ░ -->
-            <fieldset v-show="paso === 1" class="wstep">
+            <fieldset v-show="paso === 1" class="wstep wstep--card">
               <legend class="wstep__title">Tus datos</legend>
               <div class="form__row">
                 <div class="form__group">
@@ -440,7 +440,7 @@ const metodoLabel = computed(() =>
             </fieldset>
 
             <!-- ░ PASO 1 (cont.) · DIRECCIÓN ░ -->
-            <fieldset v-show="paso === 1" class="wstep">
+            <fieldset v-show="paso === 1" class="wstep wstep--card">
               <legend class="wstep__title">Dirección de entrega</legend>
               <div class="form__row">
                 <div class="form__group">
@@ -699,6 +699,8 @@ const metodoLabel = computed(() =>
 .form { display: flex; flex-direction: column; gap: 1.4rem; }
 .wstep { border: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 1rem; animation: hb-fade-up 0.4s var(--ease-out) both; }
 .wstep__title { font-family: var(--font-display); font-size: 1rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-1); padding: 0; }
+/* Cada sección del paso 1 como tarjeta separada (Tus datos / Dirección) */
+.wstep--card { background: var(--surface-1); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 1.4rem 1.3rem; }
 .form__row { display: grid; grid-template-columns: 1fr; gap: 1rem; }
 .form__group { display: flex; flex-direction: column; gap: 0.4rem; }
 .field__label { font-size: 0.68rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-2); font-weight: 600; }
