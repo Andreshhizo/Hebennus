@@ -690,8 +690,14 @@ const metodoLabel = computed(() =>
         <div class="pay-trust">
           <p class="pay-trust__sec">🔒 Pago cifrado · Procesado por Izipay · No guardamos tu tarjeta</p>
           <span class="pay-trust__cards" aria-label="Aceptamos Visa y Mastercard">
-            <img class="pay-card pay-card--visa" src="/visa-02.png" alt="Visa" />
-            <img class="pay-card pay-card--mc" src="/Mastercard-logo.svg" alt="Mastercard" />
+            <svg class="pay-card pay-card--visa" viewBox="0 0 50 16" role="img" aria-label="Visa">
+              <text x="25" y="13" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="800" font-style="italic" font-size="15" letter-spacing="0.5" fill="#1a52ff">VISA</text>
+            </svg>
+            <svg class="pay-card pay-card--mc" viewBox="0 0 38 24" role="img" aria-label="Mastercard">
+              <circle cx="15" cy="12" r="11" fill="#EB001B" />
+              <circle cx="23" cy="12" r="11" fill="#F79E1B" />
+              <path d="M19 3.2a11 11 0 0 0 0 17.6 11 11 0 0 0 0-17.6z" fill="#FF5F00" />
+            </svg>
           </span>
         </div>
       </div>
@@ -836,10 +842,10 @@ const metodoLabel = computed(() =>
 /* Sellos de confianza */
 .pay-trust { margin-top: 1rem; padding-top: 0.9rem; border-top: 1px solid var(--border-mid); display: flex; flex-direction: column; align-items: center; gap: 0.6rem; }
 .pay-trust__sec { margin: 0; font-size: 0.72rem; color: var(--text-3); text-align: center; line-height: 1.5; }
-.pay-trust__cards { display: flex; align-items: center; gap: 0.4rem; }
+.pay-trust__cards { display: flex; align-items: center; gap: 0.7rem; }
 .pay-card { display: block; width: auto; }
-.pay-card--visa { height: 46px; }   /* trae padding/sombra propios */
-.pay-card--mc { height: 30px; }
+.pay-card--visa { height: 15px; }
+.pay-card--mc { height: 23px; }
 
 @keyframes pm-fade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes pm-pop { from { opacity: 0; transform: translateY(14px) scale(0.98); } to { opacity: 1; transform: none; } }
