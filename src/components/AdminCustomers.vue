@@ -252,7 +252,7 @@ onMounted(cargar)
 .cli__bar { display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap; }
 .cli__meta { font-size: 0.8rem; color: var(--text-3); }
 .cli__refresh { padding: 0.5rem 0.9rem; font-size: 0.72rem; background: var(--surface-2); border: 1px solid var(--border-mid); color: var(--text-2); cursor: pointer; }
-.cli__msg { color: #e0566b; font-size: 0.82rem; margin: 0.5rem 0; }
+.cli__msg { color: var(--danger); font-size: 0.82rem; margin: 0.5rem 0; }
 .cli__center { display: grid; place-items: center; padding: 3rem 0; }
 .cli__h3 { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.14em; color: var(--text-2); margin-bottom: 0.8rem; }
 .cli__tag { font-size: 0.62rem; background: var(--surface-3); color: var(--text-3); padding: 0.1rem 0.5rem; border-radius: 999px; letter-spacing: 0; }
@@ -283,8 +283,8 @@ onMounted(cargar)
 .ord__items { font-size: 0.76rem; color: var(--text-2); margin-top: 0.5rem; }
 .ord__envio { font-size: 0.74rem; color: var(--text-3); margin-top: 0.35rem; }
 
-.cust__del { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.55rem 1rem; background: transparent; border: 1px solid #e0566b; color: #e0566b; font-size: 0.76rem; font-weight: 600; cursor: pointer; border-radius: 6px; }
-.cust__del:hover:not(:disabled) { background: #e0566b; color: #fff; }
+.cust__del { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.55rem 1rem; background: transparent; border: 1px solid var(--danger); color: var(--danger); font-size: 0.76rem; font-weight: 600; cursor: pointer; border-radius: 6px; }
+.cust__del:hover:not(:disabled) { background: var(--danger); color: #fff; }
 .cust__del:disabled { opacity: 0.6; cursor: not-allowed; }
 .cust__del-note { font-size: 0.68rem; color: var(--text-3); margin-top: 0.4rem; }
 
@@ -301,7 +301,7 @@ onMounted(cargar)
 .cmodal__actions { display: flex; gap: 0.6rem; }
 .cmodal__cancel, .cmodal__confirm { flex: 1; padding: 0.75rem; font-size: 0.8rem; font-weight: 600; cursor: pointer; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem; transition: filter 0.15s; }
 .cmodal__cancel { background: var(--surface-2); border: 1px solid var(--border-mid); color: var(--text-2); }
-.cmodal__confirm { background: #e0566b; border: 1px solid #e0566b; color: #fff; }
+.cmodal__confirm { background: var(--danger); border: 1px solid var(--danger); color: #fff; }
 .cmodal__confirm:hover:not(:disabled) { filter: brightness(1.08); }
 .cmodal__cancel:disabled, .cmodal__confirm:disabled { opacity: 0.6; cursor: not-allowed; }
 

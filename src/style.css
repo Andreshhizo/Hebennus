@@ -1,107 +1,114 @@
 /* =================================================================
    HEBENNUS — Design System
-   Dark: Deep Black + Navy  |  Light: White + Sky Teal
+   Beige (Isabelline) + Denim  ·  Claro = crema/denim  |  Oscuro = cálido/denim
    ================================================================= */
 
-/* ── DARK THEME (default) ── */
+/* ── DARK THEME (variante cálida + denim) ── */
 :root {
-  /* — Base / fondos (slate azulado profundo, frío) — */
-  --ink:          #070B14;   /* fondo app */
-  --surface-1:    #0D1422;   /* secciones */
-  --surface-2:    #141E30;   /* cards */
-  --surface-3:    #1E2C45;   /* hover/elevado */
-  --card-bg:      #141E30;
+  /* — Base / fondos (cálido, casi negro) — */
+  --ink:          #1A1712;   /* fondo app */
+  --surface-1:    #221E18;   /* secciones */
+  --surface-2:    #2B261F;   /* cards */
+  --surface-3:    #37312A;   /* hover/elevado */
+  --card-bg:      #2B261F;
 
-  /* — Texto (text-3 sube a AA) — */
-  --text-1:       #EAF2FB;   /* principal */
-  --text-2:       #A2B5D0;   /* secundario */
-  --text-3:       #6E83A4;   /* terciario — antes #4A6080, muy bajo */
+  /* — Texto (crema) — */
+  --text-1:       #F7F4F0;   /* principal */
+  --text-2:       #C9C1B4;   /* secundario */
+  --text-3:       #948B7D;   /* terciario (AA) */
 
-  /* — Acentos fríos combinados — */
-  --accent:        #22D3EE;  /* CIAN/AQUA — acción primaria (CTA, foco) */
-  --accent-deep:   #0EA5C4;  /* cian profundo (hover primario) */
-  --accent-2:      #5B8DEF;  /* AZUL-ACERO — links, activos, detalles */
-  --accent-2-soft: #84A9F5;
-  --accent-3:      #9DA8FF;  /* LILA PERIWINKLE — highlights, números, etiquetas */
+  /* — Acento azul vaquero (denim) — más claro sobre fondo oscuro — */
+  --accent:        #7C9AD4;  /* denim claro — acción primaria (CTA, foco) */
+  --accent-deep:   #4566A0;  /* denim (hover primario) */
+  --accent-2:      #6E8FCB;  /* links, activos, detalles */
+  --accent-2-soft: #8AA3CC;
+  --accent-3:      #8AA3CC;  /* denim claro — highlights, números, etiquetas */
 
-  /* Aliases de compatibilidad — lo que antes era azul mapea al azul-acero */
+  /* Aliases de compatibilidad */
   --copper:       var(--accent-2);
   --copper-light: var(--accent-2-soft);
 
-  /* — Bordes y líneas (fríos) — */
-  --border:       #1B2840;   /* divisores de sección */
-  --border-mid:   #2C3F60;   /* contornos de boxes — visible */
+  /* — Semánticos — */
+  --danger:       #D2694F;   /* terracota (error/eliminar) */
+  --success:      #7FA07C;   /* oliva (éxito/ok) */
 
-  /* — Gradiente frío de marca (piezas grandes, NUNCA el hero "MAKE IT REAL") — */
-  --grad-cool: linear-gradient(120deg, #22D3EE 0%, #5B8DEF 55%, #9DA8FF 100%);
+  /* — Bordes y líneas — */
+  --border:       #37312A;   /* divisores de sección */
+  --border-mid:   #4A4237;   /* contornos de boxes — visible */
 
-  /* — Sombras y glow (recalculadas con cian/azul) — */
-  --shadow-card:         0 4px 28px rgba(0,0,0,.55), 0 0 0 1px var(--border-mid);
-  --shadow-card-hover:   0 8px 36px rgba(0,0,0,.7),  0 0 0 1px rgba(34,211,238,.32);
+  /* — Gradiente denim de marca — */
+  --grad-cool: linear-gradient(120deg, #8AA3CC 0%, #6E8FCB 55%, #4566A0 100%);
+
+  /* — Sombras y glow — */
+  --shadow-card:         0 4px 28px rgba(0,0,0,.5),  0 0 0 1px var(--border-mid);
+  --shadow-card-hover:   0 8px 36px rgba(0,0,0,.6),  0 0 0 1px rgba(124,154,212,.35);
   --shadow-sm:           0 2px 12px rgba(0,0,0,.4),  0 0 0 1px var(--border-mid);
 
-  --nav-glass:    rgba(7,11,20,.94);
-  --glow-color:   rgba(34,211,238,.13);
+  --nav-glass:    rgba(26,23,18,.9);
+  --glow-color:   rgba(124,154,212,.16);
 
-  --overlay-dot:       rgba(234,242,251,.4);
-  --overlay-dot-hover: rgba(234,242,251,.7);
-  --overlay-border:    rgba(234,242,251,.3);
+  --overlay-dot:       rgba(247,244,240,.4);
+  --overlay-dot-hover: rgba(247,244,240,.75);
+  --overlay-border:    rgba(247,244,240,.3);
 
   --font-brand:   'Rubik Mono One', monospace;
   --font-display: 'DM Sans', -apple-system, system-ui, sans-serif;
   --font-body:    'Inter', -apple-system, system-ui, sans-serif;
 
-  /* — Forma y movimiento (más flow, menos cuadrado) — */
+  /* — Forma y movimiento — */
   --radius-sm:   10px;
   --radius-md:   16px;
   --radius-lg:   24px;
   --radius-pill: 999px;
   --ease-out:    cubic-bezier(0.22, 1, 0.36, 1);
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
-  --shadow-soft:  0 6px 24px rgba(0,0,0,.45);
-  --shadow-hover: 0 16px 44px rgba(0,0,0,.6);
+  --shadow-soft:  0 6px 24px rgba(0,0,0,.4);
+  --shadow-hover: 0 16px 44px rgba(0,0,0,.55);
 }
 
-/* ── LIGHT THEME ── */
+/* ── LIGHT THEME (identidad principal: crema Isabelline + denim) ── */
 html.light {
-  --ink:          #FFFFFF;
-  --surface-1:    #EFF8FA;
-  --surface-2:    #DCEEF5;
-  --surface-3:    #C4E2EE;
+  --ink:          #F7F4F0;   /* fondo app (Isabelline) */
+  --surface-1:    #F1ECE4;
+  --surface-2:    #EAE4D9;
+  --surface-3:    #DFD7C8;
+  --card-bg:      #FBF9F5;
 
-  --text-1:       #07111E;   /* casi negro */
-  --text-2:       #1A3D5C;   /* navy — alto contraste */
-  --text-3:       #3D6488;   /* teal-navy — legible (AA) */
+  --text-1:       #262421;   /* principal */
+  --text-2:       #5C574F;   /* secundario */
+  --text-3:       #8C877C;   /* terciario/apoyo */
 
-  /* Acentos fríos — variantes más oscuras para contraste AA sobre blanco */
-  --accent:        #0891B2;  /* cian profundo */
-  --accent-deep:   #0E7490;
-  --accent-2:      #3B6FD4;  /* azul-acero */
-  --accent-2-soft: #5B8DEF;
-  --accent-3:      #5B5FD6;  /* lila periwinkle */
+  /* Acento azul vaquero (denim) */
+  --accent:        #4566A0;  /* denim */
+  --accent-deep:   #35528A;  /* denim oscuro (hover) */
+  --accent-2:      #35528A;
+  --accent-2-soft: #8AA3CC;
+  --accent-3:      #4566A0;  /* denim legible para texto pequeño (chips/eyebrows) sobre crema */
 
   --copper:       var(--accent-2);
   --copper-light: var(--accent-2-soft);
 
-  --border:       #B0CEE0;
-  --border-mid:   #80AACC;
+  --danger:       #C0553F;   /* terracota */
+  --success:      #5B7B5A;   /* oliva */
 
-  --card-bg:             #FFFFFF;
-  --grad-cool: linear-gradient(120deg, #0891B2 0%, #3B6FD4 55%, #5B5FD6 100%);
+  --border:       #E7E1D6;   /* hairline */
+  --border-mid:   #D5CCBD;   /* medio */
 
-  --shadow-card:         0 2px 14px rgba(0,0,0,0.08), 0 0 0 1px var(--border-mid);
-  --shadow-card-hover:   0 6px 24px rgba(8,145,178,0.16), 0 0 0 1px rgba(8,145,178,0.4);
-  --shadow-sm:           0 1px 8px rgba(0,0,0,0.06), 0 0 0 1px var(--border-mid);
+  --grad-cool: linear-gradient(120deg, #8AA3CC 0%, #4566A0 55%, #35528A 100%);
 
-  --nav-glass:    rgba(255,255,255,0.96);
-  --glow-color:   rgba(8,145,178,0.10);
+  --shadow-card:         0 2px 14px rgba(38,36,33,0.06), 0 0 0 1px var(--border-mid);
+  --shadow-card-hover:   0 6px 24px rgba(69,102,160,0.14), 0 0 0 1px rgba(69,102,160,0.35);
+  --shadow-sm:           0 1px 8px rgba(38,36,33,0.05), 0 0 0 1px var(--border-mid);
 
-  --overlay-dot:       rgba(7,17,30,0.3);
-  --overlay-dot-hover: rgba(7,17,30,0.55);
-  --overlay-border:    rgba(7,17,30,0.22);
+  --nav-glass:    rgba(247,244,240,0.9);
+  --glow-color:   rgba(69,102,160,0.12);
 
-  --shadow-soft:  0 6px 22px rgba(13,52,84,.10);
-  --shadow-hover: 0 16px 40px rgba(8,145,178,.18);
+  --overlay-dot:       rgba(38,36,33,0.3);
+  --overlay-dot-hover: rgba(38,36,33,0.55);
+  --overlay-border:    rgba(38,36,33,0.22);
+
+  --shadow-soft:  0 6px 22px rgba(38,36,33,.08);
+  --shadow-hover: 0 16px 40px rgba(69,102,160,.16);
 }
 
 /* ── RESET ── */
@@ -148,8 +155,11 @@ button, a { transition: color 0.2s ease, background-color 0.2s ease, border-colo
 input, textarea, select { border-radius: var(--radius-sm); }
 
 /* Selección de texto con color de marca */
-::selection { background: var(--accent); color: var(--ink); }
+::selection { background: var(--accent); color: #F7F4F0; }
 
 /* Keyframes reutilizables extra */
 @keyframes hb-float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-7px); } }
 @keyframes hb-pop   { 0% { transform: scale(0.96); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+
+/* Marquee (Fase 2) — animación horizontal en loop, reutilizable */
+@keyframes hb-marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }

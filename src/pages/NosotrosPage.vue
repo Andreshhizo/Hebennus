@@ -145,7 +145,7 @@ const pilares = [
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
-  background: var(--surface-1);
+  background: #4566A0;   /* banda denim */
   border-bottom: 1px solid var(--border);
   padding: 0 2rem 5rem;
   overflow: hidden;
@@ -155,7 +155,7 @@ const pilares = [
   content: '';
   position: absolute;
   inset: 0;
-  background: radial-gradient(ellipse at 70% 40%, var(--glow-color) 0%, transparent 60%);
+  background: radial-gradient(ellipse at 70% 40%, rgba(247,244,240,.12) 0%, transparent 60%);
   pointer-events: none;
 }
 .nosotros-hero__inner {
@@ -171,12 +171,12 @@ const pilares = [
   font-size: 0.68rem;
   letter-spacing: 0.32em;
   text-transform: uppercase;
-  color: var(--accent-3);
+  color: rgba(247,244,240,.85);
   margin-bottom: 1.5rem;
   padding: 0.4rem 0.95rem;
   border-radius: var(--radius-pill);
-  background: var(--glow-color);
-  border: 1px solid var(--border-mid);
+  background: rgba(247,244,240,.15);
+  border: 1px solid rgba(247,244,240,.3);
 }
 .nosotros-hero__title {
   display: flex;
@@ -190,29 +190,22 @@ const pilares = [
   font-size: clamp(4rem, 13vw, 11rem);
   letter-spacing: -0.01em;
 }
-/* SOMOS — relleno blanco hielo */
-.word--solid   { color: var(--text-1); }
+/* SOMOS — relleno crema sólido sobre banda denim */
+.word--solid   { color: #F7F4F0; }
 
-/* HEBENNUS. — outline de líneas paralelas múltiples (igual que el hero del Home) */
+/* HEBENNUS. — outline relleno con líneas horizontales (igual que el hero del Home) */
 .word--line {
   position: relative;
   color: transparent;
-  -webkit-text-stroke: 1.5px var(--text-1);
+  -webkit-text-stroke: 1px #F7F4F0;
+  background: repeating-linear-gradient(to bottom, #F7F4F0 0, #F7F4F0 3px, transparent 3px, transparent 8px);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
-.word--line::before,
-.word--line::after {
-  content: attr(data-text);
-  position: absolute;
-  left: 0;
-  top: 0;
-  color: transparent;
-  pointer-events: none;
-}
-.word--line::before { -webkit-text-stroke: 5px var(--ink);   z-index: -1; }
-.word--line::after  { -webkit-text-stroke: 7.5px var(--text-1); z-index: -2; }
 .nosotros-hero__sub {
   font-size: 0.9rem;
-  color: var(--text-2);
+  color: rgba(247,244,240,.85);
   letter-spacing: 0.04em;
   line-height: 1.7;
   max-width: 480px;
@@ -244,7 +237,7 @@ const pilares = [
 .mv__card:hover {
   transform: translateY(-4px);
   box-shadow: var(--shadow-hover);
-  border-color: rgba(34,211,238,.32);
+  border-color: rgba(69,102,160,.32);
 }
 .mv__label {
   font-size: 0.7rem;
@@ -315,7 +308,7 @@ const pilares = [
 .pilar:hover {
   transform: translateY(-4px);
   box-shadow: var(--shadow-hover);
-  border-color: rgba(34,211,238,.32);
+  border-color: rgba(69,102,160,.32);
 }
 .pilar:hover::before { transform: scaleX(1); }
 .pilar__num {
@@ -381,7 +374,7 @@ const pilares = [
 .etim:hover {
   transform: translateY(-4px);
   box-shadow: var(--shadow-hover);
-  border-color: rgba(34,211,238,.32);
+  border-color: rgba(69,102,160,.32);
 }
 .etim__parte {
   font-family: var(--font-display);

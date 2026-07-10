@@ -186,14 +186,15 @@ onUnmounted(() => {
 
 <style scoped>
 .announce {
-  background: var(--surface-2);
-  border-bottom: 1px solid var(--border);
+  background: var(--accent);
+  border-bottom: none;
   padding: 0.6rem 1rem;
   text-align: center;
   font-size: 0.7rem;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: var(--text-2);
+  color: #F7F4F0;
+  font-weight: 600;
 }
 
 .page-enter-active { transition: opacity 0.3s ease, transform 0.3s cubic-bezier(0.22, 1, 0.36, 1); }

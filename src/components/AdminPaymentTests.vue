@@ -142,10 +142,10 @@ onMounted(cargar)
 .ptests__actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
 .ptests__refresh { padding: 0.5rem 0.9rem; font-size: 0.72rem; background: var(--surface-2); border: 1px solid var(--border-mid); color: var(--text-2); cursor: pointer; }
 .ptests__refresh:hover:not(:disabled) { color: var(--text-1); }
-.ptests__clear { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.5rem 0.9rem; font-size: 0.72rem; font-weight: 600; background: transparent; border: 1px solid #e0566b; color: #e0566b; cursor: pointer; }
-.ptests__clear:hover:not(:disabled) { background: #e0566b; color: #fff; }
+.ptests__clear { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.5rem 0.9rem; font-size: 0.72rem; font-weight: 600; background: transparent; border: 1px solid var(--danger); color: var(--danger); cursor: pointer; }
+.ptests__clear:hover:not(:disabled) { background: var(--danger); color: #fff; }
 .ptests__clear:disabled { opacity: 0.5; cursor: not-allowed; }
-.ptests__error { color: #e0566b; font-size: 0.82rem; margin: 0.5rem 0; }
+.ptests__error { color: var(--danger); font-size: 0.82rem; margin: 0.5rem 0; }
 .ptests__center { display: grid; place-items: center; padding: 3rem 0; }
 .ptests__empty { color: var(--text-3); padding: 3rem 0; text-align: center; }
 .ptests__scroll { overflow-x: auto; border: 1px solid var(--border-mid); background: var(--card-bg); animation: hb-fade-up 0.3s ease both; }
@@ -163,8 +163,8 @@ onMounted(cargar)
 .ttab__match { text-align: center; font-size: 0.95rem; }
 
 .badge { font-size: 0.66rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; padding: 0.2rem 0.55rem; border-radius: 999px; border: 1px solid currentColor; }
-.badge--ok { color: #2ecc8f; }
-.badge--fail { color: #e0566b; }
+.badge--ok { color: var(--success); }
+.badge--fail { color: var(--danger); }
 
 /* ── Spinner ── */
 .spinner { width: 22px; height: 22px; border: 2px solid var(--text-3); border-top-color: transparent; border-radius: 50%; animation: spin 0.7s linear infinite; }

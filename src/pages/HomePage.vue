@@ -40,7 +40,7 @@ onMounted(async () => {
       <p class="hero__eyebrow">SS25 · Edición Limitada</p>
       <h1 class="hero__headline" aria-label="Make it real.">
         <span class="hero__word hero__word--solid">MAKE</span>
-        <span class="hero__word hero__word--line" data-text="IT">IT</span>
+        <span class="hero__word hero__word--solid">IT</span>
         <span class="hero__word hero__word--line" data-text="REAL.">REAL.</span>
       </h1>
       <p class="hero__sub">Oversize &nbsp;·&nbsp; Atlético &nbsp;·&nbsp; Cómodo</p>
@@ -146,7 +146,7 @@ onMounted(async () => {
 .hero__bg {
   position: absolute;
   inset: 0;
-  background: var(--ink);
+  background: #4566A0;   /* banda denim */
   /* Para foto de fondo, descomenta:
   background-image: url('/hero.jpg');
   background-size: cover;
@@ -159,7 +159,7 @@ onMounted(async () => {
   height: 70%;
   bottom: -12%;
   right: -8%;
-  background: radial-gradient(ellipse, var(--glow-color) 0%, transparent 68%);
+  background: radial-gradient(ellipse, rgba(247,244,240,.12) 0%, transparent 68%);
   pointer-events: none;
 }
 .hero__content {
@@ -176,7 +176,7 @@ onMounted(async () => {
   font-size: 0.7rem;
   letter-spacing: 0.3em;
   text-transform: uppercase;
-  color: var(--accent-3);
+  color: rgba(247,244,240,.75);
   margin-bottom: 2.5rem;
 }
 .hero__headline {
@@ -190,39 +190,30 @@ onMounted(async () => {
   font-size: clamp(5rem, 17vw, 15rem);
   letter-spacing: -0.01em;
 }
-/* MAKE — relleno blanco hielo */
-.hero__word--solid   { color: var(--text-1); }
+/* MAKE / IT — relleno crema sólido sobre la banda denim */
+.hero__word--solid   { color: #F7F4F0; }
 
-/* IT / REAL. — outline de líneas paralelas múltiples (efecto técnico/varsity).
-   Capas de trazo apiladas: línea exterior blanca → hueco navy → línea interior blanca. */
+/* REAL. — outline relleno con líneas horizontales paralelas (repeating-linear-gradient
+   recortado al texto) + trazo crema. Sin relleno pleno. */
 .hero__word--line {
   position: relative;
   color: transparent;
-  -webkit-text-stroke: 1.5px var(--text-1);   /* línea interior */
-}
-.hero__word--line::before,
-.hero__word--line::after {
-  content: attr(data-text);
-  position: absolute;
-  left: 0;
-  top: 0;
-  color: transparent;
-  pointer-events: none;
-}
-.hero__word--line::before {                    /* hueco (mismo color del fondo) */
-  -webkit-text-stroke: 5px var(--ink);
-  z-index: -1;
-}
-.hero__word--line::after  {                    /* línea exterior */
-  -webkit-text-stroke: 7.5px var(--text-1);
-  z-index: -2;
+  -webkit-text-stroke: 1px #F7F4F0;
+  background: repeating-linear-gradient(
+    to bottom,
+    #F7F4F0 0, #F7F4F0 3px,
+    transparent 3px, transparent 8px
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 .hero__sub {
   margin-top: 3rem;
   font-size: 0.75rem;
   letter-spacing: 0.24em;
   text-transform: uppercase;
-  color: var(--text-2);
+  color: rgba(247,244,240,.85);
 }
 .hero__cta {
   margin-top: 2.5rem;
@@ -241,7 +232,7 @@ onMounted(async () => {
   display: block;
   width: 1px;
   height: 54px;
-  background: linear-gradient(to bottom, var(--accent), transparent);
+  background: linear-gradient(to bottom, rgba(247,244,240,.8), transparent);
   animation: scrollPulse 2.4s ease-in-out infinite;
 }
 @keyframes scrollPulse {
@@ -289,6 +280,12 @@ onMounted(async () => {
   border-color: var(--text-1);
   background: var(--glow-color);
 }
+
+/* Botones dentro de la banda denim del hero (uno crema sólido, uno outline crema) */
+.hero .btn--fill { background: #F7F4F0; color: #35528A; border-color: #F7F4F0; }
+.hero .btn--fill:hover { background: #fff; color: #35528A; border-color: #fff; }
+.hero .btn--outline { color: #F7F4F0; border-color: rgba(247,244,240,.5); }
+.hero .btn--outline:hover { border-color: #F7F4F0; background: rgba(247,244,240,.12); }
 
 /* ── FEATURED ── */
 .featured { padding: 5rem 2rem 3rem; }
@@ -376,7 +373,7 @@ onMounted(async () => {
 .pilar:hover {
   transform: translateY(-4px);
   box-shadow: var(--shadow-hover);
-  border-color: rgba(34,211,238,.32);
+  border-color: rgba(69,102,160,.32);
 }
 .pilar:hover::before { transform: scaleX(1); }
 .pilar__num {

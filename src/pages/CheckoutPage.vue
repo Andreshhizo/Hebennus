@@ -671,7 +671,7 @@ const metodoLabel = computed(() =>
 .form__row { display: grid; grid-template-columns: 1fr; gap: 1rem; }
 .form__group { display: flex; flex-direction: column; gap: 0.4rem; }
 .field__label { font-size: 0.68rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-2); font-weight: 600; }
-.req { color: #e0566b; }
+.req { color: var(--danger); }
 .opt { color: var(--text-3); font-weight: 400; letter-spacing: 0.02em; text-transform: none; }
 .field__input {
   background: var(--surface-2); border: 1px solid var(--border-mid); border-radius: var(--radius-sm);
@@ -680,9 +680,9 @@ const metodoLabel = computed(() =>
 }
 .field__input::placeholder { color: var(--text-3); }
 .field__input:focus-visible { border-color: var(--accent); box-shadow: 0 0 0 3px var(--glow-color); }
-.field__input--err { border-color: #e0566b; }
+.field__input--err { border-color: var(--danger); }
 .field__textarea { resize: vertical; line-height: 1.5; border-radius: var(--radius-md); }
-.field__error { font-size: 0.74rem; color: #e0566b; }
+.field__error { font-size: 0.74rem; color: var(--danger); }
 .field__hint { font-size: 0.7rem; color: var(--text-3); }
 
 .doc { display: flex; flex-direction: column; gap: 0.8rem; padding: 1rem 1.1rem; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-md); }
@@ -799,7 +799,7 @@ const metodoLabel = computed(() =>
 .summary__total { display: flex; justify-content: space-between; align-items: baseline; border-top: 1px solid var(--border); padding-top: 1rem; }
 .summary__total span:first-child { font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-2); }
 .summary__total-amt { font-family: var(--font-display); font-size: 1.3rem; font-weight: 700; color: var(--text-1); }
-.summary__send-err { font-size: 0.76rem; color: #e0566b; }
+.summary__send-err { font-size: 0.76rem; color: var(--danger); }
 .ship-note { margin-top: 0.2rem; padding: 0.85rem 1rem; background: var(--surface-2); border: 1px solid var(--border-mid); border-radius: var(--radius-md); font-size: 0.76rem; line-height: 1.55; color: var(--text-2); }
 .ship-note strong { color: var(--text-1); font-weight: 600; }
 .ship-note__link { display: inline-block; margin-top: 0.3rem; color: var(--accent-3); text-decoration: underline; text-underline-offset: 2px; font-weight: 600; }
@@ -877,14 +877,14 @@ const metodoLabel = computed(() =>
 
 /* Campos de tarjeta: redondeados con foco resaltado */
 .kr-field { border-radius: 12px !important; transition: box-shadow 0.2s ease, border-color 0.2s ease !important; }
-.kr-field.kr-focus { box-shadow: 0 0 0 3px rgba(91, 141, 239, 0.28) !important; border-color: #5b8def !important; }
+.kr-field.kr-focus { box-shadow: 0 0 0 3px rgba(69,102,160, 0.28) !important; border-color: #4566A0 !important; }
 
 /* Botón de pago: degradado de marca + animación al pasar el mouse */
 .kr-payment-button {
-  background: linear-gradient(120deg, #5b8def, #8b5cf6) !important;
+  background: linear-gradient(120deg, #4566A0, #35528A) !important;
   background-size: 180% 180% !important;
   border: none !important; border-radius: 14px !important; font-weight: 700 !important; letter-spacing: 0.04em !important;
-  box-shadow: 0 8px 24px rgba(91, 141, 239, 0.35) !important;
+  box-shadow: 0 8px 24px rgba(69,102,160, 0.35) !important;
   transition: transform 0.25s ease, box-shadow 0.25s ease, background-position 0.6s ease !important;
 }
 .kr-payment-button:hover { transform: translateY(-2px) !important; background-position: 100% 0 !important; box-shadow: 0 12px 32px rgba(139, 92, 246, 0.45) !important; }

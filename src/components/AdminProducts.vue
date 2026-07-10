@@ -651,7 +651,7 @@ onMounted(cargar)
 .prods__new:hover { filter: brightness(1.08); }
 .prods__refresh { padding: 0.5rem 0.9rem; font-size: 0.72rem; background: var(--surface-2); border: 1px solid var(--border-mid); color: var(--text-2); cursor: pointer; }
 .prods__refresh:hover:not(:disabled) { color: var(--text-1); }
-.prods__error { color: #e0566b; font-size: 0.82rem; margin: 0.5rem 0; }
+.prods__error { color: var(--danger); font-size: 0.82rem; margin: 0.5rem 0; }
 .prods__center { display: grid; place-items: center; padding: 3rem 0; }
 .prods__empty { color: var(--text-3); padding: 3rem 0; text-align: center; }
 .prods__list { list-style: none; display: flex; flex-direction: column; gap: 0.8rem; }
@@ -665,7 +665,7 @@ onMounted(cargar)
 .prod__editbtn { padding: 0.4rem 0.8rem; font-size: 0.72rem; font-weight: 600; background: var(--surface-2); border: 1px solid var(--border-mid); color: var(--text-2); cursor: pointer; border-radius: 6px; }
 .prod__editbtn:hover { color: var(--text-1); }
 .prod__toggle { font-size: 0.68rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; padding: 0.35rem 0.7rem; border-radius: 999px; border: 1px solid currentColor; cursor: pointer; background: transparent; }
-.prod__toggle--on { color: #2ecc8f; }
+.prod__toggle--on { color: var(--success); }
 .prod__toggle--off { color: #9aa0b0; }
 .prod__toggle:disabled { opacity: 0.6; cursor: wait; }
 
@@ -694,13 +694,13 @@ onMounted(cargar)
 .vtab tbody tr:last-child td { border-bottom: none; }
 .vtab__input { width: 84px; background: var(--surface-2); border: 1px solid var(--border-mid); color: var(--text-1); padding: 0.4rem 0.55rem; font-size: 0.85rem; outline: none; }
 .vtab__input:focus-visible { border-color: var(--accent); }
-.vtab__input--bad { border-color: #e0566b; }
+.vtab__input--bad { border-color: var(--danger); }
 .vtab__action { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
 .vtab__save { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.4rem 0.85rem; font-size: 0.72rem; font-weight: 600; cursor: pointer; background: var(--accent); border: 1px solid var(--accent); color: var(--ink); border-radius: 6px; }
 .vtab__save:hover:not(:disabled) { filter: brightness(1.08); }
 .vtab__save:disabled { opacity: 0.5; cursor: not-allowed; }
-.vtab__ok { font-size: 0.8rem; color: #2ecc8f; }
-.vtab__err { font-size: 0.72rem; color: #e0566b; }
+.vtab__ok { font-size: 0.8rem; color: var(--success); }
+.vtab__err { font-size: 0.72rem; color: var(--danger); }
 .vtab__del { background: transparent; border: none; cursor: pointer; font-size: 0.9rem; opacity: 0.7; padding: 0.2rem; }
 .vtab__del:hover:not(:disabled) { opacity: 1; }
 .vtab__del:disabled { opacity: 0.3; cursor: not-allowed; }
@@ -725,8 +725,8 @@ onMounted(cargar)
 .fotos__save { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.5rem 1rem; font-size: 0.74rem; font-weight: 600; cursor: pointer; background: var(--accent); border: 1px solid var(--accent); color: var(--ink); border-radius: 6px; }
 .fotos__save:hover:not(:disabled) { filter: brightness(1.08); }
 .fotos__save:disabled { opacity: 0.5; cursor: not-allowed; }
-.fotos__ok { font-size: 0.74rem; color: #2ecc8f; }
-.fotos__err { font-size: 0.74rem; color: #e0566b; }
+.fotos__ok { font-size: 0.74rem; color: var(--success); }
+.fotos__err { font-size: 0.74rem; color: var(--danger); }
 
 /* ── Modal Nuevo producto ── */
 .nm__overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.55); backdrop-filter: blur(3px); display: grid; place-items: center; z-index: 700; padding: 1rem; }

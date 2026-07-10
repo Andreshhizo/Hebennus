@@ -252,7 +252,7 @@ onUnmounted(() => document.removeEventListener('click', onDocClick))
   align-items: center;
   justify-content: center;
   padding: 0 3px;
-  box-shadow: 0 2px 8px rgba(34,211,238,.4);
+  box-shadow: 0 2px 8px rgba(69,102,160,.4);
   animation: badge-pop 0.4s var(--ease-spring) both;
 }
 @keyframes badge-pop { 0% { transform: scale(0); } 100% { transform: scale(1); } }
@@ -378,7 +378,7 @@ onUnmounted(() => document.removeEventListener('click', onDocClick))
 .mob-account__email { font-size: 0.74rem; color: var(--text-3); margin-bottom: 0.4rem; overflow: hidden; text-overflow: ellipsis; }
 .mob-menu__account a, .mob-menu__account button { text-align: left; padding: 0.65rem 0; font-size: 0.95rem; color: var(--text-2); cursor: pointer; transition: color 0.2s var(--ease-out); }
 .mob-account__admin { color: var(--accent-3); font-weight: 600; }
-.mob-account__out { color: #e0566b; }
+.mob-account__out { color: var(--danger); }
 .mob-account__cta {
   margin-top: 0.5rem;
   text-align: center !important;

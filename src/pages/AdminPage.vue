@@ -381,7 +381,7 @@ onMounted(async () => {
             <span class="order__total">{{ money(o.total) }}</span>
             <span
               class="badge"
-              :style="{ '--c': o.payment_status === 'pagado' ? '#2ecc8f' : (o.payment_status === 'fallido' ? '#e0566b' : '#e0a23b') }"
+              :style="{ '--c': o.payment_status === 'pagado' ? 'var(--success)' : (o.payment_status === 'fallido' ? 'var(--danger)' : '#e0a23b') }"
             >{{ o.payment_status === 'pagado' ? 'Pagado' : (o.payment_status === 'fallido' ? 'Pago fallido' : 'Pago pendiente') }}</span>
             <span class="badge" :style="{ '--c': ESTADO_COLOR[o.status] || '#888' }">{{ ESTADO_LABEL[o.status] || o.status }}</span>
             <button class="order__ver" @click.stop="abrirDetalle(o)">Ver detalle →</button>
@@ -504,7 +504,7 @@ onMounted(async () => {
 .login__label { font-size: 0.68rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-2); font-weight: 600; margin-top: 0.5rem; }
 .login__input { background: var(--surface-2); border: 1px solid var(--border-mid); color: var(--text-1); padding: 0.7rem 0.8rem; font-size: 0.95rem; outline: none; }
 .login__input:focus-visible { border-color: var(--accent); }
-.login__error { color: #e0566b; font-size: 0.78rem; }
+.login__error { color: var(--danger); font-size: 0.78rem; }
 .login__btn {
   margin-top: 1rem; padding: 0.85rem; background: var(--accent); color: var(--ink);
   border: none; font-family: var(--font-display); font-size: 0.78rem; font-weight: 700;
@@ -526,7 +526,7 @@ onMounted(async () => {
   display: inline-flex; align-items: center;
 }
 .dash__back:hover, .dash__refresh:hover { color: var(--text-1); }
-.dash__logout { color: #e0566b; }
+.dash__logout { color: var(--danger); }
 .dash__tabs { display: flex; gap: 0.5rem; margin: 1.25rem 0 0.5rem; border-bottom: 1px solid var(--border); }
 .dtab { padding: 0.6rem 1rem; font-size: 0.8rem; font-weight: 600; color: var(--text-3); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }
 .dtab--on { color: var(--text-1); border-bottom-color: var(--accent); }
@@ -540,7 +540,7 @@ onMounted(async () => {
 .dash__searchinput { flex: 1; min-width: 240px; background: var(--surface-2); border: 1px solid var(--border-mid); color: var(--text-1); padding: 0.6rem 0.85rem; font-size: 0.88rem; outline: none; border-radius: 8px; }
 .dash__searchinput:focus-visible { border-color: var(--accent); box-shadow: 0 0 0 3px var(--glow-color); }
 .dash__searchcount { font-size: 0.74rem; color: var(--text-3); white-space: nowrap; }
-.dash__error { color: #e0566b; font-size: 0.82rem; margin: 0.5rem 0; }
+.dash__error { color: var(--danger); font-size: 0.82rem; margin: 0.5rem 0; }
 .dash__empty { color: var(--text-3); padding: 3rem 0; text-align: center; }
 .pager { display: flex; align-items: center; justify-content: center; gap: 1rem; margin-top: 1.25rem; flex-wrap: wrap; }
 .pager__btn { padding: 0.5rem 1rem; font-size: 0.76rem; font-weight: 600; background: var(--surface-2); border: 1px solid var(--border-mid); color: var(--text-2); cursor: pointer; border-radius: 6px; }
@@ -574,7 +574,7 @@ onMounted(async () => {
 .order__notes { color: var(--text-3); }
 .order__pagado {
   margin-top: 0.75rem; padding: 0.55rem 0.9rem; font-size: 0.74rem; font-weight: 700;
-  letter-spacing: 0.05em; cursor: pointer; background: #2ecc8f; border: 1px solid #2ecc8f;
+  letter-spacing: 0.05em; cursor: pointer; background: var(--success); border: 1px solid var(--success);
   color: var(--ink); display: inline-flex; align-items: center; gap: 0.45rem;
 }
 .order__pagado:hover { filter: brightness(1.05); }
@@ -583,8 +583,8 @@ onMounted(async () => {
 .order__estado select { margin-left: 0.5rem; padding: 0.4rem 0.6rem; background: var(--surface-2); border: 1px solid var(--border-mid); color: var(--text-1); }
 .order__estado select:disabled { opacity: 0.6; cursor: wait; }
 .order__estadomsg { font-size: 0.74rem; margin-top: 0.4rem; }
-.order__estadomsg--ok { color: #2ecc8f; }
-.order__estadomsg--err { color: #e0566b; }
+.order__estadomsg--ok { color: var(--success); }
+.order__estadomsg--err { color: var(--danger); }
 .order__ver { padding: 0.35rem 0.7rem; font-size: 0.72rem; font-weight: 600; background: var(--surface-2); border: 1px solid var(--border-mid); color: var(--text-2); cursor: pointer; border-radius: 6px; white-space: nowrap; }
 .order__ver:hover { color: var(--text-1); border-color: var(--accent); }
 
@@ -606,8 +606,8 @@ onMounted(async () => {
 .odm__input { background: var(--surface-2); border: 1px solid var(--border-mid); color: var(--text-1); padding: 0.5rem 0.6rem; font-size: 0.88rem; outline: none; border-radius: 6px; font-family: inherit; }
 .odm__input:focus-visible { border-color: var(--accent); }
 .odm__msg { font-size: 0.78rem; margin-top: 0.2rem; }
-.odm__msg--ok { color: #2ecc8f; }
-.odm__msg--err { color: #e0566b; }
+.odm__msg--ok { color: var(--success); }
+.odm__msg--err { color: var(--danger); }
 .odm__foot { display: flex; justify-content: flex-end; gap: 0.7rem; padding: 1rem 1.25rem; border-top: 1px solid var(--border); }
 .odm__cancel { padding: 0.6rem 1rem; font-size: 0.78rem; color: var(--text-3); background: transparent; border: 1px solid var(--border-mid); border-radius: 6px; cursor: pointer; }
 .odm__cancel:hover { color: var(--text-1); }

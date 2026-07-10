@@ -369,11 +369,11 @@ function cambiarModo(m) {
 .acc__opt { color: var(--text-3); font-weight: 400; text-transform: none; letter-spacing: 0; }
 .acc__input { background: var(--surface-2); border: 1px solid var(--border-mid); color: var(--text-1); padding: 0.7rem 0.8rem; font-size: 0.95rem; outline: none; border-radius: var(--radius-sm); transition: border-color 0.2s var(--ease-out), box-shadow 0.2s var(--ease-out); }
 .acc__input:focus-visible { border-color: var(--accent); box-shadow: 0 0 0 3px var(--glow-color); }
-.acc__error { color: #e0566b; font-size: 0.78rem; margin-top: 0.6rem; }
+.acc__error { color: var(--danger); font-size: 0.78rem; margin-top: 0.6rem; }
 .acc__aviso { color: var(--accent-2); font-size: 0.82rem; margin-top: 0.6rem; line-height: 1.5; }
-.acc__ferr { color: #e0566b; font-size: 0.72rem; margin-top: 0.15rem; }
+.acc__ferr { color: var(--danger); font-size: 0.72rem; margin-top: 0.15rem; }
 .acc__phint { color: var(--text-3); font-size: 0.72rem; margin-top: 0.15rem; line-height: 1.4; }
-.acc__phint.acc__ferr { color: #e0566b; }
+.acc__phint.acc__ferr { color: var(--danger); }
 .acc__forgot { text-align: right; margin-top: 0.45rem; }
 .acc__forgot button { color: var(--accent-3); font-size: 0.76rem; font-weight: 600; cursor: pointer; transition: opacity 0.2s var(--ease-out); }
 .acc__forgot button:hover { opacity: 0.78; }

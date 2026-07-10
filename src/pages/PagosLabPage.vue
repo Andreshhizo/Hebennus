@@ -169,13 +169,13 @@ async function copiar(x) {
 .btn-main:hover { transform: translateY(-2px); box-shadow: var(--shadow-hover); }
 .btn-main:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
 
-.err { color: #e0566b; font-size: 0.82rem; margin: 0.8rem 0 0; }
+.err { color: var(--danger); font-size: 0.82rem; margin: 0.8rem 0 0; }
 .hint { font-size: 0.74rem; color: var(--text-3); line-height: 1.7; margin-top: 0.9rem; }
 .hint strong { color: var(--text-1); }
 
 .banner { margin-top: 1rem; padding: 0.8rem 1rem; border-radius: var(--radius-md); font-size: 0.86rem; line-height: 1.4; }
-.banner.is-ok { background: rgba(46, 204, 143, 0.14); border: 1px solid #2ecc8f; color: var(--text-1); }
-.banner.is-fail { background: rgba(224, 86, 107, 0.12); border: 1px solid #e0566b; color: var(--text-1); }
+.banner.is-ok { background: rgba(46, 204, 143, 0.14); border: 1px solid var(--success); color: var(--text-1); }
+.banner.is-fail { background: rgba(224, 86, 107, 0.12); border: 1px solid var(--danger); color: var(--text-1); }
 
 .copy { background: var(--surface-2); border: 1px solid var(--border-mid); color: var(--text-2); font-size: 0.72rem; padding: 0.35rem 0.7rem; border-radius: var(--radius-pill); cursor: pointer; transition: border-color 0.2s, color 0.2s; }
 .copy:hover { border-color: var(--accent); color: var(--text-1); }
@@ -195,5 +195,5 @@ async function copiar(x) {
 .kr-popin-wrapper, .kr-popin-wrapper--large-form { overflow-y: auto !important; }
 .kr-modal { border-radius: 20px !important; box-shadow: 0 30px 80px rgba(0,0,0,0.5) !important; }
 .kr-close-popup { display: flex !important; visibility: visible !important; opacity: 0.9 !important; cursor: pointer !important; z-index: 10 !important; }
-.kr-payment-button { background: linear-gradient(120deg, #5b8def, #8b5cf6) !important; border: none !important; border-radius: 14px !important; font-weight: 700 !important; }
+.kr-payment-button { background: linear-gradient(120deg, #4566A0, #35528A) !important; border: none !important; border-radius: 14px !important; font-weight: 700 !important; }
 </style>

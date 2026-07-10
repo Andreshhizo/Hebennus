@@ -14,13 +14,14 @@ export const ESTADO_LABEL = {
   reembolsado:'Reembolsado',
 }
 
+// Armonizados con la identidad beige + denim (2026-07-10 rediseño).
 export const ESTADO_COLOR = {
-  pendiente:  '#e0a23b',
-  confirmado: '#5b8def',
-  enviado:    '#7c5cff',
-  entregado:  '#2ecc8f',
-  cancelado:  '#e0566b',
-  reembolsado:'#9aa0b0',
+  pendiente:  '#C9962F',  /* mostaza cálida */
+  confirmado: '#4566A0',  /* denim */
+  enviado:    '#7A6FB0',  /* índigo suave */
+  entregado:  '#5B7B5A',  /* oliva (success) */
+  cancelado:  '#C0553F',  /* terracota (danger) */
+  reembolsado:'#9A9082',  /* gris cálido */
 }
 
 // Estados que cuentan como "en curso" en la vista del cliente.
