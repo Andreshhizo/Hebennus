@@ -34,15 +34,20 @@ async function checkAdmin() {
 function init() {
   if (initialized) return
   initialized = true
-  supabase.auth.getSession().then(async ({ data }) => {
+  supabase.auth.getSession().then(({ data }) => {
     user.value = data.session?.user ?? null
-    await checkAdmin()
     ready.value = true
+    checkAdmin()
   })
-  supabase.auth.onAuthStateChange(async (_event, session) => {
+  // ⚠️ NO usar async/await DENTRO de este callback. Llamar métodos de auth —o rpc(),
+  // que internamente pide getSession()— aquí y esperarlos causa un DEADLOCK del lock
+  // interno de supabase-js: updateUser()/verifyOtp() se quedan colgados ("Guardando…"
+  // infinito). Por eso el callback es síncrono y checkAdmin() se difiere con setTimeout,
+  // ya FUERA del lock. Ref: supabase/gotrue-js — "don't await inside onAuthStateChange".
+  supabase.auth.onAuthStateChange((_event, session) => {
     user.value = session?.user ?? null
-    await checkAdmin()
     ready.value = true
+    setTimeout(() => { checkAdmin() }, 0)
   })
 }
 
@@ -89,6 +94,17 @@ export function useAuth() {
     if (error) throw error
   }
 
+  // ¿El correo ya está registrado? (server-side, vía edge function check-email).
+  // Se usa antes de mandar el código de recuperación para no decir "te enviamos un
+  // código" si el correo no existe.
+  async function emailExiste(email) {
+    const { data, error } = await supabase.functions.invoke('check-email', {
+      body: { email: email.trim() },
+    })
+    if (error) throw error
+    return data?.exists === true
+  }
+
   // ── Recuperar contraseña ("olvidé mi contraseña") ──
   // Envía un correo con un código de 6 dígitos (plantilla "Recovery" con {{ .Token }}).
   async function sendPasswordReset(email) {
@@ -131,5 +147,5 @@ export function useAuth() {
     purgeSupabaseTokens()
   }
 
-  return { user, isAdmin, ready, signUp, signIn, signOut, signInWithGoogle, resendConfirmation, verifyEmailCode, sendPasswordReset, verifyRecoveryCode, updatePassword }
+  return { user, isAdmin, ready, signUp, signIn, signOut, signInWithGoogle, resendConfirmation, verifyEmailCode, emailExiste, sendPasswordReset, verifyRecoveryCode, updatePassword }
 }

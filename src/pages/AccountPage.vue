@@ -7,7 +7,7 @@ import { validarPassword, validarTelefonoPE } from '../lib/validation.js'
 
 const router = useRouter()
 const { signUp, signIn, signInWithGoogle, resendConfirmation, verifyEmailCode,
-        sendPasswordReset, verifyRecoveryCode, updatePassword } = useAuth()
+        emailExiste, sendPasswordReset, verifyRecoveryCode, updatePassword } = useAuth()
 
 const modo = ref('login')   // 'login' | 'registro'
 const paso = ref('form')    // 'form' | 'verificar' | 'recuperar' | 'reset'
@@ -143,13 +143,18 @@ function irARecuperar() {
   error.value = ''; aviso.value = ''; codigo.value = ''; newPassword.value = ''
 }
 
-// Paso 1: pide el código al correo.
+// Paso 1: verifica que el correo exista y pide el código.
 async function pedirReset() {
   error.value = ''
   if (!EMAIL_RE.test(form.email.trim())) { error.value = 'Ingresa un correo válido.'; return }
   if (enviando.value || cooldown.value > 0) return
   enviando.value = true
   try {
+    const existe = await emailExiste(form.email)
+    if (!existe) {
+      error.value = 'Ese correo no está registrado. Revisa que esté bien escrito o crea una cuenta.'
+      return
+    }
     await sendPasswordReset(form.email)
     paso.value = 'reset'; startCooldown()
   } catch (err) {
