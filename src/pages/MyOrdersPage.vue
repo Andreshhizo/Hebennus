@@ -6,6 +6,7 @@ import { useRouter, RouterLink } from 'vue-router'
 import { supabase } from '../lib/supabase.js'
 import { useAuth } from '../lib/useAuth.js'
 import { validarPassword } from '../lib/validation.js'
+import { EN_CURSO, ESTADO_LABEL, ESTADO_COLOR } from '../lib/pedidos.js'
 
 const router = useRouter()
 const { user, ready, updatePassword } = useAuth()
@@ -42,16 +43,6 @@ const pedidos = ref([])
 const cargando = ref(true)
 const error = ref('')
 const expandido = ref(null)
-
-const EN_CURSO   = ['pendiente', 'confirmado', 'enviado']
-const ESTADO_LABEL = {
-  pendiente: 'Pendiente', confirmado: 'Confirmado', enviado: 'Enviado',
-  entregado: 'Entregado', cancelado: 'Cancelado', reembolsado: 'Reembolsado',
-}
-const ESTADO_COLOR = {
-  pendiente: '#e0a23b', confirmado: '#5b8def', enviado: '#7c5cff',
-  entregado: '#2ecc8f', cancelado: '#e0566b', reembolsado: '#9aa0b0',
-}
 
 const enCurso    = computed(() => pedidos.value.filter(o => EN_CURSO.includes(o.status)))
 const entregados = computed(() => pedidos.value.filter(o => o.status === 'entregado'))

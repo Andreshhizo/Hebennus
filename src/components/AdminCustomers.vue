@@ -5,14 +5,11 @@
 // usuario (vía Edge Function segura; los pedidos se conservan desvinculados).
 import { ref, computed, onMounted } from 'vue'
 import { supabase } from '../lib/supabase.js'
+import { ESTADOS, ESTADO_COLOR, ESTADO_LABEL, ESTADOS_DEVUELVE_STOCK } from '../lib/pedidos.js'
 
 const emit = defineEmits(['ver-pedido'])
 
-const ESTADOS = ['pendiente', 'confirmado', 'enviado', 'entregado', 'cancelado', 'reembolsado']
-const ESTADO_COLOR = {
-  pendiente: '#e0a23b', confirmado: '#5b8def', enviado: '#7c5cff',
-  entregado: '#2ecc8f', cancelado: '#e0566b', reembolsado: '#9aa0b0',
-}
+const estadoBusy = ref(null)   // id del pedido cuyo estado se está cambiando
 
 const profiles = ref([])
 const orders   = ref([])
@@ -66,11 +63,41 @@ const invitados = computed(() => {
   return Object.values(map).map((g) => ({ ...g, registrado: false, ...statsDe(g.pedidos) }))
 })
 
+// Cambia estado vía RPC admin_set_order_status (repone/descuenta stock según toque).
+// Confirma al cancelar/reembolsar y avisa al cliente por correo al marcar 'enviado'.
 async function cambiarEstado(order, nuevo) {
+  if (!nuevo || nuevo === order.status || estadoBusy.value) return
+  if (ESTADOS_DEVUELVE_STOCK.includes(nuevo)) {
+    const ok = confirm(
+      `¿Marcar el pedido ${order.order_number || ('#' + order.id)} como "${ESTADO_LABEL[nuevo]}"?\n` +
+      `Si tenía stock descontado, se repondrá al inventario.`,
+    )
+    if (!ok) return
+  }
   const ant = order.status
-  order.status = nuevo
-  const { error } = await supabase.from('orders').update({ status: nuevo }).eq('id', order.id)
-  if (error) { order.status = ant; msg.value = 'No se pudo actualizar: ' + error.message }
+  estadoBusy.value = order.id
+  msg.value = ''
+  try {
+    const { data, error } = await supabase.rpc('admin_set_order_status', {
+      p_order_number: order.order_number, p_status: nuevo,
+    })
+    if (error) throw error
+    order.status = nuevo
+    if (data && typeof data.stock_restored === 'boolean') order.stock_restored = data.stock_restored
+    if (nuevo === 'enviado') {
+      try { await supabase.functions.invoke('admin-notificar-envio', { body: { order_number: order.order_number } }) }
+      catch (_) { /* correo best-effort */ }
+    }
+  } catch (err) {
+    const m = err?.message || ''
+    order.status = ant
+    msg.value = m.includes('STOCK_INSUFICIENTE')
+      ? 'No hay stock para reactivar ese pedido. Ajusta el inventario primero.'
+      : m.includes('NO_AUTORIZADO') ? 'No tienes permisos de administrador.'
+      : 'No se pudo actualizar: ' + m
+  } finally {
+    estadoBusy.value = null
+  }
 }
 
 function pedirEliminar(c) { confirmando.value = c }
@@ -138,8 +165,9 @@ onMounted(cargar)
                 <span class="ord__total">{{ money(o.total) }}</span>
                 <select class="ord__estado" :value="o.status"
                         :style="{ color: ESTADO_COLOR[o.status] }"
+                        :disabled="estadoBusy === o.id"
                         @change="cambiarEstado(o, $event.target.value)">
-                  <option v-for="e in ESTADOS" :key="e" :value="e">{{ e }}</option>
+                  <option v-for="e in ESTADOS" :key="e" :value="e">{{ ESTADO_LABEL[e] }}</option>
                 </select>
                 <button class="ord__ver" @click="emit('ver-pedido', o.id)">Ver detalle →</button>
               </div>
@@ -181,8 +209,9 @@ onMounted(cargar)
                   <span class="ord__date">{{ fmtFecha(o.created_at) }}</span>
                   <span class="ord__total">{{ money(o.total) }}</span>
                   <select class="ord__estado" :value="o.status" :style="{ color: ESTADO_COLOR[o.status] }"
+                          :disabled="estadoBusy === o.id"
                           @change="cambiarEstado(o, $event.target.value)">
-                    <option v-for="e in ESTADOS" :key="e" :value="e">{{ e }}</option>
+                    <option v-for="e in ESTADOS" :key="e" :value="e">{{ ESTADO_LABEL[e] }}</option>
                   </select>
                 </div>
                 <p class="ord__envio">📍 {{ o.notes }}</p>

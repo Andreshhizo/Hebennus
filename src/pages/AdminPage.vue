@@ -5,6 +5,7 @@
 import { ref, computed, onMounted, nextTick } from 'vue'
 import { supabase } from '../lib/supabase.js'
 import { purgeSupabaseTokens } from '../lib/useAuth.js'
+import { ESTADOS, ESTADO_COLOR, ESTADO_LABEL, ESTADOS_DEVUELVE_STOCK } from '../lib/pedidos.js'
 import AdminCustomers from '../components/AdminCustomers.vue'
 import AdminProducts from '../components/AdminProducts.vue'
 import AdminPaymentTests from '../components/AdminPaymentTests.vue'
@@ -17,15 +18,6 @@ const DEV = import.meta.env.DEV
 const vista = ref('pedidos')   // 'pedidos' | 'clientes' | 'productos' | 'tests' (solo en dev)
 
 const TITULOS = { pedidos: 'Pedidos', clientes: 'Clientes', productos: 'Productos', tests: 'Tests de pago' }
-const ESTADOS = ['pendiente', 'confirmado', 'enviado', 'entregado', 'cancelado', 'reembolsado']
-const ESTADO_COLOR = {
-  pendiente:  '#e0a23b',
-  confirmado: '#5b8def',
-  enviado:    '#7c5cff',
-  entregado:  '#2ecc8f',
-  cancelado:  '#e0566b',
-  reembolsado:'#9aa0b0',
-}
 // Método de pago en formato legible para el panel
 const METODO_PAGO_LABEL = {
   izipay:        'Tarjeta/Izipay',
@@ -50,6 +42,8 @@ const pedidosError   = ref('')
 const expandido      = ref(null)
 const filtro         = ref('todos')
 const marcandoPagado = ref(null)   // id del pedido que se está marcando como pagado (evita doble click)
+const estadoBusy     = ref(null)   // id del pedido cuyo estado se está cambiando
+const estadoMsg      = ref({})     // { [orderId]: { tipo: 'ok'|'error', texto } }
 
 const pedidosFiltrados = computed(() =>
   filtro.value === 'todos' ? pedidos.value : pedidos.value.filter(o => o.status === filtro.value)
@@ -121,13 +115,60 @@ async function salir() {
   purgeSupabaseTokens()
 }
 
+// Cambia el estado logístico vía RPC admin_set_order_status (reconciliación de
+// stock incluida). Pide confirmación al cancelar/reembolsar y avisa al cliente
+// por correo al marcar 'enviado'. Da feedback por pedido.
 async function cambiarEstado(pedido, nuevo) {
+  if (!nuevo || nuevo === pedido.status || estadoBusy.value) return
+
+  // Cancelar/reembolsar repone stock → confirmar.
+  if (ESTADOS_DEVUELVE_STOCK.includes(nuevo)) {
+    const ok = confirm(
+      `¿Marcar el pedido ${pedido.order_number || ('#' + pedido.id)} como "${ESTADO_LABEL[nuevo]}"?\n` +
+      `Si el pedido tenía stock descontado, se repondrá al inventario.`,
+    )
+    if (!ok) return
+  }
+
   const anterior = pedido.status
-  pedido.status = nuevo // optimista
-  const { error } = await supabase.from('orders').update({ status: nuevo }).eq('id', pedido.id)
-  if (error) {
+  estadoBusy.value = pedido.id
+  estadoMsg.value = { ...estadoMsg.value, [pedido.id]: null }
+  try {
+    const { data, error } = await supabase.rpc('admin_set_order_status', {
+      p_order_number: pedido.order_number, p_status: nuevo,
+    })
+    if (error) throw error
+    pedido.status = nuevo
+    if (data && typeof data.stock_restored === 'boolean') pedido.stock_restored = data.stock_restored
+
+    if (nuevo === 'enviado') {
+      // Aviso de "en camino" al cliente (best-effort; no revierte el estado si falla).
+      let avisado = false
+      try {
+        const { data: mail } = await supabase.functions.invoke('admin-notificar-envio', {
+          body: { order_number: pedido.order_number },
+        })
+        avisado = mail?.email_sent === true
+      } catch (_) { /* correo best-effort */ }
+      estadoMsg.value = { ...estadoMsg.value, [pedido.id]: {
+        tipo: 'ok', texto: avisado ? '✓ Enviado · correo avisado al cliente' : '✓ Enviado (no se pudo mandar el correo)',
+      } }
+    } else {
+      const repuso = ESTADOS_DEVUELVE_STOCK.includes(nuevo) && data?.stock_restored
+      estadoMsg.value = { ...estadoMsg.value, [pedido.id]: {
+        tipo: 'ok', texto: repuso ? '✓ Actualizado · stock repuesto' : '✓ Estado actualizado',
+      } }
+    }
+  } catch (err) {
+    const m = err?.message || ''
+    const texto =
+      m.includes('STOCK_INSUFICIENTE') ? 'No hay stock para reactivar este pedido. Ajusta el inventario primero.' :
+      m.includes('NO_AUTORIZADO')      ? 'No tienes permisos de administrador.' :
+      'No se pudo actualizar el estado: ' + m
     pedido.status = anterior
-    pedidosError.value = 'No se pudo actualizar el estado: ' + error.message
+    estadoMsg.value = { ...estadoMsg.value, [pedido.id]: { tipo: 'error', texto } }
+  } finally {
+    estadoBusy.value = null
   }
 }
 
@@ -239,7 +280,7 @@ onMounted(async () => {
         v-for="e in ESTADOS" :key="e"
         :class="['chip', { 'chip--on': filtro === e }]"
         @click="filtro = e"
-      >{{ e }}</button>
+      >{{ ESTADO_LABEL[e] }}</button>
     </div>
 
     <p v-if="pedidosError" class="dash__error" role="alert">{{ pedidosError }}</p>
@@ -263,7 +304,7 @@ onMounted(async () => {
               class="badge"
               :style="{ '--c': o.payment_status === 'pagado' ? '#2ecc8f' : (o.payment_status === 'fallido' ? '#e0566b' : '#e0a23b') }"
             >{{ o.payment_status === 'pagado' ? 'Pagado' : (o.payment_status === 'fallido' ? 'Pago fallido' : 'Pago pendiente') }}</span>
-            <span class="badge" :style="{ '--c': ESTADO_COLOR[o.status] || '#888' }">{{ o.status }}</span>
+            <span class="badge" :style="{ '--c': ESTADO_COLOR[o.status] || '#888' }">{{ ESTADO_LABEL[o.status] || o.status }}</span>
             <span class="order__caret">{{ expandido === o.id ? '▲' : '▼' }}</span>
           </div>
         </div>
@@ -308,10 +349,15 @@ onMounted(async () => {
               </button>
               <label class="order__estado">
                 Estado:
-                <select :value="o.status" @change="cambiarEstado(o, $event.target.value)">
-                  <option v-for="e in ESTADOS" :key="e" :value="e">{{ e }}</option>
+                <select :value="o.status" :disabled="estadoBusy === o.id" @change="cambiarEstado(o, $event.target.value)">
+                  <option v-for="e in ESTADOS" :key="e" :value="e">{{ ESTADO_LABEL[e] }}</option>
                 </select>
+                <span v-if="estadoBusy === o.id" class="spinner spinner--sm"></span>
               </label>
+              <p v-if="estadoMsg[o.id]"
+                 :class="['order__estadomsg', estadoMsg[o.id].tipo === 'error' ? 'order__estadomsg--err' : 'order__estadomsg--ok']">
+                {{ estadoMsg[o.id].texto }}
+              </p>
             </div>
           </div>
         </div>
@@ -409,8 +455,12 @@ onMounted(async () => {
 }
 .order__pagado:hover { filter: brightness(1.05); }
 .order__pagado:disabled { opacity: 0.6; cursor: not-allowed; }
-.order__estado { display: block; margin-top: 1rem; font-size: 0.78rem; color: var(--text-2); }
-.order__estado select { margin-left: 0.5rem; padding: 0.4rem 0.6rem; background: var(--surface-2); border: 1px solid var(--border-mid); color: var(--text-1); text-transform: capitalize; }
+.order__estado { display: inline-flex; align-items: center; gap: 0.5rem; margin-top: 1rem; font-size: 0.78rem; color: var(--text-2); }
+.order__estado select { margin-left: 0.5rem; padding: 0.4rem 0.6rem; background: var(--surface-2); border: 1px solid var(--border-mid); color: var(--text-1); }
+.order__estado select:disabled { opacity: 0.6; cursor: wait; }
+.order__estadomsg { font-size: 0.74rem; margin-top: 0.4rem; }
+.order__estadomsg--ok { color: #2ecc8f; }
+.order__estadomsg--err { color: #e0566b; }
 
 /* ── Spinner ── */
 .spinner { width: 22px; height: 22px; border: 2px solid var(--text-3); border-top-color: transparent; border-radius: 50%; animation: spin 0.7s linear infinite; }
