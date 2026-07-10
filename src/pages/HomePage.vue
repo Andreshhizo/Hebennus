@@ -146,12 +146,10 @@ onMounted(async () => {
 .hero__bg {
   position: absolute;
   inset: 0;
-  background: #4566A0;   /* banda denim */
-  /* Para foto de fondo, descomenta:
-  background-image: url('/hero.jpg');
-  background-size: cover;
-  background-position: center;
-  */
+  /* Foto de fondo + capa denim encima para legibilidad del texto crema. */
+  background:
+    linear-gradient(180deg, rgba(53,82,138,.42) 0%, rgba(38,54,92,.64) 100%),
+    url('/fondo.png') center / cover no-repeat;
 }
 .hero__glow {
   position: absolute;
