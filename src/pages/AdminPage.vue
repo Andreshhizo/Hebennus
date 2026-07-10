@@ -2,10 +2,11 @@
 // ─── PANEL DE ADMINISTRACIÓN (/admin) ───────────────────────────────────────
 // Acceso protegido por Supabase Auth + función is_admin() (RLS). Solo usuarios
 // que estén en la tabla `admins` pueden leer/gestionar pedidos.
-import { ref, computed, onMounted, nextTick } from 'vue'
+import { ref, reactive, computed, onMounted, nextTick } from 'vue'
 import { supabase } from '../lib/supabase.js'
 import { purgeSupabaseTokens } from '../lib/useAuth.js'
 import { ESTADOS, ESTADO_COLOR, ESTADO_LABEL, ESTADOS_DEVUELVE_STOCK } from '../lib/pedidos.js'
+import { validarTelefonoPE } from '../lib/validation.js'
 import AdminCustomers from '../components/AdminCustomers.vue'
 import AdminProducts from '../components/AdminProducts.vue'
 import AdminPaymentTests from '../components/AdminPaymentTests.vue'
@@ -39,7 +40,10 @@ const ingresando = ref(false)
 const pedidos        = ref([])
 const cargandoPed    = ref(false)
 const pedidosError   = ref('')
-const expandido      = ref(null)
+const detalle        = ref(null)   // pedido abierto en el modal de detalle
+const editPed        = reactive({ customer_name: '', customer_phone: '', notes: '' })
+const guardandoPed   = ref(false)
+const pedMsg         = ref(null)   // { tipo:'ok'|'error', texto }
 const filtro         = ref('todos')
 const marcandoPagado = ref(null)   // id del pedido que se está marcando como pagado (evita doble click)
 const estadoBusy     = ref(null)   // id del pedido cuyo estado se está cambiando
@@ -141,17 +145,19 @@ async function cambiarEstado(pedido, nuevo) {
     pedido.status = nuevo
     if (data && typeof data.stock_restored === 'boolean') pedido.stock_restored = data.stock_restored
 
-    if (nuevo === 'enviado') {
-      // Aviso de "en camino" al cliente (best-effort; no revierte el estado si falla).
+    if (['confirmado', 'enviado', 'entregado'].includes(nuevo)) {
+      // Aviso al cliente (best-effort; no revierte el estado si falla).
       let avisado = false
       try {
         const { data: mail } = await supabase.functions.invoke('admin-notificar-envio', {
-          body: { order_number: pedido.order_number },
+          body: { order_number: pedido.order_number, status: nuevo },
         })
         avisado = mail?.email_sent === true
       } catch (_) { /* correo best-effort */ }
       estadoMsg.value = { ...estadoMsg.value, [pedido.id]: {
-        tipo: 'ok', texto: avisado ? '✓ Enviado · correo avisado al cliente' : '✓ Enviado (no se pudo mandar el correo)',
+        tipo: 'ok',
+        texto: avisado ? `✓ ${ESTADO_LABEL[nuevo]} · correo enviado al cliente`
+                       : `✓ ${ESTADO_LABEL[nuevo]} (no se pudo enviar el correo)`,
       } }
     } else {
       const repuso = ESTADOS_DEVUELVE_STOCK.includes(nuevo) && data?.stock_restored
@@ -203,15 +209,48 @@ function fmtFecha(s) {
   catch { return s }
 }
 function money(n) { return 'S/ ' + Number(n ?? 0).toFixed(2) }
-function toggle(id) { expandido.value = expandido.value === id ? null : id }
 
-// Desde la vista Clientes: ir al pedido, expandirlo y hacer scroll.
+// ── Detalle del pedido (modal) + edición de datos de contacto/envío ──
+function abrirDetalle(o) {
+  detalle.value = o
+  pedMsg.value = null
+  editPed.customer_name  = o.customer_name || ''
+  editPed.customer_phone = o.customer_phone || ''
+  editPed.notes          = o.notes || ''
+}
+function cerrarDetalle() { detalle.value = null; pedMsg.value = null }
+
+async function guardarDatos() {
+  const o = detalle.value
+  if (!o || guardandoPed.value) return
+  pedMsg.value = null
+  if (editPed.customer_name.trim().length < 3) { pedMsg.value = { tipo: 'error', texto: 'Ingresa el nombre del cliente.' }; return }
+  if (!validarTelefonoPE(editPed.customer_phone)) { pedMsg.value = { tipo: 'error', texto: 'Teléfono inválido (9 dígitos, empieza con 9).' }; return }
+  guardandoPed.value = true
+  try {
+    const patch = {
+      customer_name: editPed.customer_name.trim(),
+      customer_phone: editPed.customer_phone.trim(),
+      notes: editPed.notes.trim(),
+    }
+    const { error } = await supabase.from('orders').update(patch).eq('id', o.id)
+    if (error) throw error
+    Object.assign(o, patch)   // refleja en la fila
+    pedMsg.value = { tipo: 'ok', texto: '✓ Datos guardados' }
+  } catch (err) {
+    pedMsg.value = { tipo: 'error', texto: 'No se pudo guardar: ' + (err?.message || '') }
+  } finally {
+    guardandoPed.value = false
+  }
+}
+
+// Desde la vista Clientes: ir a Pedidos y abrir el detalle del pedido.
 async function verPedido(id) {
   vista.value = 'pedidos'
   filtro.value = 'todos'
-  expandido.value = id
   await nextTick()
-  document.getElementById('ord-' + id)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  const o = pedidos.value.find((p) => p.id === id)
+  if (o) abrirDetalle(o)
 }
 
 onMounted(async () => {
@@ -291,7 +330,7 @@ onMounted(async () => {
 
     <ul v-else class="orders">
       <li v-for="o in pedidosFiltrados" :key="o.id" :id="'ord-' + o.id" class="order">
-        <div class="order__head" @click="toggle(o.id)">
+        <div class="order__head" @click="abrirDetalle(o)">
           <div class="order__main">
             <span class="order__num">{{ o.order_number || ('#' + o.id) }}</span>
             <span class="order__cust">{{ o.customer_name }}</span>
@@ -299,70 +338,99 @@ onMounted(async () => {
           </div>
           <div class="order__right">
             <span class="order__total">{{ money(o.total) }}</span>
-            <!-- Estado de pago -->
             <span
               class="badge"
               :style="{ '--c': o.payment_status === 'pagado' ? '#2ecc8f' : (o.payment_status === 'fallido' ? '#e0566b' : '#e0a23b') }"
             >{{ o.payment_status === 'pagado' ? 'Pagado' : (o.payment_status === 'fallido' ? 'Pago fallido' : 'Pago pendiente') }}</span>
             <span class="badge" :style="{ '--c': ESTADO_COLOR[o.status] || '#888' }">{{ ESTADO_LABEL[o.status] || o.status }}</span>
-            <span class="order__caret">{{ expandido === o.id ? '▲' : '▼' }}</span>
+            <button class="order__ver" @click.stop="abrirDetalle(o)">Ver detalle →</button>
           </div>
         </div>
+      </li>
+    </ul>
 
-        <div v-if="expandido === o.id" class="order__body">
-          <div class="order__cols">
-            <div>
-              <h3 class="order__h3">Productos</h3>
+    <!-- ── Modal: detalle del pedido + edición segura ── -->
+    <Teleport to="body">
+      <Transition name="fade">
+        <div v-if="detalle" class="odm__overlay" @click.self="cerrarDetalle">
+          <div class="odm" role="dialog" aria-modal="true" aria-label="Detalle del pedido">
+            <div class="odm__head">
+              <div>
+                <h3 class="odm__title">{{ detalle.order_number || ('#' + detalle.id) }}</h3>
+                <p class="odm__sub">{{ fmtFecha(detalle.created_at) }}</p>
+              </div>
+              <button class="odm__x" @click="cerrarDetalle" aria-label="Cerrar">✕</button>
+            </div>
+
+            <div class="odm__body">
+              <h4 class="odm__h4">Productos</h4>
               <ul class="items">
-                <li v-for="it in o.order_items" :key="it.id" class="item">
+                <li v-for="it in detalle.order_items" :key="it.id" class="item">
                   <span>{{ it.name }} · {{ it.size }}<template v-if="it.color"> / {{ it.color }}</template> × {{ it.qty }}</span>
                   <span>{{ money(it.subtotal) }}</span>
                 </li>
               </ul>
               <div class="totales">
-                <span>Subtotal</span><span>{{ money(o.subtotal) }}</span>
-                <span>Envío</span><span>{{ o.shipping > 0 ? money(o.shipping) : 'Gratis' }}</span>
-                <span class="totales__big">Total</span><span class="totales__big">{{ money(o.total) }}</span>
+                <span>Subtotal</span><span>{{ money(detalle.subtotal) }}</span>
+                <template v-if="detalle.discount > 0"><span>Descuento</span><span>-{{ money(detalle.discount) }}</span></template>
+                <span>Envío</span><span>{{ detalle.shipping > 0 ? money(detalle.shipping) : 'Gratis' }}</span>
+                <span class="totales__big">Total</span><span class="totales__big">{{ money(detalle.total) }}</span>
               </div>
-            </div>
-            <div>
-              <h3 class="order__h3">Cliente y envío</h3>
-              <p class="order__p">
-                <strong>{{ o.customer_name }}</strong><br/>
-                {{ o.customer_email }}<br/>
-                {{ o.customer_phone }}<br/>
-                <span class="order__notes">{{ o.notes }}</span>
-              </p>
+
               <p class="order__p order__p--muted">
-                Pago: {{ metodoPagoLabel(o.payment_method) }} · {{ o.payment_status === 'pagado' ? 'Pagado' : (o.payment_status === 'fallido' ? 'Pago fallido' : 'Pago pendiente') }} · Comprobante: {{ o.comprobante_tipo }}
-                <template v-if="o.doc_numero"> ({{ o.doc_tipo }} {{ o.doc_numero }})</template>
+                Pago: {{ metodoPagoLabel(detalle.payment_method) }} · {{ detalle.payment_status === 'pagado' ? 'Pagado' : (detalle.payment_status === 'fallido' ? 'Pago fallido' : 'Pago pendiente') }} · Comprobante: {{ detalle.comprobante_tipo }}
+                <template v-if="detalle.doc_numero"> ({{ detalle.doc_tipo }} {{ detalle.doc_numero }})</template>
               </p>
-              <!-- Confirmación manual del Yape (solo si está pendiente y es yape_manual) -->
-              <button
-                v-if="o.payment_status !== 'pagado' && o.payment_method === 'yape_manual'"
-                class="order__pagado"
-                :disabled="marcandoPagado === o.id"
-                @click="marcarPagado(o)"
-              >
-                <span v-if="marcandoPagado === o.id" class="spinner spinner--sm"></span>
-                {{ marcandoPagado === o.id ? 'Procesando…' : '✓ Marcar pagado' }}
-              </button>
-              <label class="order__estado">
-                Estado:
-                <select :value="o.status" :disabled="estadoBusy === o.id" @change="cambiarEstado(o, $event.target.value)">
-                  <option v-for="e in ESTADOS" :key="e" :value="e">{{ ESTADO_LABEL[e] }}</option>
-                </select>
-                <span v-if="estadoBusy === o.id" class="spinner spinner--sm"></span>
+
+              <div class="odm__acciones">
+                <button
+                  v-if="detalle.payment_status !== 'pagado' && detalle.payment_method === 'yape_manual'"
+                  class="order__pagado"
+                  :disabled="marcandoPagado === detalle.id"
+                  @click="marcarPagado(detalle)"
+                >
+                  <span v-if="marcandoPagado === detalle.id" class="spinner spinner--sm"></span>
+                  {{ marcandoPagado === detalle.id ? 'Procesando…' : '✓ Marcar pagado' }}
+                </button>
+                <label class="order__estado">
+                  Estado:
+                  <select :value="detalle.status" :disabled="estadoBusy === detalle.id" @change="cambiarEstado(detalle, $event.target.value)">
+                    <option v-for="e in ESTADOS" :key="e" :value="e">{{ ESTADO_LABEL[e] }}</option>
+                  </select>
+                  <span v-if="estadoBusy === detalle.id" class="spinner spinner--sm"></span>
+                </label>
+                <p v-if="estadoMsg[detalle.id]"
+                   :class="['order__estadomsg', estadoMsg[detalle.id].tipo === 'error' ? 'order__estadomsg--err' : 'order__estadomsg--ok']">
+                  {{ estadoMsg[detalle.id].texto }}
+                </p>
+              </div>
+
+              <h4 class="odm__h4">Datos de contacto y envío</h4>
+              <p class="odm__hint">Correo del pedido: <strong>{{ detalle.customer_email }}</strong> (no editable aquí)</p>
+              <div class="odm__grid">
+                <label class="odm__f"><span>Nombre</span><input v-model="editPed.customer_name" class="odm__input" /></label>
+                <label class="odm__f"><span>Teléfono</span>
+                  <input v-model="editPed.customer_phone" inputmode="numeric" maxlength="9" class="odm__input"
+                         @input="editPed.customer_phone = editPed.customer_phone.replace(/\D/g,'').slice(0,9)" />
+                </label>
+              </div>
+              <label class="odm__f"><span>Dirección / notas de envío</span>
+                <textarea v-model="editPed.notes" rows="3" class="odm__input"></textarea>
               </label>
-              <p v-if="estadoMsg[o.id]"
-                 :class="['order__estadomsg', estadoMsg[o.id].tipo === 'error' ? 'order__estadomsg--err' : 'order__estadomsg--ok']">
-                {{ estadoMsg[o.id].texto }}
-              </p>
+              <p v-if="pedMsg" :class="['odm__msg', pedMsg.tipo === 'error' ? 'odm__msg--err' : 'odm__msg--ok']">{{ pedMsg.texto }}</p>
+            </div>
+
+            <div class="odm__foot">
+              <button class="odm__cancel" @click="cerrarDetalle">Cerrar</button>
+              <button class="odm__save" :disabled="guardandoPed" @click="guardarDatos">
+                <span v-if="guardandoPed" class="spinner spinner--sm"></span>
+                {{ guardandoPed ? 'Guardando…' : 'Guardar datos' }}
+              </button>
             </div>
           </div>
         </div>
-      </li>
-    </ul>
+      </Transition>
+    </Teleport>
     </template>
 
     <AdminCustomers v-else-if="vista === 'clientes'" @ver-pedido="verPedido" />
@@ -461,6 +529,37 @@ onMounted(async () => {
 .order__estadomsg { font-size: 0.74rem; margin-top: 0.4rem; }
 .order__estadomsg--ok { color: #2ecc8f; }
 .order__estadomsg--err { color: #e0566b; }
+.order__ver { padding: 0.35rem 0.7rem; font-size: 0.72rem; font-weight: 600; background: var(--surface-2); border: 1px solid var(--border-mid); color: var(--text-2); cursor: pointer; border-radius: 6px; white-space: nowrap; }
+.order__ver:hover { color: var(--text-1); border-color: var(--accent); }
+
+/* ── Modal detalle de pedido ── */
+.odm__overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.55); backdrop-filter: blur(3px); display: grid; place-items: center; z-index: 400; padding: 1rem; }
+.odm { width: 100%; max-width: 620px; max-height: 90vh; display: flex; flex-direction: column; background: var(--card-bg); border: 1px solid var(--border-mid); border-radius: 12px; box-shadow: 0 24px 64px rgba(0,0,0,0.4); overflow: hidden; }
+.odm__head { display: flex; justify-content: space-between; align-items: flex-start; padding: 1rem 1.25rem; border-bottom: 1px solid var(--border); }
+.odm__title { font-family: var(--font-display); font-size: 1.05rem; font-weight: 800; color: var(--text-1); }
+.odm__sub { font-size: 0.74rem; color: var(--text-3); margin-top: 0.15rem; }
+.odm__x { background: transparent; border: none; font-size: 1.1rem; color: var(--text-3); cursor: pointer; }
+.odm__x:hover { color: var(--text-1); }
+.odm__body { padding: 1.25rem; overflow-y: auto; display: flex; flex-direction: column; gap: 0.6rem; }
+.odm__h4 { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.12em; color: var(--text-3); margin-top: 0.5rem; }
+.odm__hint { font-size: 0.74rem; color: var(--text-3); }
+.odm__acciones { display: flex; flex-direction: column; gap: 0.5rem; align-items: flex-start; padding: 0.8rem 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+.odm__grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
+.odm__f { display: flex; flex-direction: column; gap: 0.25rem; }
+.odm__f > span { font-size: 0.64rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-3); font-weight: 600; }
+.odm__input { background: var(--surface-2); border: 1px solid var(--border-mid); color: var(--text-1); padding: 0.5rem 0.6rem; font-size: 0.88rem; outline: none; border-radius: 6px; font-family: inherit; }
+.odm__input:focus-visible { border-color: var(--accent); }
+.odm__msg { font-size: 0.78rem; margin-top: 0.2rem; }
+.odm__msg--ok { color: #2ecc8f; }
+.odm__msg--err { color: #e0566b; }
+.odm__foot { display: flex; justify-content: flex-end; gap: 0.7rem; padding: 1rem 1.25rem; border-top: 1px solid var(--border); }
+.odm__cancel { padding: 0.6rem 1rem; font-size: 0.78rem; color: var(--text-3); background: transparent; border: 1px solid var(--border-mid); border-radius: 6px; cursor: pointer; }
+.odm__cancel:hover { color: var(--text-1); }
+.odm__save { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.6rem 1.3rem; font-size: 0.76rem; font-weight: 700; cursor: pointer; background: var(--accent); border: 1px solid var(--accent); color: var(--ink); border-radius: 6px; }
+.odm__save:hover:not(:disabled) { filter: brightness(1.08); }
+.odm__save:disabled { opacity: 0.55; cursor: not-allowed; }
+.fade-enter-active, .fade-leave-active { transition: opacity 0.2s ease; }
+.fade-enter-from, .fade-leave-to { opacity: 0; }
 
 /* ── Spinner ── */
 .spinner { width: 22px; height: 22px; border: 2px solid var(--text-3); border-top-color: transparent; border-radius: 50%; animation: spin 0.7s linear infinite; }

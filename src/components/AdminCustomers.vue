@@ -84,8 +84,8 @@ async function cambiarEstado(order, nuevo) {
     if (error) throw error
     order.status = nuevo
     if (data && typeof data.stock_restored === 'boolean') order.stock_restored = data.stock_restored
-    if (nuevo === 'enviado') {
-      try { await supabase.functions.invoke('admin-notificar-envio', { body: { order_number: order.order_number } }) }
+    if (['confirmado', 'enviado', 'entregado'].includes(nuevo)) {
+      try { await supabase.functions.invoke('admin-notificar-envio', { body: { order_number: order.order_number, status: nuevo } }) }
       catch (_) { /* correo best-effort */ }
     }
   } catch (err) {

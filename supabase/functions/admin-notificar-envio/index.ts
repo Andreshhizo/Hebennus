@@ -11,7 +11,14 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { buildHtmlEnvio, enviarResend } from '../_shared/email.ts'
+import { buildHtmlEstado, enviarResend } from '../_shared/email.ts'
+
+// Estados que llevan correo al cliente + su asunto.
+const ASUNTOS: Record<string, string> = {
+  confirmado: 'Recibimos tu pedido',
+  enviado:    'Tu pedido va en camino 🚚',
+  entregado:  '¡Tu pedido fue entregado! 🎉',
+}
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -28,10 +35,13 @@ Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
   if (req.method !== 'POST') return json({ error: 'Método no permitido' }, 405)
 
-  let body: { order_number?: string }
+  let body: { order_number?: string; status?: string }
   try { body = await req.json() } catch { return json({ error: 'JSON inválido' }, 400) }
   const orderNumber = String(body?.order_number ?? '').trim()
+  const status = String(body?.status ?? 'enviado').trim()
   if (!orderNumber) return json({ error: 'Falta order_number' }, 400)
+  // Estados sin correo: responder OK sin enviar (no es error).
+  if (!ASUNTOS[status]) return json({ ok: true, email_sent: false, skipped: true })
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!
   const serviceKey  = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -64,8 +74,8 @@ Deno.serve(async (req: Request) => {
     await enviarResend(RESEND_API_KEY, {
       from: FROM,
       to: [String(order.customer_email).trim()],
-      subject: `Tu pedido ${order.order_number} va en camino 🚚 — Hebennus`,
-      html: buildHtmlEnvio(order.customer_name ?? '', order.order_number),
+      subject: `${ASUNTOS[status]} · ${order.order_number} — Hebennus`,
+      html: buildHtmlEstado(order.customer_name ?? '', order.order_number, status),
       reply_to: STORE || undefined,
     })
     return json({ ok: true, email_sent: true })
