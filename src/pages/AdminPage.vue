@@ -2,7 +2,7 @@
 // ─── PANEL DE ADMINISTRACIÓN (/admin) ───────────────────────────────────────
 // Acceso protegido por Supabase Auth + función is_admin() (RLS). Solo usuarios
 // que estén en la tabla `admins` pueden leer/gestionar pedidos.
-import { ref, reactive, computed, onMounted, nextTick } from 'vue'
+import { ref, reactive, computed, watch, onMounted, nextTick } from 'vue'
 import { supabase } from '../lib/supabase.js'
 import { purgeSupabaseTokens } from '../lib/useAuth.js'
 import { ESTADOS, ESTADO_COLOR, ESTADO_LABEL, ESTADOS_DEVUELVE_STOCK } from '../lib/pedidos.js'
@@ -45,13 +45,38 @@ const editPed        = reactive({ customer_name: '', customer_phone: '', notes: 
 const guardandoPed   = ref(false)
 const pedMsg         = ref(null)   // { tipo:'ok'|'error', texto }
 const filtro         = ref('todos')
+const busqueda       = ref('')     // buscador por nº pedido / nombre / correo / teléfono
+const pagina         = ref(1)      // paginación (1-based)
+const POR_PAGINA     = 10
 const marcandoPagado = ref(null)   // id del pedido que se está marcando como pagado (evita doble click)
 const estadoBusy     = ref(null)   // id del pedido cuyo estado se está cambiando
 const estadoMsg      = ref({})     // { [orderId]: { tipo: 'ok'|'error', texto } }
 
+// 1) Filtro por estado (chips).
 const pedidosFiltrados = computed(() =>
   filtro.value === 'todos' ? pedidos.value : pedidos.value.filter(o => o.status === filtro.value)
 )
+// 2) Búsqueda de texto sobre el resultado del filtro.
+const pedidosBuscados = computed(() => {
+  const q = busqueda.value.trim().toLowerCase()
+  if (!q) return pedidosFiltrados.value
+  return pedidosFiltrados.value.filter(o =>
+    (o.order_number  || '').toLowerCase().includes(q) ||
+    (o.customer_name || '').toLowerCase().includes(q) ||
+    (o.customer_email|| '').toLowerCase().includes(q) ||
+    (o.customer_phone|| '').toLowerCase().includes(q),
+  )
+})
+// 3) Paginación de 10 en 10.
+const totalPaginas  = computed(() => Math.max(1, Math.ceil(pedidosBuscados.value.length / POR_PAGINA)))
+const paginaActual  = computed(() => Math.min(pagina.value, totalPaginas.value))
+const pedidosPagina = computed(() => {
+  const start = (paginaActual.value - 1) * POR_PAGINA
+  return pedidosBuscados.value.slice(start, start + POR_PAGINA)
+})
+// Al cambiar filtro o búsqueda, volver a la primera página.
+watch([filtro, busqueda], () => { pagina.value = 1 })
+
 const totalPedidos = computed(() => pedidos.value.length)
 const pendientes   = computed(() => pedidos.value.filter(o => o.status === 'pendiente').length)
 
@@ -322,14 +347,24 @@ onMounted(async () => {
       >{{ ESTADO_LABEL[e] }}</button>
     </div>
 
+    <div class="dash__search">
+      <input v-model="busqueda" type="search" class="dash__searchinput"
+             placeholder="Buscar por N° de pedido, nombre, correo o teléfono…" />
+      <span v-if="busqueda.trim()" class="dash__searchcount">{{ pedidosBuscados.length }} resultado(s)</span>
+    </div>
+
     <p v-if="pedidosError" class="dash__error" role="alert">{{ pedidosError }}</p>
 
     <div v-if="cargandoPed" class="admin__center"><span class="spinner"></span></div>
 
-    <p v-else-if="!pedidosFiltrados.length" class="dash__empty">No hay pedidos{{ filtro !== 'todos' ? ` en estado "${filtro}"` : '' }}.</p>
+    <p v-else-if="!pedidosBuscados.length" class="dash__empty">
+      {{ busqueda.trim()
+          ? `No hay pedidos que coincidan con "${busqueda.trim()}".`
+          : (filtro !== 'todos' ? `No hay pedidos en estado "${ESTADO_LABEL[filtro] || filtro}".` : 'No hay pedidos.') }}
+    </p>
 
     <ul v-else class="orders">
-      <li v-for="o in pedidosFiltrados" :key="o.id" :id="'ord-' + o.id" class="order">
+      <li v-for="o in pedidosPagina" :key="o.id" :id="'ord-' + o.id" class="order">
         <div class="order__head" @click="abrirDetalle(o)">
           <div class="order__main">
             <span class="order__num">{{ o.order_number || ('#' + o.id) }}</span>
@@ -348,6 +383,12 @@ onMounted(async () => {
         </div>
       </li>
     </ul>
+
+    <div v-if="!cargandoPed && totalPaginas > 1" class="pager">
+      <button class="pager__btn" :disabled="paginaActual <= 1" @click="pagina = paginaActual - 1">← Anterior</button>
+      <span class="pager__info">Página {{ paginaActual }} de {{ totalPaginas }}</span>
+      <button class="pager__btn" :disabled="paginaActual >= totalPaginas" @click="pagina = paginaActual + 1">Siguiente →</button>
+    </div>
 
     <!-- ── Modal: detalle del pedido + edición segura ── -->
     <Teleport to="body">
@@ -489,8 +530,17 @@ onMounted(async () => {
   background: var(--surface-2); border: 1px solid var(--border); color: var(--text-2); border-radius: 999px;
 }
 .chip--on { background: var(--accent); border-color: var(--accent); color: var(--ink); font-weight: 600; }
+.dash__search { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem; flex-wrap: wrap; }
+.dash__searchinput { flex: 1; min-width: 240px; background: var(--surface-2); border: 1px solid var(--border-mid); color: var(--text-1); padding: 0.6rem 0.85rem; font-size: 0.88rem; outline: none; border-radius: 8px; }
+.dash__searchinput:focus-visible { border-color: var(--accent); box-shadow: 0 0 0 3px var(--glow-color); }
+.dash__searchcount { font-size: 0.74rem; color: var(--text-3); white-space: nowrap; }
 .dash__error { color: #e0566b; font-size: 0.82rem; margin: 0.5rem 0; }
 .dash__empty { color: var(--text-3); padding: 3rem 0; text-align: center; }
+.pager { display: flex; align-items: center; justify-content: center; gap: 1rem; margin-top: 1.25rem; flex-wrap: wrap; }
+.pager__btn { padding: 0.5rem 1rem; font-size: 0.76rem; font-weight: 600; background: var(--surface-2); border: 1px solid var(--border-mid); color: var(--text-2); cursor: pointer; border-radius: 6px; }
+.pager__btn:hover:not(:disabled) { color: var(--text-1); border-color: var(--accent); }
+.pager__btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.pager__info { font-size: 0.78rem; color: var(--text-3); }
 
 /* ── Orders ── */
 .orders { list-style: none; display: flex; flex-direction: column; gap: 0.6rem; }
