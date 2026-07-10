@@ -102,25 +102,29 @@ Deno.serve(async (req: Request) => {
 
   // 2) Validar precios contra la BD (nunca confiar en el navegador).
   const ids = [...new Set(pedido.items.map((i) => i.product_id).filter(Boolean))] as string[]
-  const priceMap = new Map<string, { price: number; is_active: boolean }>()
+  const priceMap = new Map<string, { name: string; price: number; is_active: boolean }>()
   if (ids.length) {
-    const { data: prods } = await admin.from('products').select('id, price, is_active').in('id', ids)
-    for (const p of prods ?? []) priceMap.set(p.id, { price: Number(p.price), is_active: p.is_active })
+    const { data: prods } = await admin.from('products').select('id, name, price, is_active').in('id', ids)
+    for (const p of prods ?? []) priceMap.set(p.id, { name: p.name, price: Number(p.price), is_active: p.is_active })
   }
 
   let subtotal = 0
   const items: ItemPedido[] = []
   for (const it of pedido.items) {
-    const p = it.product_id ? priceMap.get(it.product_id) : null
-    if (it.product_id && (!p || p.is_active === false)) {
-      return json({ error: `Producto no disponible: ${it.name}` }, 409)
+    // SEGURIDAD: todo ítem DEBE referenciar un producto real y activo. El precio y
+    // el nombre se toman SIEMPRE de la BD, nunca del navegador (evita que alguien
+    // llame al endpoint con un unit_price arbitrario para un producto real).
+    if (!it.product_id) return json({ error: 'Ítem inválido: falta el producto.' }, 400)
+    const p = priceMap.get(it.product_id)
+    if (!p || p.is_active === false) {
+      return json({ error: `Producto no disponible: ${it.name ?? ''}` }, 409)
     }
     const qty  = Math.max(1, Math.min(50, Math.trunc(Number(it.qty) || 1)))
-    const unit = p ? p.price : Number(it.unit_price)
+    const unit = p.price
     if (!(unit >= 0)) return json({ error: 'Precio inválido' }, 400)
     const sub  = round2(unit * qty)
     subtotal  += sub
-    items.push({ ...it, qty, unit_price: unit, subtotal: sub })
+    items.push({ ...it, name: p.name, qty, unit_price: unit, subtotal: sub })
   }
   subtotal = round2(subtotal)
 

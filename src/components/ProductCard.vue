@@ -359,6 +359,20 @@ function handleAdd() {
   opacity: 1;
   pointer-events: auto;
 }
+
+/* En pantallas táctiles NO hay :hover → mostrar flechas, dots y acciones siempre.
+   La compra rápida y navegar fotos deben ser alcanzables desde el celular. */
+@media (hover: none) {
+  .card__arrow { opacity: 1; transform: translateY(-50%) scale(1); }
+  .card__dots { opacity: 1; }
+  .card__overlay {
+    opacity: 1;
+    pointer-events: auto;
+    justify-content: flex-end;
+    padding-bottom: 0.85rem;
+    background: linear-gradient(to top, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0.18) 42%, rgba(0,0,0,0) 72%);
+  }
+}
 .card__overlay-btn {
   padding: 0.6rem 1.5rem;
   font-size: 0.68rem;
