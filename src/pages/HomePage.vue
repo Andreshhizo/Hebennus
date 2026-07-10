@@ -140,15 +140,16 @@ onMounted(async () => {
   min-height: 88svh;
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: flex-end;   /* contenido abajo → se ve la foto arriba */
   overflow: hidden;
 }
 .hero__bg {
   position: absolute;
   inset: 0;
-  /* Foto de fondo + capa denim encima para legibilidad del texto crema. */
+  /* Foto de fondo con un scrim MUY suave arriba y algo más abajo (donde va el texto),
+     para que se vea la foto pero el slogan se entienda. Minimalista. */
   background:
-    linear-gradient(180deg, rgba(53,82,138,.42) 0%, rgba(38,54,92,.64) 100%),
+    linear-gradient(180deg, rgba(20,28,45,.06) 0%, rgba(20,28,45,.18) 50%, rgba(20,28,45,.55) 100%),
     url('/fondo.png') center / cover no-repeat;
 }
 .hero__glow {
@@ -174,22 +175,23 @@ onMounted(async () => {
   font-size: 0.7rem;
   letter-spacing: 0.3em;
   text-transform: uppercase;
-  color: rgba(247,244,240,.75);
-  margin-bottom: 2.5rem;
+  color: rgba(247,244,240,.9);
+  margin-bottom: 1rem;
+  text-shadow: 0 1px 10px rgba(0,0,0,.35);
 }
 .hero__headline {
   display: flex;
   flex-direction: column;
-  line-height: 0.88;
+  line-height: 0.9;
 }
 .hero__word {
   display: block;
   font-family: var(--font-brand);
-  font-size: clamp(5rem, 17vw, 15rem);
+  font-size: clamp(2.4rem, 8.5vw, 5rem);   /* más chico → no tapa la foto */
   letter-spacing: -0.01em;
 }
-/* MAKE / IT — relleno crema sólido sobre la banda denim */
-.hero__word--solid   { color: #F7F4F0; }
+/* MAKE / IT — relleno crema sólido con sombra suave para legibilidad sobre la foto */
+.hero__word--solid   { color: #F7F4F0; text-shadow: 0 2px 18px rgba(0,0,0,.4); }
 
 /* REAL. — outline relleno con líneas horizontales paralelas (repeating-linear-gradient
    recortado al texto) + trazo crema. Sin relleno pleno. */
@@ -207,14 +209,15 @@ onMounted(async () => {
   -webkit-text-fill-color: transparent;
 }
 .hero__sub {
-  margin-top: 3rem;
+  margin-top: 1.25rem;
   font-size: 0.75rem;
   letter-spacing: 0.24em;
   text-transform: uppercase;
-  color: rgba(247,244,240,.85);
+  color: rgba(247,244,240,.9);
+  text-shadow: 0 1px 10px rgba(0,0,0,.35);
 }
 .hero__cta {
-  margin-top: 2.5rem;
+  margin-top: 1.75rem;
   display: flex;
   gap: 1rem;
   flex-wrap: wrap;
