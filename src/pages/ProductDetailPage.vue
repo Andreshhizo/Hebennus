@@ -14,20 +14,25 @@ const imagenIdx    = ref(0)
 const tallaElegida = ref(null)
 const colorElegido = ref(null)
 const guideOpen    = ref(false)
+const cargaError   = ref(false)
 
 async function fetchProduct(id) {
-  cargando.value    = true
-  imagenIdx.value   = 0
+  cargando.value     = true
+  cargaError.value   = false
+  imagenIdx.value    = 0
   tallaElegida.value = null
   colorElegido.value = null
-  product.value     = null
+  product.value      = null
 
-  const { data } = await supabase
+  // maybeSingle: 0 filas → data=null SIN error (producto realmente no existe);
+  // error solo en fallo de red/BD → así no mostramos "404" cuando es un error.
+  const { data, error } = await supabase
     .from('products')
     .select('*, product_variants(*)')
     .eq('id', id)
-    .single()
+    .maybeSingle()
 
+  if (error) cargaError.value = true
   product.value  = data
   cargando.value = false
 }
@@ -146,6 +151,13 @@ function handleAdd() {
         <div class="skel-line skel-line--btn shine"></div>
       </div>
     </div>
+  </div>
+
+  <!-- ░░ ERROR DE CARGA (red/BD) ░░ -->
+  <div v-else-if="cargaError" class="nf">
+    <span class="chip">Ups</span>
+    <h1 class="nf__title">No se pudo cargar el producto</h1>
+    <button type="button" class="nf__back" @click="fetchProduct(route.params.id)">↻ Reintentar</button>
   </div>
 
   <!-- ░░ NOT FOUND ░░ -->

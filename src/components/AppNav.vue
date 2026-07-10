@@ -223,7 +223,7 @@ onUnmounted(() => document.removeEventListener('click', onDocClick))
   display: flex;
   align-items: center;
   color: var(--text-2);
-  padding: 0.25rem;
+  padding: 0.5rem;
   transition: color 0.2s;
 }
 .nav__theme:hover { color: var(--text-1); }
@@ -232,7 +232,7 @@ onUnmounted(() => document.removeEventListener('click', onDocClick))
   display: flex;
   align-items: center;
   color: var(--text-1);
-  padding: 0.25rem;
+  padding: 0.5rem;
   transition: color 0.2s;
 }
 .nav__cart:hover { color: var(--copper-light); transform: translateY(-1px); }
@@ -259,7 +259,7 @@ onUnmounted(() => document.removeEventListener('click', onDocClick))
 
 /* ── ACCOUNT ── */
 .nav__account { position: relative; display: flex; align-items: center; }
-.nav__acct { position: relative; display: flex; align-items: center; color: var(--text-2); padding: 0.25rem; transition: color 0.2s; cursor: pointer; }
+.nav__acct { position: relative; display: flex; align-items: center; color: var(--text-2); padding: 0.5rem; transition: color 0.2s; cursor: pointer; }
 .nav__acct:hover { color: var(--text-1); }
 .nav__acct-dot { position: absolute; top: 0; right: 0; width: 7px; height: 7px; background: var(--copper); border-radius: 50%; }
 .nav__menu {

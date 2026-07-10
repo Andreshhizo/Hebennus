@@ -1,6 +1,8 @@
 <script setup>
-defineProps({ open: { type: Boolean, default: false } })
+import { useModalUX } from '../lib/useModal.js'
+const props = defineProps({ open: { type: Boolean, default: false } })
 const emit = defineEmits(['close'])
+useModalUX(() => props.open, () => emit('close'))
 </script>
 
 <template>

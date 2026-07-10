@@ -1,11 +1,13 @@
 <script setup>
 import { computed } from 'vue'
+import { useModalUX } from '../lib/useModal.js'
 
 const props = defineProps({
   items: { type: Array, default: () => [] },
   open:  { type: Boolean, default: false },
 })
 const emit = defineEmits(['close', 'remove', 'update-qty', 'clear-all', 'go-checkout'])
+useModalUX(() => props.open, () => emit('close'))
 
 const total = computed(() =>
   props.items.reduce((sum, item) => sum + Number(item.price) * (item.qty ?? 1), 0)
@@ -237,7 +239,7 @@ const total = computed(() =>
   flex-shrink: 0;
 }
 .qty-btn {
-  width: 27px; height: 27px;
+  width: 36px; height: 36px;
   display: flex;
   align-items: center;
   justify-content: center;

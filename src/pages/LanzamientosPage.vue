@@ -6,15 +6,22 @@ import SkeletonCard       from '../components/SkeletonCard.vue'
 
 const lanzamientos = ref([])
 const cargando     = ref(true)
+const errorCarga   = ref(false)
 
 onMounted(async () => {
-  const { data } = await supabase
-    .from('products')
-    .select('*, product_variants(*)')
-    .eq('is_launch', true)
-    .order('launch_order', { ascending: true })
-  lanzamientos.value = data ?? []
-  cargando.value = false
+  try {
+    const { data, error } = await supabase
+      .from('products')
+      .select('*, product_variants(*)')
+      .eq('is_launch', true)
+      .order('launch_order', { ascending: true })
+    if (error) throw error
+    lanzamientos.value = data ?? []
+  } catch (_) {
+    errorCarga.value = true
+  } finally {
+    cargando.value = false
+  }
 })
 
 const waMsg  = 'Hola Hebennus! Quiero recibir noticias sobre los próximos lanzamientos 🔥'
@@ -91,6 +98,12 @@ function pad(n) { return String(n).padStart(2, '0') }
       <!-- Skeletons -->
       <div v-if="cargando" class="drops__grid">
         <SkeletonCard v-for="i in 3" :key="i" />
+      </div>
+
+      <!-- Error de carga -->
+      <div v-else-if="errorCarga" class="empty">
+        <p class="empty__title">No se pudieron cargar los lanzamientos.</p>
+        <p class="empty__sub">Revisa tu conexión e inténtalo de nuevo.</p>
       </div>
 
       <!-- Sin lanzamientos -->

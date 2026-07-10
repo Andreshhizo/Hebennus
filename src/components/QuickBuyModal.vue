@@ -2,6 +2,7 @@
 import { ref, computed, watch, inject } from 'vue'
 import { RouterLink } from 'vue-router'
 import SizeGuideModal from './SizeGuideModal.vue'
+import { useModalUX } from '../lib/useModal.js'
 
 const props = defineProps({
   product: { type: Object, default: null },
@@ -10,6 +11,7 @@ const emit = defineEmits(['close'])
 
 const addToCart  = inject('addToCart')
 const isOpen     = computed(() => !!props.product)
+useModalUX(isOpen, () => emit('close'))
 const guideOpen  = ref(false)
 const imagenIdx    = ref(0)
 const tallaElegida = ref(null)

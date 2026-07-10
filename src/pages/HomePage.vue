@@ -9,16 +9,23 @@ import SkeletonCard from '../components/SkeletonCard.vue'
 const addToCart = inject('addToCart')
 const productos = ref([])
 const cargando  = ref(true)
+const errorCarga = ref(false)
 
 onMounted(async () => {
-  const { data } = await supabase
-    .from('products')
-    .select('*, product_variants(*)')
-    .eq('is_active', true)
-    .order('created_at', { ascending: false })
-    .limit(4)
-  productos.value = data ?? []
-  cargando.value = false
+  try {
+    const { data, error } = await supabase
+      .from('products')
+      .select('*, product_variants(*)')
+      .eq('is_active', true)
+      .order('created_at', { ascending: false })
+      .limit(4)
+    if (error) throw error
+    productos.value = data ?? []
+  } catch (_) {
+    errorCarga.value = true
+  } finally {
+    cargando.value = false
+  }
 })
 </script>
 
@@ -51,7 +58,7 @@ onMounted(async () => {
   </section>
 
   <!-- ░░ FEATURED PRODUCTS ░░ -->
-  <section class="featured" v-if="cargando || productos.length">
+  <section class="featured" v-if="cargando || productos.length || errorCarga">
     <div class="featured__inner">
       <header class="featured__hd" v-reveal>
         <span class="chip">New In</span>
@@ -61,6 +68,9 @@ onMounted(async () => {
         <template v-if="cargando">
           <SkeletonCard v-for="i in 4" :key="i" />
         </template>
+        <p v-else-if="errorCarga" style="grid-column:1/-1;text-align:center;color:var(--text-3);padding:2rem 0;">
+          No se pudieron cargar los productos. Recarga la página.
+        </p>
         <template v-else>
           <ProductCard
             v-for="p in productos"
