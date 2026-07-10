@@ -9,9 +9,12 @@ language sql
 security definer
 set search_path = ''
 as $$
+  -- Solo cuentas CONFIRMADAS: una cuenta sin confirmar no puede iniciar sesión,
+  -- así que para "recuperar contraseña" se trata como si no existiera.
   select exists(
     select 1 from auth.users
     where lower(email) = lower(trim(p_email))
+      and email_confirmed_at is not null
   );
 $$;
 
