@@ -89,6 +89,29 @@ export function useAuth() {
     if (error) throw error
   }
 
+  // ── Recuperar contraseña ("olvidé mi contraseña") ──
+  // Envía un correo con un código de 6 dígitos (plantilla "Recovery" con {{ .Token }}).
+  async function sendPasswordReset(email) {
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim())
+    if (error) throw error
+  }
+
+  // Verifica el código de recuperación → deja una sesión temporal para cambiar la clave.
+  async function verifyRecoveryCode(email, code) {
+    const { error } = await supabase.auth.verifyOtp({
+      email: email.trim(),
+      token: code.trim(),
+      type: 'recovery',
+    })
+    if (error) throw error
+  }
+
+  // Cambia la contraseña del usuario con sesión activa (reset o cambio logueado).
+  async function updatePassword(password) {
+    const { error } = await supabase.auth.updateUser({ password })
+    if (error) throw error
+  }
+
   async function signOut() {
     // 1) Logout inmediato en la UI (no depende de la red).
     user.value = null
@@ -108,5 +131,5 @@ export function useAuth() {
     purgeSupabaseTokens()
   }
 
-  return { user, isAdmin, ready, signUp, signIn, signOut, signInWithGoogle, resendConfirmation, verifyEmailCode }
+  return { user, isAdmin, ready, signUp, signIn, signOut, signInWithGoogle, resendConfirmation, verifyEmailCode, sendPasswordReset, verifyRecoveryCode, updatePassword }
 }

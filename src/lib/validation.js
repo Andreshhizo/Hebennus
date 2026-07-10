@@ -32,3 +32,9 @@ export function validarRUC(v) {
 export function validarTexto(v, min = 1) {
   return String(v ?? '').trim().length >= min
 }
+
+// Contraseña (registro / reset): mínimo 8, con al menos una letra y un número.
+export function validarPassword(v) {
+  const s = String(v ?? '')
+  return s.length >= 8 && /[a-zA-Z]/.test(s) && /\d/.test(s)
+}

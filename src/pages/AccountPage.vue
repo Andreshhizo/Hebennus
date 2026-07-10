@@ -1,22 +1,37 @@
 <script setup>
 // ─── /cuenta — Registro + Inicio de sesión de clientes ──────────────────────
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive, computed, onUnmounted } from 'vue'
 import { useRouter, RouterLink } from 'vue-router'
 import { useAuth } from '../lib/useAuth.js'
+import { validarPassword, validarTelefonoPE } from '../lib/validation.js'
 
 const router = useRouter()
-const { signUp, signIn, signInWithGoogle, resendConfirmation, verifyEmailCode } = useAuth()
+const { signUp, signIn, signInWithGoogle, resendConfirmation, verifyEmailCode,
+        sendPasswordReset, verifyRecoveryCode, updatePassword } = useAuth()
 
 const modo = ref('login')   // 'login' | 'registro'
-const paso = ref('form')    // 'form' | 'verificar'
+const paso = ref('form')    // 'form' | 'verificar' | 'recuperar' | 'reset'
 const enviando = ref(false)
 const verificando = ref(false)
 const codigo = ref('')
+const newPassword = ref('')
 const googleLoading = ref(false)
 const reenviando = ref(false)
-const reenviado = ref(false)
 const error = ref('')
 const aviso = ref('')   // p.ej. "revisa tu correo"
+
+// Cooldown de reenvío: evita chocar con el rate-limit de Supabase (403 "too many requests").
+const cooldown = ref(0)
+let cooldownTimer = null
+function startCooldown(sec = 45) {
+  cooldown.value = sec
+  clearInterval(cooldownTimer)
+  cooldownTimer = setInterval(() => {
+    cooldown.value -= 1
+    if (cooldown.value <= 0) clearInterval(cooldownTimer)
+  }, 1000)
+}
+onUnmounted(() => clearInterval(cooldownTimer))
 
 const form = reactive({
   full_name: '',
@@ -28,9 +43,15 @@ const form = reactive({
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const errores = computed(() => {
   const e = {}
-  if (modo.value === 'registro' && form.full_name.trim().length < 3) e.full_name = 'Ingresa tu nombre.'
   if (!EMAIL_RE.test(form.email.trim())) e.email = 'Correo inválido.'
-  if (form.password.length < 6) e.password = 'Mínimo 6 caracteres.'
+  if (modo.value === 'registro') {
+    if (form.full_name.trim().length < 3) e.full_name = 'Ingresa tu nombre.'
+    if (form.phone.trim() && !validarTelefonoPE(form.phone)) e.phone = 'Celular: 9 dígitos, empieza con 9.'
+    if (!validarPassword(form.password)) e.password = 'Mínimo 8, con al menos una letra y un número.'
+  } else {
+    // Login: no exigimos fuerza (cuentas antiguas pueden tener claves más cortas).
+    if (form.password.length < 1) e.password = 'Ingresa tu contraseña.'
+  }
   return e
 })
 const valido = computed(() => Object.keys(errores.value).length === 0)
@@ -41,12 +62,19 @@ async function enviar() {
   enviando.value = true
   try {
     if (modo.value === 'registro') {
-      const { session } = await signUp({
+      const data = await signUp({
         email: form.email, password: form.password,
         full_name: form.full_name, phone: form.phone,
       })
-      if (session) { router.push('/mis-pedidos') }   // sin confirmación → entra directo
-      else { paso.value = 'verificar' }               // con confirmación → pedir el código
+      // Supabase NO devuelve error si el correo ya existe (anti-enumeración): en su
+      // lugar manda `user.identities` VACÍO. Lo detectamos para no enviar otro código.
+      if (data?.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+        error.value = 'Ese correo ya tiene una cuenta. Inicia sesión o recupera tu contraseña.'
+        modo.value = 'login'
+        return
+      }
+      if (data?.session) { router.push('/mis-pedidos') }   // sin confirmación → entra directo
+      else { paso.value = 'verificar'; startCooldown() }    // con confirmación → pedir el código
     } else {
       await signIn({ email: form.email, password: form.password })
       router.push('/mis-pedidos')
@@ -74,13 +102,19 @@ async function conGoogle() {
   }
 }
 
-async function reenviarConfirmacion() {
-  if (!form.email) return
+async function reenviar() {
+  if (!form.email || reenviando.value || cooldown.value > 0) return
+  error.value = ''
   reenviando.value = true
-  reenviado.value = false
-  try { await resendConfirmation(form.email); reenviado.value = true }
-  catch (err) { error.value = err?.message || 'No se pudo reenviar.' }
-  finally { reenviando.value = false }
+  try {
+    if (paso.value === 'reset') await sendPasswordReset(form.email)
+    else await resendConfirmation(form.email)
+    startCooldown()
+  } catch (err) {
+    error.value = err?.message || 'No se pudo reenviar. Espera un momento.'
+  } finally {
+    reenviando.value = false
+  }
 }
 
 // Verificar el código de 6 dígitos → confirma la cuenta y entra.
@@ -103,9 +137,54 @@ async function verificarCodigo() {
   }
 }
 
+// ── Recuperar contraseña ("olvidé mi contraseña") ──
+function irARecuperar() {
+  paso.value = 'recuperar'
+  error.value = ''; aviso.value = ''; codigo.value = ''; newPassword.value = ''
+}
+
+// Paso 1: pide el código al correo.
+async function pedirReset() {
+  error.value = ''
+  if (!EMAIL_RE.test(form.email.trim())) { error.value = 'Ingresa un correo válido.'; return }
+  if (enviando.value || cooldown.value > 0) return
+  enviando.value = true
+  try {
+    await sendPasswordReset(form.email)
+    paso.value = 'reset'; startCooldown()
+  } catch (err) {
+    error.value = err?.message || 'No se pudo enviar el código. Inténtalo de nuevo.'
+  } finally {
+    enviando.value = false
+  }
+}
+
+// Paso 2: verifica el código y guarda la nueva contraseña.
+async function confirmarReset() {
+  error.value = ''
+  const code = codigo.value.replace(/\D/g, '')
+  if (code.length < 6) { error.value = 'Ingresa el código de 6 dígitos.'; return }
+  if (!validarPassword(newPassword.value)) { error.value = 'La nueva contraseña: mínimo 8, con letra y número.'; return }
+  if (verificando.value) return
+  verificando.value = true
+  try {
+    await verifyRecoveryCode(form.email, code)   // deja una sesión temporal
+    await updatePassword(newPassword.value)       // cambia la clave
+    router.push('/mis-pedidos')
+  } catch (err) {
+    const m = err?.message || ''
+    error.value =
+      m.includes('expired')                          ? 'El código expiró. Pide uno nuevo.' :
+      (m.includes('invalid') || m.includes('Token')) ? 'Código incorrecto. Revísalo e inténtalo de nuevo.' :
+      (m || 'No se pudo cambiar la contraseña. Inténtalo de nuevo.')
+  } finally {
+    verificando.value = false
+  }
+}
+
 function cambiarModo(m) {
-  modo.value = m; paso.value = 'form'; codigo.value = ''
-  error.value = ''; aviso.value = ''; reenviado.value = false
+  modo.value = m; paso.value = 'form'; codigo.value = ''; newPassword.value = ''
+  error.value = ''; aviso.value = ''
 }
 </script>
 
@@ -142,27 +221,29 @@ function cambiarModo(m) {
       <template v-if="modo === 'registro'">
         <label class="acc__label" for="ac-name">Nombre completo</label>
         <input id="ac-name" v-model="form.full_name" type="text" class="acc__input" autocomplete="name" />
+        <p v-if="form.full_name && errores.full_name" class="acc__ferr">{{ errores.full_name }}</p>
         <label class="acc__label" for="ac-phone">Celular <span class="acc__opt">(opcional)</span></label>
-        <input id="ac-phone" v-model="form.phone" type="tel" inputmode="numeric" class="acc__input" autocomplete="tel" />
+        <input id="ac-phone" v-model="form.phone" type="tel" inputmode="numeric" maxlength="9" class="acc__input" autocomplete="tel"
+               @input="form.phone = form.phone.replace(/\D/g,'').slice(0,9)" />
+        <p v-if="form.phone && errores.phone" class="acc__ferr">{{ errores.phone }}</p>
       </template>
 
       <label class="acc__label" for="ac-email">Correo electrónico</label>
       <input id="ac-email" v-model="form.email" type="email" class="acc__input" autocomplete="email" />
+      <p v-if="form.email && errores.email" class="acc__ferr">{{ errores.email }}</p>
 
       <label class="acc__label" for="ac-pass">Contraseña</label>
       <input id="ac-pass" v-model="form.password" type="password" class="acc__input"
              :autocomplete="modo === 'registro' ? 'new-password' : 'current-password'" />
+      <p v-if="modo === 'registro'" :class="['acc__phint', { 'acc__ferr': form.password && errores.password }]">
+        Mínimo 8 caracteres, con al menos una letra y un número.
+      </p>
+      <p v-if="modo === 'login'" class="acc__forgot">
+        <button type="button" @click="irARecuperar">¿Olvidaste tu contraseña?</button>
+      </p>
 
       <p v-if="error" class="acc__error" role="alert">{{ error }}</p>
-      <template v-if="aviso">
-        <p class="acc__aviso" role="status">{{ aviso }}</p>
-        <p class="acc__resend">
-          ¿No te llegó?
-          <button type="button" :disabled="reenviando || reenviado" @click="reenviarConfirmacion">
-            {{ reenviado ? 'Reenviado ✓' : (reenviando ? 'Reenviando…' : 'Reenviar correo') }}
-          </button>
-        </p>
-      </template>
+      <p v-if="aviso" class="acc__aviso" role="status">{{ aviso }}</p>
 
       <button type="submit" class="acc__btn" :disabled="!valido || enviando">
         <span v-if="enviando" class="spinner"></span>
@@ -174,8 +255,8 @@ function cambiarModo(m) {
     <p class="acc__switch" v-else>¿Ya tienes cuenta? <button @click="cambiarModo('login')">Inicia sesión</button></p>
     </template>
 
-    <!-- ── Paso: verificar código ── -->
-    <template v-else>
+    <!-- ── Paso: verificar código de registro ── -->
+    <template v-else-if="paso === 'verificar'">
       <h2 class="acc__vtitle">Verifica tu correo</h2>
       <p class="acc__vsub">Ingresa el código de 6 dígitos que enviamos a<br/><strong>{{ form.email }}</strong></p>
 
@@ -193,11 +274,56 @@ function cambiarModo(m) {
 
       <p class="acc__resend">
         ¿No te llegó?
-        <button type="button" :disabled="reenviando || reenviado" @click="reenviarConfirmacion">
-          {{ reenviado ? 'Reenviado ✓' : (reenviando ? 'Reenviando…' : 'Reenviar código') }}
+        <button type="button" :disabled="reenviando || cooldown > 0" @click="reenviar">
+          {{ cooldown > 0 ? `Reenviar en ${cooldown}s` : (reenviando ? 'Reenviando…' : 'Reenviar código') }}
         </button>
       </p>
       <p class="acc__switch"><button @click="cambiarModo('registro')">← Cambiar correo</button></p>
+    </template>
+
+    <!-- ── Paso: recuperar contraseña (pedir código) ── -->
+    <template v-else-if="paso === 'recuperar'">
+      <h2 class="acc__vtitle">Recuperar acceso</h2>
+      <p class="acc__vsub">Ingresa tu correo y te enviaremos un código de 6 dígitos para crear una nueva contraseña.</p>
+
+      <form class="acc__form" novalidate @submit.prevent="pedirReset">
+        <label class="acc__label" for="rc-email">Correo electrónico</label>
+        <input id="rc-email" v-model="form.email" type="email" class="acc__input" autocomplete="email" />
+        <p v-if="error" class="acc__error" role="alert">{{ error }}</p>
+        <button type="submit" class="acc__btn" :disabled="enviando">
+          <span v-if="enviando" class="spinner"></span>
+          {{ enviando ? 'Enviando…' : 'Enviar código' }}
+        </button>
+      </form>
+      <p class="acc__switch"><button @click="cambiarModo('login')">← Volver a iniciar sesión</button></p>
+    </template>
+
+    <!-- ── Paso: reset (código + nueva contraseña) ── -->
+    <template v-else>
+      <h2 class="acc__vtitle">Nueva contraseña</h2>
+      <p class="acc__vsub">Ingresa el código que enviamos a<br/><strong>{{ form.email }}</strong> y tu nueva contraseña.</p>
+
+      <form class="acc__form" novalidate @submit.prevent="confirmarReset">
+        <label class="acc__label" for="rs-code">Código de 6 dígitos</label>
+        <input id="rs-code" v-model="codigo" inputmode="numeric" maxlength="8" autocomplete="one-time-code"
+               class="acc__input acc__code" placeholder="······" aria-label="Código de verificación" />
+        <label class="acc__label" for="rs-pass">Nueva contraseña</label>
+        <input id="rs-pass" v-model="newPassword" type="password" class="acc__input" autocomplete="new-password" />
+        <p class="acc__phint">Mínimo 8 caracteres, con al menos una letra y un número.</p>
+        <p v-if="error" class="acc__error" role="alert">{{ error }}</p>
+        <button type="submit" class="acc__btn" :disabled="verificando">
+          <span v-if="verificando" class="spinner"></span>
+          {{ verificando ? 'Guardando…' : 'Cambiar contraseña' }}
+        </button>
+      </form>
+
+      <p class="acc__resend">
+        ¿No te llegó?
+        <button type="button" :disabled="reenviando || cooldown > 0" @click="reenviar">
+          {{ cooldown > 0 ? `Reenviar en ${cooldown}s` : (reenviando ? 'Reenviando…' : 'Reenviar código') }}
+        </button>
+      </p>
+      <p class="acc__switch"><button @click="cambiarModo('login')">← Volver a iniciar sesión</button></p>
     </template>
 
     <RouterLink to="/" class="acc__back">← Volver a la tienda</RouterLink>
@@ -240,6 +366,12 @@ function cambiarModo(m) {
 .acc__input:focus-visible { border-color: var(--accent); box-shadow: 0 0 0 3px var(--glow-color); }
 .acc__error { color: #e0566b; font-size: 0.78rem; margin-top: 0.6rem; }
 .acc__aviso { color: var(--accent-2); font-size: 0.82rem; margin-top: 0.6rem; line-height: 1.5; }
+.acc__ferr { color: #e0566b; font-size: 0.72rem; margin-top: 0.15rem; }
+.acc__phint { color: var(--text-3); font-size: 0.72rem; margin-top: 0.15rem; line-height: 1.4; }
+.acc__phint.acc__ferr { color: #e0566b; }
+.acc__forgot { text-align: right; margin-top: 0.45rem; }
+.acc__forgot button { color: var(--accent-3); font-size: 0.76rem; font-weight: 600; cursor: pointer; transition: opacity 0.2s var(--ease-out); }
+.acc__forgot button:hover { opacity: 0.78; }
 .acc__btn { margin-top: 1.1rem; padding: 0.9rem; background: var(--grad-cool); background-size: 160% 160%; color: #fff; border: none; border-radius: var(--radius-md); box-shadow: var(--shadow-soft); font-family: var(--font-display); font-size: 0.78rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; transition: transform 0.25s var(--ease-out), box-shadow 0.25s var(--ease-out), background-position 0.5s var(--ease-out), opacity 0.2s var(--ease-out); }
 .acc__btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: var(--shadow-hover); background-position: 100% 0; }
 .acc__btn:active:not(:disabled) { transform: scale(0.97); }

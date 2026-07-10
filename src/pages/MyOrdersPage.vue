@@ -5,9 +5,38 @@ import { ref, computed, watch, onMounted } from 'vue'
 import { useRouter, RouterLink } from 'vue-router'
 import { supabase } from '../lib/supabase.js'
 import { useAuth } from '../lib/useAuth.js'
+import { validarPassword } from '../lib/validation.js'
 
 const router = useRouter()
-const { user, ready } = useAuth()
+const { user, ready, updatePassword } = useAuth()
+
+// ── Cambiar contraseña (usuario logueado) ──
+const showPass = ref(false)
+const pass1 = ref('')
+const pass2 = ref('')
+const savingPass = ref(false)
+const passMsg = ref('')
+const passErr = ref('')
+async function cambiarPassword() {
+  passErr.value = ''; passMsg.value = ''
+  if (!validarPassword(pass1.value)) { passErr.value = 'Mínimo 8 caracteres, con al menos una letra y un número.'; return }
+  if (pass1.value !== pass2.value)   { passErr.value = 'Las contraseñas no coinciden.'; return }
+  if (savingPass.value) return
+  savingPass.value = true
+  try {
+    await updatePassword(pass1.value)
+    passMsg.value = 'Contraseña actualizada ✓'
+    pass1.value = ''; pass2.value = ''
+    setTimeout(() => { showPass.value = false; passMsg.value = '' }, 2500)
+  } catch (err) {
+    const m = err?.message || ''
+    passErr.value = m.includes('should be different')
+      ? 'La nueva contraseña debe ser distinta a la actual.'
+      : (m || 'No se pudo cambiar la contraseña.')
+  } finally {
+    savingPass.value = false
+  }
+}
 
 const pedidos = ref([])
 const cargando = ref(true)
@@ -118,6 +147,31 @@ onMounted(() => { if (user.value) cargar() })
         </ul>
       </section>
     </template>
+
+    <!-- ── Seguridad: cambiar contraseña ── -->
+    <section v-if="user && !cargando" class="seg">
+      <h2 class="grupo__titulo">Seguridad</h2>
+      <div class="seg__card">
+        <button v-if="!showPass" type="button" class="seg__toggle" @click="showPass = true">
+          Cambiar contraseña
+        </button>
+        <form v-else class="seg__form" novalidate @submit.prevent="cambiarPassword">
+          <label class="seg__label" for="np1">Nueva contraseña</label>
+          <input id="np1" v-model="pass1" type="password" class="seg__input" autocomplete="new-password" />
+          <label class="seg__label" for="np2">Repetir contraseña</label>
+          <input id="np2" v-model="pass2" type="password" class="seg__input" autocomplete="new-password" />
+          <p class="seg__hint">Mínimo 8 caracteres, con al menos una letra y un número.</p>
+          <p v-if="passErr" class="seg__err">{{ passErr }}</p>
+          <p v-if="passMsg" class="seg__ok">{{ passMsg }}</p>
+          <div class="seg__actions">
+            <button type="button" class="seg__cancel" @click="showPass = false; passErr = ''">Cancelar</button>
+            <button type="submit" class="seg__save" :disabled="savingPass">
+              {{ savingPass ? 'Guardando…' : 'Guardar' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </section>
   </div>
 </div>
 </template>
@@ -157,6 +211,24 @@ onMounted(() => { if (user.value) cargar() })
 .totales { display: grid; grid-template-columns: 1fr auto; gap: 0.25rem 1rem; margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--border); font-size: 0.82rem; color: var(--text-2); }
 .totales__big { font-weight: 700; color: var(--text-1); }
 .order__envio { font-size: 0.78rem; color: var(--text-3); margin-top: 0.75rem; }
+
+/* ── Seguridad ── */
+.seg { margin-top: 1rem; }
+.seg__card { border: 1px solid var(--border-mid); background: var(--card-bg); padding: 1.1rem 1rem; }
+.seg__toggle { font-size: 0.82rem; font-weight: 600; color: var(--accent-3); cursor: pointer; transition: opacity 0.2s var(--ease-out); }
+.seg__toggle:hover { opacity: 0.78; }
+.seg__form { display: flex; flex-direction: column; gap: 0.35rem; max-width: 360px; }
+.seg__label { font-size: 0.66rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-2); font-weight: 600; margin-top: 0.5rem; }
+.seg__input { background: var(--surface-2); border: 1px solid var(--border-mid); color: var(--text-1); padding: 0.65rem 0.75rem; font-size: 0.92rem; outline: none; border-radius: var(--radius-sm); transition: border-color 0.2s var(--ease-out), box-shadow 0.2s var(--ease-out); }
+.seg__input:focus-visible { border-color: var(--accent); box-shadow: 0 0 0 3px var(--glow-color); }
+.seg__hint { font-size: 0.72rem; color: var(--text-3); margin-top: 0.2rem; line-height: 1.4; }
+.seg__err { color: #e0566b; font-size: 0.76rem; margin-top: 0.4rem; }
+.seg__ok { color: #2ecc8f; font-size: 0.8rem; font-weight: 600; margin-top: 0.4rem; }
+.seg__actions { display: flex; gap: 0.6rem; margin-top: 0.9rem; }
+.seg__cancel { font-size: 0.78rem; color: var(--text-3); cursor: pointer; padding: 0.6rem 1rem; }
+.seg__cancel:hover { color: var(--text-1); }
+.seg__save { padding: 0.6rem 1.4rem; background: var(--accent); color: var(--ink); font-family: var(--font-display); font-size: 0.72rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; cursor: pointer; border-radius: var(--radius-sm); transition: opacity 0.2s var(--ease-out); }
+.seg__save:disabled { opacity: 0.55; cursor: not-allowed; }
 .spinner { width: 22px; height: 22px; border: 2px solid var(--text-3); border-top-color: transparent; border-radius: 50%; animation: spin 0.7s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 </style>
