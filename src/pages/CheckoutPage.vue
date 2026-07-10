@@ -167,7 +167,9 @@ function irAPaso(n) { if (n < paso.value) paso.value = n }   // solo retroceder 
 
 // ── Resumen colapsable en móvil / sticky en desktop ──
 const esDesktop = ref(false)
-const resumenAbierto = ref(false)
+// En móvil arranca ABIERTO para que el cliente vea qué está comprando (productos +
+// fotos), no solo el total. Puede colapsarlo con el botón "Ocultar resumen".
+const resumenAbierto = ref(true)
 let mq = null
 function onMq(e) { esDesktop.value = e.matches }
 onMounted(() => {
