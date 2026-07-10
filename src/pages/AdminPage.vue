@@ -223,6 +223,12 @@ async function marcarPagado(pedido) {
       }
       return
     }
+    // Avisar al cliente que confirmamos su pago (best-effort; no bloquea).
+    try {
+      await supabase.functions.invoke('admin-notificar-envio', {
+        body: { order_number: pedido.order_number, status: 'confirmado' },
+      })
+    } catch (_) { /* correo best-effort */ }
     await cargarPedidos() // refresca para reflejar payment_status='pagado'
   } finally {
     marcandoPagado.value = null

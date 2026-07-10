@@ -123,6 +123,19 @@ export function buildHtmlEstado(customerName: string, orderNumber: string, statu
   </div></body></html>`
 }
 
+// Correo al cliente cuando crea un pedido Yape (pago pendiente por coordinar).
+export function buildHtmlYapePendiente(customerName: string, orderNumber: string, total: number): string {
+  return `<!doctype html><html><body style="margin:0;background:#f4f6fb;font-family:Arial,Helvetica,sans-serif;color:#0b0f1a;">
+  <div style="max-width:560px;margin:0 auto;padding:32px 24px;">
+    <h1 style="font-size:22px;letter-spacing:3px;margin:0 0 4px;">HEBENNUS</h1>
+    <p style="color:#e0a23b;font-size:11px;letter-spacing:2px;text-transform:uppercase;margin:0 0 24px;">Pedido reservado · ${escapeHtml(orderNumber)}</p>
+    <p style="font-size:16px;font-weight:bold;line-height:1.5;margin:0 0 12px;">¡Reservamos tu pedido! 🟣</p>
+    <p style="font-size:14px;line-height:1.6;">¡Hola ${escapeHtml(customerName)}! Tu pedido <strong>${escapeHtml(orderNumber)}</strong> quedó reservado por un total de <strong>S/ ${total.toFixed(2)}</strong>.</p>
+    <p style="font-size:14px;line-height:1.6;">Para completarlo, <strong>escríbenos por WhatsApp</strong> y coordinamos el pago con Yape (te enviamos el QR). Apenas recibamos el pago, te confirmamos el pedido. 🙌</p>
+    <p style="font-size:12px;color:#888;margin-top:32px;">¿Dudas? Respóndenos este correo. — Hebennus, Lima.</p>
+  </div></body></html>`
+}
+
 export async function enviarResend(apiKey: string, payload: Record<string, unknown>): Promise<void> {
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',

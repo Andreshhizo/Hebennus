@@ -19,7 +19,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { buildHtml, enviarResend, type ItemPedido } from '../_shared/email.ts'
+import { buildHtml, buildHtmlYapePendiente, enviarResend, type ItemPedido } from '../_shared/email.ts'
 
 const ENVIO_GRATIS_DESDE = 119  // Lima: gratis desde este subtotal; por debajo, COSTO_ENVIO.
 const COSTO_ENVIO        = 10
@@ -188,6 +188,38 @@ Deno.serve(async (req: Request) => {
   //    order_number + total para que el front pida el formToken (izipay) o arme el
   //    mensaje de WhatsApp con el monto real del servidor (yape_manual).
   if (deferStock) {
+    // Yape manual: avisar a la TIENDA (para preparar el QR / no perder el pedido)
+    // y al CLIENTE (pedido reservado, coordinar pago por WhatsApp). Best-effort:
+    // no debe tumbar el pedido si Resend falla. Izipay NO envía aquí (lo hace la IPN).
+    if (paymentMethod === 'yape_manual') {
+      const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
+      const FROM  = Deno.env.get('RESEND_FROM') ?? 'Hebennus <onboarding@resend.dev>'
+      const STORE = Deno.env.get('STORE_EMAIL')
+      if (RESEND_API_KEY) {
+        // Cliente: pedido reservado.
+        try {
+          await enviarResend(RESEND_API_KEY, {
+            from: FROM,
+            to: [c.customer_email.trim()],
+            subject: `Reservamos tu pedido ${orderNumber} — coordina tu pago Yape · Hebennus`,
+            html: buildHtmlYapePendiente(rpcPayload.cliente.customer_name, orderNumber, total),
+            reply_to: STORE || undefined,
+          })
+        } catch (_) { /* best-effort */ }
+        // Tienda: nuevo pedido Yape con detalle (para coordinar el pago).
+        if (STORE) {
+          try {
+            await enviarResend(RESEND_API_KEY, {
+              from: FROM,
+              to: [STORE],
+              subject: `Nuevo pedido YAPE ${orderNumber} — ${c.customer_name} (coordinar pago)`,
+              html: buildHtml(rpcPayload.cliente, items, { subtotal, shipping, discount, total }, orderNumber, 'tienda'),
+              reply_to: c.customer_email.trim(),
+            })
+          } catch (_) { /* best-effort */ }
+        }
+      }
+    }
     return json({ order_number: orderNumber, total, discount, payment_method: paymentMethod })
   }
 
