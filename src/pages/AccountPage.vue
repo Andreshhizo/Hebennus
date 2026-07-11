@@ -349,7 +349,7 @@ function cambiarModo(m) {
   animation: hb-fade-up 0.5s var(--ease-out) both;
 }
 @keyframes hb-fade-up { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
-.acc__brand { font-family: var(--font-brand); font-size: 1.4rem; letter-spacing: 0.06em; text-align: center; color: var(--text-1); margin-bottom: 1.25rem; }
+.acc__brand { font-family: var(--font-brand); font-weight: 800; font-size: 1.45rem; letter-spacing: 0.02em; text-align: center; color: var(--text-1); margin-bottom: 1.25rem; }
 .acc__tabs { display: flex; gap: 0.25rem; background: var(--surface-2); padding: 0.3rem; border-radius: var(--radius-pill); margin-bottom: 1rem; }
 .acc__tab { flex: 1; padding: 0.6rem; font-size: 0.78rem; font-weight: 600; letter-spacing: 0.04em; color: var(--text-3); border-radius: var(--radius-pill); cursor: pointer; transition: color 0.25s var(--ease-out), background 0.25s var(--ease-out), box-shadow 0.25s var(--ease-out); }
 .acc__tab:active { transform: scale(0.97); }

@@ -117,9 +117,10 @@ import { WHATSAPP_NUMERO, INSTAGRAM, TIKTOK } from '../lib/config.js'
   display: block;
   width: fit-content;
   font-family: var(--font-brand);
-  font-size: 1.35rem;
+  font-weight: 800;
+  font-size: 1.4rem;
   color: var(--text-1);
-  letter-spacing: 0.04em;
+  letter-spacing: 0.02em;
   margin-bottom: 0.5rem;
   transition: opacity 0.2s var(--ease-out), transform 0.2s var(--ease-out);
 }

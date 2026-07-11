@@ -134,7 +134,7 @@ function handleAdd() {
 
           <!-- Info -->
           <div class="qb__info">
-            <p v-if="product.category" class="qb__cat">{{ product.category }}</p>
+            <p v-if="(product.categories && product.categories.length) || product.category" class="qb__cat">{{ (product.categories && product.categories.length) ? product.categories.join(' · ') : product.category }}</p>
             <h2 class="qb__name">{{ product.name }}</h2>
             <p class="qb__price">{{ precioFmt }}</p>
 

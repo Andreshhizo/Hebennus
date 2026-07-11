@@ -208,9 +208,10 @@ onUnmounted(() => document.removeEventListener('click', onDocClick))
 .nav__links a.router-link-active { color: var(--text-1); }
 .nav__brand {
   font-family: var(--font-brand);
-  font-size: 1.3rem;
+  font-weight: 800;
+  font-size: 1.35rem;
   color: var(--text-1);
-  letter-spacing: 0.04em;
+  letter-spacing: 0.02em;
   text-align: center;
 }
 .nav__actions {
@@ -339,9 +340,10 @@ onUnmounted(() => document.removeEventListener('click', onDocClick))
 }
 .mob-menu__logo {
   font-family: var(--font-brand);
-  font-size: 1.1rem;
+  font-weight: 800;
+  font-size: 1.15rem;
   color: var(--text-1);
-  letter-spacing: 0.04em;
+  letter-spacing: 0.02em;
 }
 .mob-menu__close {
   color: var(--text-2);

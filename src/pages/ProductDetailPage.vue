@@ -242,7 +242,7 @@ function handleAdd() {
 
       <!-- ── INFO ── -->
       <div class="pdp__info">
-        <p v-if="product.category" class="pdp__cat">{{ product.category }}</p>
+        <p v-if="(product.categories && product.categories.length) || product.category" class="pdp__cat">{{ (product.categories && product.categories.length) ? product.categories.join(' · ') : product.category }}</p>
         <h1 class="pdp__name">{{ product.name }}</h1>
         <p class="pdp__price">{{ precioFmt }}</p>
 

@@ -32,7 +32,12 @@ const subiendoFotoKey = ref('')   // clave `${pid}::${color}` en subida
 
 // Edición de campos del producto.
 const editId        = ref(null)
-const editForm      = reactive({ name: '', price: '', category: '', tipo_prenda: '', description: '' })
+const editForm      = reactive({ name: '', price: '', categories: [], tipo_prenda: '', description: '' })
+// Marca/desmarca una categoría en un array (para los checkboxes).
+function toggleCategoria(arr, cat) {
+  const i = arr.indexOf(cat)
+  if (i >= 0) arr.splice(i, 1); else arr.push(cat)
+}
 const editGuardando = ref(false)
 const editError     = ref('')
 const activoBusy    = ref({})
@@ -199,7 +204,8 @@ function abrirEdicion(p) {
   editId.value = p.id
   editError.value = ''
   Object.assign(editForm, {
-    name: p.name || '', price: p.price ?? '', category: p.category || '',
+    name: p.name || '', price: p.price ?? '',
+    categories: (p.categories && p.categories.length) ? [...p.categories] : (p.category ? [p.category] : []),
     tipo_prenda: p.tipo_prenda || '', description: p.description || '',
   })
 }
@@ -214,7 +220,8 @@ async function guardarEdicion(p) {
     const patch = {
       name: editForm.name.trim(),
       price,
-      category: editForm.category || null,
+      categories: [...editForm.categories],
+      category: editForm.categories[0] || null,   // legacy (primera categoría)
       tipo_prenda: editForm.tipo_prenda || null,
       description: editForm.description.trim() || null,
     }
@@ -277,7 +284,7 @@ const guardandoNuevo = ref(false)
 const subiendoNuevo  = ref(false)
 const errorNuevo     = ref('')
 const nuevo = reactive({
-  name: '', price: '', category: '', tipo_prenda: '', description: '',
+  name: '', price: '', categories: [], tipo_prenda: '', description: '',
   is_active: true, is_launch: false, launch_order: '',
   variants: [{ size: '', color: '', stock: '' }],
 })
@@ -296,7 +303,7 @@ const coloresNuevo = computed(() => {
 const nuevoValido = computed(() => {
   if (!nuevo.name.trim()) return false
   if (!(Number(nuevo.price) >= 0)) return false
-  if (!nuevo.category || !nuevo.tipo_prenda) return false
+  if (!nuevo.categories.length || !nuevo.tipo_prenda) return false
   const conTalla = nuevo.variants.filter((v) => v.size)
   if (!conTalla.length) return false
   for (const v of conTalla) if (!stockValido(v.stock === '' ? 0 : v.stock)) return false
@@ -305,7 +312,7 @@ const nuevoValido = computed(() => {
 
 function abrirNuevo() {
   Object.assign(nuevo, {
-    name: '', price: '', category: '', tipo_prenda: '', description: '',
+    name: '', price: '', categories: [], tipo_prenda: '', description: '',
     is_active: true, is_launch: false, launch_order: '',
     variants: [{ size: '', color: '', stock: '' }],
   })
@@ -361,7 +368,7 @@ async function guardarNuevo() {
     const payload = {
       name: nuevo.name.trim(),
       price: Number(nuevo.price),
-      category: nuevo.category,
+      categories: [...nuevo.categories],
       tipo_prenda: nuevo.tipo_prenda,
       description: nuevo.description.trim(),
       is_active: nuevo.is_active,
@@ -414,12 +421,13 @@ onMounted(cargar)
             <div class="edit__grid">
               <label class="edit__f"><span>Nombre</span><input v-model="editForm.name" class="edit__input" /></label>
               <label class="edit__f"><span>Precio (S/)</span><input v-model="editForm.price" type="number" min="0" step="0.01" class="edit__input" /></label>
-              <label class="edit__f"><span>Categoría</span>
-                <select v-model="editForm.category" class="edit__input">
-                  <option value="">—</option>
-                  <option v-for="c in CATEGORIAS" :key="c" :value="c">{{ c }}</option>
-                </select>
-              </label>
+              <div class="edit__f"><span>Categorías (una o varias)</span>
+                <div class="cats">
+                  <button v-for="c in CATEGORIAS" :key="c" type="button"
+                          :class="['cats__chip', { 'cats__chip--on': editForm.categories.includes(c) }]"
+                          @click="toggleCategoria(editForm.categories, c)">{{ c }}</button>
+                </div>
+              </div>
               <label class="edit__f"><span>Tipo de prenda</span>
                 <select v-model="editForm.tipo_prenda" class="edit__input">
                   <option value="">—</option>
@@ -442,7 +450,7 @@ onMounted(cargar)
           <div class="prod__main">
             <span class="prod__name">{{ p.name }}</span>
             <span class="prod__price">
-              {{ money(p.price) }}<template v-if="p.category"> · {{ p.category }}</template><template v-if="p.tipo_prenda"> · {{ p.tipo_prenda }}</template>
+              {{ money(p.price) }}<template v-if="(p.categories && p.categories.length) || p.category"> · {{ (p.categories && p.categories.length) ? p.categories.join(' · ') : p.category }}</template><template v-if="p.tipo_prenda"> · {{ p.tipo_prenda }}</template>
             </span>
           </div>
           <div class="prod__headactions">
@@ -555,12 +563,13 @@ onMounted(cargar)
             <div class="edit__grid">
               <label class="edit__f"><span>Nombre *</span><input v-model="nuevo.name" class="edit__input" /></label>
               <label class="edit__f"><span>Precio (S/) *</span><input v-model="nuevo.price" type="number" min="0" step="0.01" class="edit__input" /></label>
-              <label class="edit__f"><span>Categoría *</span>
-                <select v-model="nuevo.category" class="edit__input">
-                  <option value="">Elegir…</option>
-                  <option v-for="c in CATEGORIAS" :key="c" :value="c">{{ c }}</option>
-                </select>
-              </label>
+              <div class="edit__f"><span>Categorías * (una o varias)</span>
+                <div class="cats">
+                  <button v-for="c in CATEGORIAS" :key="c" type="button"
+                          :class="['cats__chip', { 'cats__chip--on': nuevo.categories.includes(c) }]"
+                          @click="toggleCategoria(nuevo.categories, c)">{{ c }}</button>
+                </div>
+              </div>
               <label class="edit__f"><span>Tipo de prenda *</span>
                 <select v-model="nuevo.tipo_prenda" class="edit__input">
                   <option value="">Elegir…</option>
@@ -683,6 +692,10 @@ onMounted(cargar)
 .edit__f--sm { max-width: 110px; }
 .edit__input { background: var(--surface-2); border: 1px solid var(--border-mid); color: var(--text-1); padding: 0.5rem 0.6rem; font-size: 0.88rem; outline: none; border-radius: 6px; font-family: inherit; }
 .edit__input:focus-visible { border-color: var(--accent); }
+.cats { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.cats__chip { padding: 0.4rem 0.85rem; font-size: 0.78rem; font-weight: 600; background: var(--surface-2); border: 1px solid var(--border-mid); color: var(--text-2); border-radius: var(--radius-pill); cursor: pointer; }
+.cats__chip:hover { border-color: var(--accent); color: var(--text-1); }
+.cats__chip--on { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
 .edit__actions { display: flex; gap: 0.6rem; justify-content: flex-end; }
 .edit__cancel { padding: 0.5rem 1rem; font-size: 0.74rem; color: var(--text-3); background: transparent; border: 1px solid var(--border-mid); border-radius: 6px; cursor: pointer; }
 .edit__cancel:hover { color: var(--text-1); }

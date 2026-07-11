@@ -29,7 +29,8 @@ const ORDENES = [
 // Filtros combinables: estilo Y zona del cuerpo.
 const filtrados = computed(() =>
   todos.value.filter(p => {
-    const okCat  = categoriaActiva.value === 'Todos' || p.category === categoriaActiva.value
+    const cats   = (p.categories && p.categories.length) ? p.categories : (p.category ? [p.category] : [])
+    const okCat  = categoriaActiva.value === 'Todos' || cats.includes(categoriaActiva.value)
     const okZona = zonaActiva.value === 'Todos' || zonaDePrenda(p.tipo_prenda) === zonaActiva.value
     return okCat && okZona
   })
