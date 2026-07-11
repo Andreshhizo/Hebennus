@@ -141,10 +141,6 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div v-if="mostrarTienda" class="announce">
-    Envío gratis desde S/ 119 &nbsp;·&nbsp; Envíos sáb y dom &nbsp;·&nbsp; Edición limitada
-  </div>
-
   <AppNav
     v-if="mostrarTienda"
     :scrolled="scrolled"
@@ -185,18 +181,6 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
-.announce {
-  background: var(--accent);
-  border-bottom: none;
-  padding: 0.6rem 1rem;
-  text-align: center;
-  font-size: 0.7rem;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: #F4F1EC;
-  font-weight: 600;
-}
-
 .page-enter-active { transition: opacity 0.3s ease, transform 0.3s cubic-bezier(0.22, 1, 0.36, 1); }
 .page-leave-active { transition: opacity 0.15s ease; }
 .page-enter-from   { opacity: 0; transform: translateY(10px); }

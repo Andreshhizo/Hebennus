@@ -60,10 +60,10 @@
   --chip-bg:   rgba(157,180,222,.14);
   --chip-text: var(--accent-3);
 
-  /* — Fuentes (2): Space Grotesk display/logo + Inter cuerpo — */
-  --font-brand:   'Space Grotesk', -apple-system, system-ui, sans-serif;
-  --font-display: 'Space Grotesk', -apple-system, system-ui, sans-serif;
-  --font-body:    'Inter', -apple-system, system-ui, sans-serif;
+  /* — Fuente única: Rubik (logo/titulares/cuerpo, diferenciados por peso) — */
+  --font-brand:   'Rubik', -apple-system, system-ui, sans-serif;
+  --font-display: 'Rubik', -apple-system, system-ui, sans-serif;
+  --font-body:    'Rubik', -apple-system, system-ui, sans-serif;
 
   /* — Escala tipográfica — */
   --fs-display: clamp(2.75rem, 9vw, 6rem);
