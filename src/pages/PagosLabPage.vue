@@ -195,5 +195,5 @@ async function copiar(x) {
 .kr-popin-wrapper, .kr-popin-wrapper--large-form { overflow-y: auto !important; }
 .kr-modal { border-radius: 20px !important; box-shadow: 0 30px 80px rgba(0,0,0,0.5) !important; }
 .kr-close-popup { display: flex !important; visibility: visible !important; opacity: 0.9 !important; cursor: pointer !important; z-index: 10 !important; }
-.kr-payment-button { background: linear-gradient(120deg, #4566A0, #35528A) !important; border: none !important; border-radius: 14px !important; font-weight: 700 !important; }
+.kr-payment-button { background: linear-gradient(120deg, #3C5A87, #2E4870) !important; border: none !important; border-radius: 14px !important; font-weight: 700 !important; }
 </style>

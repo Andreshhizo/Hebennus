@@ -252,7 +252,7 @@ onUnmounted(() => document.removeEventListener('click', onDocClick))
   align-items: center;
   justify-content: center;
   padding: 0 3px;
-  box-shadow: 0 2px 8px rgba(69,102,160,.4);
+  box-shadow: 0 2px 8px rgba(60,90,135,.4);
   animation: badge-pop 0.4s var(--ease-spring) both;
 }
 @keyframes badge-pop { 0% { transform: scale(0); } 100% { transform: scale(1); } }

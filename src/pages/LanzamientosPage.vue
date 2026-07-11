@@ -283,7 +283,7 @@ function pad(n) { return String(n).padStart(2, '0') }
 .drop-card:hover {
   transform: translateY(-4px);
   box-shadow: var(--shadow-hover);
-  border-color: rgba(69,102,160,.32);
+  border-color: rgba(60,90,135,.32);
 }
 .drop-card__media {
   position: relative;

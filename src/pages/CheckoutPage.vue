@@ -877,14 +877,14 @@ const metodoLabel = computed(() =>
 
 /* Campos de tarjeta: redondeados con foco resaltado */
 .kr-field { border-radius: 12px !important; transition: box-shadow 0.2s ease, border-color 0.2s ease !important; }
-.kr-field.kr-focus { box-shadow: 0 0 0 3px rgba(69,102,160, 0.28) !important; border-color: #4566A0 !important; }
+.kr-field.kr-focus { box-shadow: 0 0 0 3px rgba(60,90,135, 0.28) !important; border-color: #3C5A87 !important; }
 
 /* Botón de pago: degradado de marca + animación al pasar el mouse */
 .kr-payment-button {
-  background: linear-gradient(120deg, #4566A0, #35528A) !important;
+  background: linear-gradient(120deg, #3C5A87, #2E4870) !important;
   background-size: 180% 180% !important;
   border: none !important; border-radius: 14px !important; font-weight: 700 !important; letter-spacing: 0.04em !important;
-  box-shadow: 0 8px 24px rgba(69,102,160, 0.35) !important;
+  box-shadow: 0 8px 24px rgba(60,90,135, 0.35) !important;
   transition: transform 0.25s ease, box-shadow 0.25s ease, background-position 0.6s ease !important;
 }
 .kr-payment-button:hover { transform: translateY(-2px) !important; background-position: 100% 0 !important; box-shadow: 0 12px 32px rgba(139, 92, 246, 0.45) !important; }

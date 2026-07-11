@@ -1,59 +1,83 @@
 /* =================================================================
    HEBENNUS — Design System
-   Beige (Isabelline) + Denim  ·  Claro = crema/denim  |  Oscuro = cálido/denim
+   Greige (neutro cálido) + Denim pizarra  ·  Space Grotesk + Inter
+   Claro = greige/denim editorial  |  Oscuro = cálido/denim, misma familia
    ================================================================= */
 
-/* ── DARK THEME (variante cálida + denim) ── */
+/* ── DARK THEME (variante cálida + denim, misma familia) ── */
 :root {
-  /* — Base / fondos (cálido, casi negro) — */
-  --ink:          #1A1712;   /* fondo app */
-  --surface-1:    #221E18;   /* secciones */
-  --surface-2:    #2B261F;   /* cards */
-  --surface-3:    #37312A;   /* hover/elevado */
-  --card-bg:      #2B261F;
+  /* — Base / fondos — */
+  --ink:          #17140F;
+  --surface-1:    #201C16;
+  --surface-2:    #2A251E;
+  --surface-3:    #37312A;
+  --card-bg:      #312B23;   /* ≠ surface-2 → las cards tienen elevación */
 
   /* — Texto (crema) — */
-  --text-1:       #F7F4F0;   /* principal */
-  --text-2:       #C9C1B4;   /* secundario */
-  --text-3:       #948B7D;   /* terciario (AA) */
+  --text-1:       #F5F2EC;
+  --text-2:       #CBC3B5;
+  --text-3:       #A79E8F;   /* AA sobre cards/superficies */
 
-  /* — Acento azul vaquero (denim) — más claro sobre fondo oscuro — */
-  --accent:        #7C9AD4;  /* denim claro — acción primaria (CTA, foco) */
-  --accent-deep:   #4566A0;  /* denim (hover primario) */
-  --accent-2:      #6E8FCB;  /* links, activos, detalles */
-  --accent-2-soft: #8AA3CC;
-  --accent-3:      #8AA3CC;  /* denim claro — highlights, números, etiquetas */
+  /* — Acento denim (claro sobre fondo oscuro) — */
+  --accent:        #82A0D8;  /* acción/relleno */
+  --accent-deep:   #4E6FA6;  /* hover */
+  --accent-2:      #7C9AD4;
+  --accent-2-soft: #33405A;
+  --accent-3:      #9DB4DE;  /* denim TEXTO (AA) */
 
-  /* Aliases de compatibilidad */
   --copper:       var(--accent-2);
   --copper-light: var(--accent-2-soft);
 
   /* — Semánticos — */
-  --danger:       #D2694F;   /* terracota (error/eliminar) */
-  --success:      #7FA07C;   /* oliva (éxito/ok) */
+  --danger:       #DE7359;
+  --success:      #8DAE8A;
 
-  /* — Bordes y líneas — */
-  --border:       #37312A;   /* divisores de sección */
-  --border-mid:   #4A4237;   /* contornos de boxes — visible */
+  /* — Bordes — */
+  --border:       #37312A;
+  --border-mid:   #4A4237;
 
-  /* — Gradiente denim de marca — */
-  --grad-cool: linear-gradient(120deg, #8AA3CC 0%, #6E8FCB 55%, #4566A0 100%);
+  --grad-cool: linear-gradient(120deg, #9DB4DE 0%, #82A0D8 55%, #4E6FA6 100%);
 
   /* — Sombras y glow — */
   --shadow-card:         0 4px 28px rgba(0,0,0,.5),  0 0 0 1px var(--border-mid);
-  --shadow-card-hover:   0 8px 36px rgba(0,0,0,.6),  0 0 0 1px rgba(124,154,212,.35);
+  --shadow-card-hover:   0 8px 36px rgba(0,0,0,.6),  0 0 0 1px rgba(130,160,216,.35);
   --shadow-sm:           0 2px 12px rgba(0,0,0,.4),  0 0 0 1px var(--border-mid);
+  --shadow-soft:  0 6px 24px rgba(0,0,0,.4);
+  --shadow-hover: 0 16px 44px rgba(0,0,0,.55);
+  --shadow-modal: 0 24px 64px rgba(0,0,0,.55);
 
-  --nav-glass:    rgba(26,23,18,.9);
-  --glow-color:   rgba(124,154,212,.16);
+  --nav-glass:    rgba(23,20,15,.9);
+  --glow-color:   rgba(130,160,216,.16);
+  --ring:         rgba(130,160,216,.4);
+  --on-accent:    #17140F;   /* texto sobre relleno acento (acento es claro en dark) */
+  --overlay-scrim: rgba(0,0,0,.6);
 
-  --overlay-dot:       rgba(247,244,240,.4);
-  --overlay-dot-hover: rgba(247,244,240,.75);
-  --overlay-border:    rgba(247,244,240,.3);
+  --overlay-dot:       rgba(245,242,236,.4);
+  --overlay-dot-hover: rgba(245,242,236,.75);
+  --overlay-border:    rgba(245,242,236,.3);
 
-  --font-brand:   'Rubik Mono One', monospace;
-  --font-display: 'DM Sans', -apple-system, system-ui, sans-serif;
+  /* — Chips (eyebrow) — */
+  --chip-bg:   rgba(157,180,222,.14);
+  --chip-text: var(--accent-3);
+
+  /* — Fuentes (2): Space Grotesk display/logo + Inter cuerpo — */
+  --font-brand:   'Space Grotesk', -apple-system, system-ui, sans-serif;
+  --font-display: 'Space Grotesk', -apple-system, system-ui, sans-serif;
   --font-body:    'Inter', -apple-system, system-ui, sans-serif;
+
+  /* — Escala tipográfica — */
+  --fs-display: clamp(2.75rem, 9vw, 6rem);
+  --fs-h1:      clamp(2rem, 5vw, 3.5rem);
+  --fs-h2:      clamp(1.6rem, 3.5vw, 2.5rem);
+  --fs-h3:      1.25rem;
+  --fs-h4:      1rem;
+  --fs-body:    1rem;
+  --fs-small:   0.875rem;
+  --fs-eyebrow: 0.75rem;
+
+  /* — Espaciado — */
+  --space-1: 0.25rem; --space-2: 0.5rem; --space-3: 0.75rem; --space-4: 1rem;
+  --space-5: 1.5rem;  --space-6: 2rem;   --space-7: 3rem;    --space-8: 4rem;
 
   /* — Forma y movimiento — */
   --radius-sm:   10px;
@@ -62,53 +86,56 @@
   --radius-pill: 999px;
   --ease-out:    cubic-bezier(0.22, 1, 0.36, 1);
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
-  --shadow-soft:  0 6px 24px rgba(0,0,0,.4);
-  --shadow-hover: 0 16px 44px rgba(0,0,0,.55);
 }
 
-/* ── LIGHT THEME (identidad principal: crema Isabelline + denim) ── */
+/* ── LIGHT THEME (identidad principal: greige + denim pizarra) ── */
 html.light {
-  --ink:          #F7F4F0;   /* fondo app (Isabelline) */
-  --surface-1:    #F1ECE4;
-  --surface-2:    #EAE4D9;
-  --surface-3:    #DFD7C8;
-  --card-bg:      #FBF9F5;
+  --ink:          #F4F1EC;
+  --surface-1:    #ECE8E0;
+  --surface-2:    #E3DED4;
+  --surface-3:    #D7D0C3;
+  --card-bg:      #FCFBF8;
 
-  --text-1:       #262421;   /* principal */
-  --text-2:       #5C574F;   /* secundario */
-  --text-3:       #8C877C;   /* terciario/apoyo */
+  --text-1:       #22201D;
+  --text-2:       #524D47;
+  --text-3:       #605C53;   /* AA sobre ink/s1/s2 */
 
-  /* Acento azul vaquero (denim) */
-  --accent:        #4566A0;  /* denim */
-  --accent-deep:   #35528A;  /* denim oscuro (hover) */
-  --accent-2:      #35528A;
-  --accent-2-soft: #8AA3CC;
-  --accent-3:      #4566A0;  /* denim legible para texto pequeño (chips/eyebrows) sobre crema */
+  --accent:        #3C5A87;  /* denim pizarra (relleno) */
+  --accent-deep:   #2E4870;  /* hover */
+  --accent-2:      #2E4870;
+  --accent-2-soft: #E9EDF4;
+  --accent-3:      #34517C;  /* denim TEXTO (AA en todas las superficies) */
 
   --copper:       var(--accent-2);
   --copper-light: var(--accent-2-soft);
 
-  --danger:       #C0553F;   /* terracota */
-  --success:      #5B7B5A;   /* oliva */
+  --danger:       #B04A35;
+  --success:      #4E6D4D;
 
-  --border:       #E7E1D6;   /* hairline */
-  --border-mid:   #D5CCBD;   /* medio */
+  --border:       #E6E1D7;
+  --border-mid:   #D3CBBC;
 
-  --grad-cool: linear-gradient(120deg, #8AA3CC 0%, #4566A0 55%, #35528A 100%);
+  --grad-cool: linear-gradient(120deg, #6E8FCB 0%, #3C5A87 55%, #2E4870 100%);
 
-  --shadow-card:         0 2px 14px rgba(38,36,33,0.06), 0 0 0 1px var(--border-mid);
-  --shadow-card-hover:   0 6px 24px rgba(69,102,160,0.14), 0 0 0 1px rgba(69,102,160,0.35);
-  --shadow-sm:           0 1px 8px rgba(38,36,33,0.05), 0 0 0 1px var(--border-mid);
+  --shadow-card:         0 2px 14px rgba(34,32,29,0.06), 0 0 0 1px var(--border-mid);
+  --shadow-card-hover:   0 6px 24px rgba(60,90,135,0.14), 0 0 0 1px rgba(60,90,135,0.32);
+  --shadow-sm:           0 1px 8px rgba(34,32,29,0.05), 0 0 0 1px var(--border-mid);
+  --shadow-soft:  0 6px 22px rgba(34,32,29,.08);
+  --shadow-hover: 0 16px 40px rgba(60,90,135,.16);
+  --shadow-modal: 0 24px 64px rgba(34,32,29,.22);
 
-  --nav-glass:    rgba(247,244,240,0.9);
-  --glow-color:   rgba(69,102,160,0.12);
+  --nav-glass:    rgba(244,241,236,0.9);
+  --glow-color:   rgba(60,90,135,0.10);
+  --ring:         rgba(60,90,135,0.35);
+  --on-accent:    #F4F1EC;   /* crema sobre denim */
+  --overlay-scrim: rgba(34,32,29,.5);
 
-  --overlay-dot:       rgba(38,36,33,0.3);
-  --overlay-dot-hover: rgba(38,36,33,0.55);
-  --overlay-border:    rgba(38,36,33,0.22);
+  --overlay-dot:       rgba(34,32,29,0.3);
+  --overlay-dot-hover: rgba(34,32,29,0.55);
+  --overlay-border:    rgba(34,32,29,0.22);
 
-  --shadow-soft:  0 6px 22px rgba(38,36,33,.08);
-  --shadow-hover: 0 16px 40px rgba(69,102,160,.16);
+  --chip-bg:   #E9EDF4;
+  --chip-text: var(--accent-3);
 }
 
 /* ── RESET ── */
@@ -136,30 +163,25 @@ a { color: inherit; text-decoration: none; }
 
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 
-/* ── Animaciones globales (simples y elegantes) ───────────────────────────── */
-/* Suaviza todos los hovers de enlaces y botones. */
+/* ── Animaciones globales ───────────────────────────── */
 button, a { transition: color 0.2s ease, background-color 0.2s ease, border-color 0.2s ease, opacity 0.2s ease, transform 0.2s ease; }
 
-/* Entradas reutilizables (los componentes con scope pueden usar estos nombres). */
 @keyframes hb-fade-up { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 @keyframes hb-fade-in { from { opacity: 0; } to { opacity: 1; } }
 .hb-rise { animation: hb-fade-up 0.4s cubic-bezier(0.22, 1, 0.36, 1) both; }
 .hb-fade { animation: hb-fade-in 0.4s ease both; }
-/* El bloque @media (prefers-reduced-motion) de arriba ya neutraliza estas animaciones. */
 
-/* Reveal al hacer scroll (directiva global v-reveal, registrada en main.js) */
+/* Reveal al hacer scroll (directiva global v-reveal) */
 .reveal-init { opacity: 0; transform: translateY(22px); transition: opacity .7s var(--ease-out), transform .7s var(--ease-out); }
 .reveal-in   { opacity: 1; transform: none; }
 
-/* Formularios un poco más suaves de forma global (menos cuadrado) */
+/* Formularios más suaves de forma global */
 input, textarea, select { border-radius: var(--radius-sm); }
 
 /* Selección de texto con color de marca */
-::selection { background: var(--accent); color: #F7F4F0; }
+::selection { background: var(--accent); color: var(--on-accent); }
 
 /* Keyframes reutilizables extra */
 @keyframes hb-float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-7px); } }
 @keyframes hb-pop   { 0% { transform: scale(0.96); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
-
-/* Marquee (Fase 2) — animación horizontal en loop, reutilizable */
 @keyframes hb-marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }

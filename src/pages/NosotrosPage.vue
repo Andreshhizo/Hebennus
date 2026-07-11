@@ -145,7 +145,7 @@ const pilares = [
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
-  background: #4566A0;   /* banda denim */
+  background: #3C5A87;   /* banda denim */
   border-bottom: 1px solid var(--border);
   padding: 0 2rem 5rem;
   overflow: hidden;
@@ -191,14 +191,14 @@ const pilares = [
   letter-spacing: -0.01em;
 }
 /* SOMOS — relleno crema sólido sobre banda denim */
-.word--solid   { color: #F7F4F0; }
+.word--solid   { color: #F4F1EC; }
 
 /* HEBENNUS. — outline relleno con líneas horizontales (igual que el hero del Home) */
 .word--line {
   position: relative;
   color: transparent;
-  -webkit-text-stroke: 1px #F7F4F0;
-  background: repeating-linear-gradient(to bottom, #F7F4F0 0, #F7F4F0 3px, transparent 3px, transparent 8px);
+  -webkit-text-stroke: 1px #F4F1EC;
+  background: repeating-linear-gradient(to bottom, #F4F1EC 0, #F4F1EC 3px, transparent 3px, transparent 8px);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -237,7 +237,7 @@ const pilares = [
 .mv__card:hover {
   transform: translateY(-4px);
   box-shadow: var(--shadow-hover);
-  border-color: rgba(69,102,160,.32);
+  border-color: rgba(60,90,135,.32);
 }
 .mv__label {
   font-size: 0.7rem;
@@ -263,8 +263,8 @@ const pilares = [
 .pilares__title {
   font-family: var(--font-display);
   font-size: clamp(2rem, 5vw, 3.8rem);
-  font-weight: 300;
-  letter-spacing: -0.025em;
+  font-weight: 700;
+  letter-spacing: -0.02em;
   color: var(--text-1);
   line-height: 1.1;
   margin-top: 0.75rem;
@@ -308,7 +308,7 @@ const pilares = [
 .pilar:hover {
   transform: translateY(-4px);
   box-shadow: var(--shadow-hover);
-  border-color: rgba(69,102,160,.32);
+  border-color: rgba(60,90,135,.32);
 }
 .pilar:hover::before { transform: scaleX(1); }
 .pilar__num {
@@ -342,8 +342,8 @@ const pilares = [
 .nombre__title {
   font-family: var(--font-display);
   font-size: clamp(2rem, 5vw, 3.8rem);
-  font-weight: 300;
-  letter-spacing: -0.025em;
+  font-weight: 700;
+  letter-spacing: -0.02em;
   color: var(--text-1);
   line-height: 1.1;
   margin-top: 0.75rem;
@@ -374,7 +374,7 @@ const pilares = [
 .etim:hover {
   transform: translateY(-4px);
   box-shadow: var(--shadow-hover);
-  border-color: rgba(69,102,160,.32);
+  border-color: rgba(60,90,135,.32);
 }
 .etim__parte {
   font-family: var(--font-display);

@@ -436,6 +436,7 @@ function handleAdd() {
 }
 .card__name:hover { color: var(--copper-light); }
 .card__price {
+  font-family: var(--font-display);
   font-size: 0.9rem;
   color: var(--text-1);
   white-space: nowrap;

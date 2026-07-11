@@ -191,17 +191,17 @@ onMounted(async () => {
   letter-spacing: -0.01em;
 }
 /* MAKE / IT — relleno crema sólido con sombra suave para legibilidad sobre la foto */
-.hero__word--solid   { color: #F7F4F0; text-shadow: 0 2px 18px rgba(0,0,0,.4); }
+.hero__word--solid   { color: #F4F1EC; text-shadow: 0 2px 18px rgba(0,0,0,.4); }
 
 /* REAL. — outline relleno con líneas horizontales paralelas (repeating-linear-gradient
    recortado al texto) + trazo crema. Sin relleno pleno. */
 .hero__word--line {
   position: relative;
   color: transparent;
-  -webkit-text-stroke: 1px #F7F4F0;
+  -webkit-text-stroke: 1px #F4F1EC;
   background: repeating-linear-gradient(
     to bottom,
-    #F7F4F0 0, #F7F4F0 3px,
+    #F4F1EC 0, #F4F1EC 3px,
     transparent 3px, transparent 8px
   );
   -webkit-background-clip: text;
@@ -283,10 +283,10 @@ onMounted(async () => {
 }
 
 /* Botones dentro de la banda denim del hero (uno crema sólido, uno outline crema) */
-.hero .btn--fill { background: #F7F4F0; color: #35528A; border-color: #F7F4F0; }
-.hero .btn--fill:hover { background: #fff; color: #35528A; border-color: #fff; }
-.hero .btn--outline { color: #F7F4F0; border-color: rgba(247,244,240,.5); }
-.hero .btn--outline:hover { border-color: #F7F4F0; background: rgba(247,244,240,.12); }
+.hero .btn--fill { background: #F4F1EC; color: #2E4870; border-color: #F4F1EC; }
+.hero .btn--fill:hover { background: #fff; color: #2E4870; border-color: #fff; }
+.hero .btn--outline { color: #F4F1EC; border-color: rgba(247,244,240,.5); }
+.hero .btn--outline:hover { border-color: #F4F1EC; background: rgba(247,244,240,.12); }
 
 /* ── FEATURED ── */
 .featured { padding: 5rem 2rem 3rem; }
@@ -306,8 +306,8 @@ onMounted(async () => {
 .featured__title {
   font-family: var(--font-display);
   font-size: clamp(2rem, 5vw, 3.8rem);
-  font-weight: 300;
-  letter-spacing: -0.025em;
+  font-weight: 700;
+  letter-spacing: -0.02em;
   color: var(--text-1);
   line-height: 1.1;
   margin-top: 0.7rem;
@@ -374,7 +374,7 @@ onMounted(async () => {
 .pilar:hover {
   transform: translateY(-4px);
   box-shadow: var(--shadow-hover);
-  border-color: rgba(69,102,160,.32);
+  border-color: rgba(60,90,135,.32);
 }
 .pilar:hover::before { transform: scaleX(1); }
 .pilar__num {
