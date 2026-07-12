@@ -66,6 +66,12 @@ const pilares = [
     </div>
   </section>
 
+  <!-- ░░ BANDA EDITORIAL ░░ -->
+  <section class="nos-editorial" aria-label="Nuestra esencia">
+    <div class="nos-editorial__overlay"></div>
+    <blockquote class="nos-editorial__quote">"No buscamos tocar el cielo.<br/>Queremos conocer el universo."</blockquote>
+  </section>
+
   <!-- ░░ PILARES ░░ -->
   <section class="pilares">
     <div class="pilares__inner">
@@ -257,6 +263,34 @@ const pilares = [
   color: var(--text-2);
   line-height: 1.85;
   font-weight: 300;
+}
+
+/* ── BANDA EDITORIAL ── */
+.nos-editorial {
+  position: relative;
+  min-height: 62vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 2rem;
+  text-align: center;
+  background: url('/editorial-gym.jpg') center / cover no-repeat;
+}
+.nos-editorial__overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(rgba(20,18,15,.55), rgba(20,18,15,.72));
+}
+.nos-editorial__quote {
+  position: relative;
+  z-index: 1;
+  font-family: var(--font-brand);
+  font-weight: 700;
+  font-size: clamp(1.5rem, 4vw, 2.8rem);
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  color: #F4F1EC;
+  max-width: 800px;
 }
 
 /* ── PILARES ── */

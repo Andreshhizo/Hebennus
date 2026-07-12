@@ -89,6 +89,16 @@ onMounted(async () => {
     </div>
   </section>
 
+  <!-- ░░ BANDA EDITORIAL ░░ -->
+  <section class="editorial" v-reveal aria-label="Hecho para moverte">
+    <div class="editorial__content">
+      <p class="editorial__eyebrow">Entrena · Crea · Repite</p>
+      <h2 class="editorial__title">Hecho para<br/>moverte.</h2>
+      <p class="editorial__sub">Prendas oversize y atléticas que rinden dentro y fuera del gimnasio.</p>
+      <RouterLink to="/coleccion" class="btn btn--fill">Ver colección</RouterLink>
+    </div>
+  </section>
+
   <!-- ░░ PILARES ░░ -->
   <section class="pilares" aria-label="Nuestros pilares">
     <div class="pilares__inner">
@@ -413,11 +423,44 @@ onMounted(async () => {
 .pilares__link:hover { color: var(--text-1); border-color: var(--text-1); }
 
 /* ── MANIFESTO ── */
+/* ── BANDA EDITORIAL ── */
+.editorial {
+  position: relative;
+  min-height: 68vh;
+  display: flex;
+  align-items: center;
+  padding: 4rem 2rem;
+  background: url('/editorial-lift.jpg') center / cover no-repeat;
+  overflow: hidden;
+}
+.editorial::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, rgba(20,18,15,.78) 0%, rgba(20,18,15,.4) 55%, rgba(20,18,15,.12) 100%);
+}
+.editorial__content { position: relative; z-index: 1; max-width: 1200px; width: 100%; margin: 0 auto; }
+.editorial__eyebrow { font-size: 0.72rem; letter-spacing: 0.24em; text-transform: uppercase; color: rgba(244,241,236,.8); margin-bottom: 0.9rem; }
+.editorial__title { font-family: var(--font-brand); font-weight: 800; font-size: clamp(2.2rem, 5.5vw, 4rem); color: #F4F1EC; line-height: 0.95; letter-spacing: -0.02em; }
+.editorial__sub { color: rgba(244,241,236,.85); margin: 1.1rem 0 1.9rem; max-width: 420px; line-height: 1.6; }
+.editorial .btn--fill { background: #F4F1EC; color: var(--accent-deep); border-color: #F4F1EC; }
+.editorial .btn--fill:hover { background: #fff; color: var(--accent-deep); border-color: #fff; }
+
 .manifesto {
-  padding: 6rem 2rem;
+  position: relative;
+  padding: 7rem 2rem;
   text-align: center;
+  background: url('/editorial-run.jpg') center 30% / cover no-repeat;
+}
+.manifesto::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(rgba(20,18,15,.62), rgba(20,18,15,.78));
 }
 .manifesto__inner {
+  position: relative;
+  z-index: 1;
   max-width: 680px;
   margin: 0 auto;
   display: flex;
@@ -434,18 +477,21 @@ onMounted(async () => {
 }
 .manifesto__quote {
   font-family: var(--font-display);
+  font-weight: 700;
   font-size: clamp(1.7rem, 4vw, 3rem);
-  color: var(--text-1);
+  color: #F4F1EC;
   line-height: 1.25;
   letter-spacing: -0.01em;
   font-style: normal;
 }
 .manifesto__text {
   font-size: 0.95rem;
-  color: var(--text-2);
+  color: rgba(245,242,236,.85);
   line-height: 1.9;
   max-width: 480px;
 }
+.manifesto .btn--outline { color: #F4F1EC; border-color: rgba(244,241,236,.5); }
+.manifesto .btn--outline:hover { border-color: #F4F1EC; background: rgba(244,241,236,.12); }
 
 /* ── RESPONSIVE ── */
 @media (max-width: 1024px) {
