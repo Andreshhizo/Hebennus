@@ -256,44 +256,7 @@ onMounted(async () => {
 }
 
 /* ── SHARED BUTTONS ── */
-.btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.9rem 2.2rem;
-  font-family: var(--font-display);
-  font-size: 0.75rem;
-  font-weight: 500;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  border-radius: var(--radius-pill);
-  transition: transform 0.25s var(--ease-spring), background-color 0.25s var(--ease-out),
-              border-color 0.25s var(--ease-out), color 0.25s var(--ease-out), box-shadow 0.25s var(--ease-out);
-  cursor: pointer;
-}
-.btn:hover { transform: translateY(-2px); }
-.btn:active { transform: scale(0.97); }
-.btn--fill {
-  background: var(--text-1);
-  color: var(--ink);
-  border: 1px solid var(--text-1);
-  box-shadow: var(--shadow-soft);
-}
-.btn--fill:hover {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--ink);
-  box-shadow: var(--shadow-hover);
-}
-.btn--outline {
-  background: transparent;
-  color: var(--text-1);
-  border: 1px solid var(--border-mid);
-}
-.btn--outline:hover {
-  border-color: var(--text-1);
-  background: var(--glow-color);
-}
+/* .btn base es global (style.css). Aquí solo overrides sobre bandas oscuras. */
 
 /* Botones dentro de la banda denim del hero (uno crema sólido, uno outline crema) */
 .hero .btn--fill { background: #F4F1EC; color: #2E4870; border-color: #F4F1EC; }

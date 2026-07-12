@@ -717,7 +717,7 @@ const metodoLabel = computed(() =>
 /* ── NAV WIZARD ── */
 .wizard__nav { display: flex; gap: 0.8rem; justify-content: space-between; }
 .btn-step {
-  flex: 1; padding: 0.85rem 1rem; border-radius: var(--radius-md); cursor: pointer;
+  flex: 1; padding: 0.85rem 1rem; border-radius: 4px; cursor: pointer;
   font-family: var(--font-display); font-size: 0.74rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
   transition: transform 0.2s var(--ease-out), background 0.2s var(--ease-out), border-color 0.2s var(--ease-out), color 0.2s var(--ease-out);
 }
@@ -730,15 +730,14 @@ const metodoLabel = computed(() =>
 /* ── SUBMIT (pago) ── */
 .checkout__submit {
   display: inline-flex; align-items: center; justify-content: center; gap: 0.55rem; width: 100%; padding: 1rem;
-  background: var(--surface-3); color: var(--text-3); border: 1px solid var(--border-mid); border-radius: var(--radius-md);
+  background: var(--surface-3); color: var(--text-3); border: 1px solid var(--border-mid); border-radius: 4px;
   font-family: var(--font-display); font-size: 0.78rem; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; cursor: pointer;
-  transition: transform 0.25s var(--ease-out), box-shadow 0.25s var(--ease-out), background-position 0.5s var(--ease-out),
-              background-color 0.25s var(--ease-out), border-color 0.25s var(--ease-out), color 0.25s var(--ease-out), opacity 0.2s var(--ease-out);
+  transition: background-color 0.25s var(--ease-out), border-color 0.25s var(--ease-out), color 0.25s var(--ease-out), opacity 0.2s var(--ease-out);
 }
-.checkout__submit--ready { background: var(--grad-cool); background-size: 160% 160%; border-color: transparent; color: #fff; box-shadow: var(--shadow-soft); }
-.checkout__submit--ready:hover { transform: translateY(-2px); box-shadow: var(--shadow-hover); background-position: 100% 0; }
-.checkout__submit--ready:active { transform: scale(0.97); }
-.checkout__submit:disabled { opacity: 0.6; cursor: not-allowed; transform: none; box-shadow: none; }
+.checkout__submit--ready { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.checkout__submit--ready:hover { background: var(--accent-deep); border-color: var(--accent-deep); }
+.checkout__submit--ready:active { transform: translateY(1px); }
+.checkout__submit:disabled { opacity: 0.6; cursor: not-allowed; }
 .izipay-form { margin-top: 0.4rem; min-height: 1px; }
 
 /* ── POPUP PROPIO DE PAGO (Teleport al body) — bloquea y difumina todo el fondo ── */

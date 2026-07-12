@@ -486,31 +486,7 @@ const pilares = [
 }
 
 /* ── SHARED ── */
-.btn {
-  display: inline-flex;
-  align-items: center;
-  padding: 0.9rem 2.2rem;
-  font-family: var(--font-display);
-  font-size: 0.75rem;
-  font-weight: 500;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  border-radius: var(--radius-pill);
-  transition: transform 0.25s var(--ease-spring), background-color 0.25s var(--ease-out),
-              border-color 0.25s var(--ease-out), color 0.25s var(--ease-out), box-shadow 0.25s var(--ease-out);
-  cursor: pointer;
-}
-.btn:hover  { transform: translateY(-2px); }
-.btn:active { transform: scale(0.97); }
-.btn--outline {
-  background: transparent;
-  color: var(--text-1);
-  border: 1px solid var(--border-mid);
-}
-.btn--outline:hover {
-  border-color: var(--text-1);
-  background: var(--glow-color);
-}
+/* .btn base es global (style.css). */
 
 /* ── RESPONSIVE ── */
 @media (max-width: 900px) {

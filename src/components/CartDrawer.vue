@@ -279,21 +279,20 @@ const total = computed(() =>
   justify-content: center;
   gap: 0.6rem;
   padding: 1rem;
-  background: var(--grad-cool);
-  background-size: 160% 160%;
-  color: #fff;
-  border-radius: var(--radius-md);
+  background: var(--accent);
+  color: var(--on-accent);
+  border: 1px solid var(--accent);
+  border-radius: 4px;
   font-family: var(--font-display);
   font-size: 0.8rem;
   font-weight: 700;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  box-shadow: var(--shadow-soft);
-  transition: transform 0.25s var(--ease-out), box-shadow 0.25s var(--ease-out), background-position 0.5s var(--ease-out);
+  transition: background-color 0.25s var(--ease-out), border-color 0.25s var(--ease-out);
 }
-.drawer__cta:hover { transform: translateY(-2px); box-shadow: var(--shadow-hover); background-position: 100% 0; }
+.drawer__cta:hover { background: var(--accent-deep); border-color: var(--accent-deep); }
 .drawer__cta:hover svg { transform: translateX(3px); }
 .drawer__cta svg { transition: transform 0.25s var(--ease-out); }
-.drawer__cta:active { transform: scale(0.97); }
+.drawer__cta:active { transform: translateY(1px); }
 .drawer__note { text-align: center; font-size: 0.7rem; color: var(--text-3); letter-spacing: 0.04em; }
 </style>

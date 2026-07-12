@@ -14,7 +14,7 @@ useSeo({ title: 'Página no encontrada', noindex: true })
       <span class="word word--outline">NO EXISTE.</span>
     </h1>
     <p class="not-found__sub">La página que buscas no existe o fue movida.</p>
-    <RouterLink to="/" class="btn">Volver al inicio</RouterLink>
+    <RouterLink to="/" class="btn btn--fill">Volver al inicio</RouterLink>
   </div>
 </div>
 </template>
@@ -65,25 +65,7 @@ useSeo({ title: 'Página no encontrada', noindex: true })
   margin-bottom: 3rem;
   letter-spacing: 0.04em;
 }
-.btn {
-  display: inline-flex;
-  align-items: center;
-  padding: 0.9rem 2.2rem;
-  background: var(--text-1);
-  color: var(--ink);
-  border: 1px solid var(--text-1);
-  border-radius: var(--radius-pill);
-  font-family: var(--font-display);
-  font-size: 0.75rem;
-  font-weight: 500;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  box-shadow: var(--shadow-soft);
-  transition: transform 0.25s var(--ease-spring), background-color 0.25s var(--ease-out),
-              border-color 0.25s var(--ease-out), color 0.25s var(--ease-out), box-shadow 0.25s var(--ease-out);
-}
-.btn:hover  { background: var(--accent); border-color: var(--accent); color: var(--ink); transform: translateY(-2px); box-shadow: var(--shadow-hover); }
-.btn:active { transform: scale(0.97); }
+/* .btn base es global (style.css). */
 
 @media (max-width: 600px) {
   .not-found { padding: 4rem 1.25rem; }

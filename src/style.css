@@ -178,6 +178,34 @@ button, a { transition: color 0.2s ease, background-color 0.2s ease, border-colo
 /* Formularios más suaves de forma global */
 input, textarea, select { border-radius: var(--radius-sm); }
 
+/* ── BOTONES (sistema global, estilo editorial/Nude Project) ──────────────────
+   Rectangulares y limpios (radio pequeño), mayúsculas con tracking, hover sobrio
+   (sin rebote). Las páginas usan .btn + modificador. */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.95rem 2rem;
+  font-family: var(--font-display);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  border-radius: 4px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background-color 0.25s var(--ease-out), color 0.25s var(--ease-out),
+              border-color 0.25s var(--ease-out), opacity 0.2s var(--ease-out), transform 0.15s var(--ease-out);
+}
+.btn:active { transform: translateY(1px); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn--fill { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+.btn--fill:hover:not(:disabled) { background: var(--accent-deep); border-color: var(--accent-deep); }
+.btn--outline { background: transparent; color: var(--text-1); border-color: var(--text-1); }
+.btn--outline:hover:not(:disabled) { background: var(--text-1); color: var(--ink); }
+.btn--block { width: 100%; }
+
 /* Selección de texto con color de marca */
 ::selection { background: var(--accent); color: var(--on-accent); }
 

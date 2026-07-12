@@ -377,9 +377,9 @@ function cambiarModo(m) {
 .acc__forgot { text-align: right; margin-top: 0.45rem; }
 .acc__forgot button { color: var(--accent-3); font-size: 0.76rem; font-weight: 600; cursor: pointer; transition: opacity 0.2s var(--ease-out); }
 .acc__forgot button:hover { opacity: 0.78; }
-.acc__btn { margin-top: 1.1rem; padding: 0.9rem; background: var(--grad-cool); background-size: 160% 160%; color: #fff; border: none; border-radius: var(--radius-md); box-shadow: var(--shadow-soft); font-family: var(--font-display); font-size: 0.78rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; transition: transform 0.25s var(--ease-out), box-shadow 0.25s var(--ease-out), background-position 0.5s var(--ease-out), opacity 0.2s var(--ease-out); }
-.acc__btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: var(--shadow-hover); background-position: 100% 0; }
-.acc__btn:active:not(:disabled) { transform: scale(0.97); }
+.acc__btn { margin-top: 1.1rem; padding: 0.95rem; background: var(--accent); color: var(--on-accent); border: 1px solid var(--accent); border-radius: 4px; font-family: var(--font-display); font-size: 0.75rem; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; transition: background-color 0.25s var(--ease-out), opacity 0.2s var(--ease-out); }
+.acc__btn:hover:not(:disabled) { background: var(--accent-deep); border-color: var(--accent-deep); }
+.acc__btn:active:not(:disabled) { transform: translateY(1px); }
 .acc__btn:disabled { opacity: 0.55; cursor: not-allowed; box-shadow: none; }
 .acc__switch { text-align: center; font-size: 0.8rem; color: var(--text-3); margin-top: 1rem; }
 .acc__switch button { color: var(--accent-3); font-weight: 600; cursor: pointer; transition: opacity 0.2s var(--ease-out); }
