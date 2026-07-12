@@ -163,28 +163,36 @@ onMounted(async () => {
 
 <style scoped>
 .page-hero {
+  position: relative;
   border-bottom: 1px solid var(--border);
-  padding: 3.5rem 2rem 3rem;
-  background: var(--surface-1);
+  padding: 5.5rem 2rem 4.5rem;
+  background: url('/editorial-lift.jpg') center / cover no-repeat;
+  overflow: hidden;
 }
-.page-hero__inner { max-width: 1200px; margin: 0 auto; }
+.page-hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(120deg, rgba(20,18,15,.8) 0%, rgba(20,18,15,.5) 55%, rgba(46,72,112,.55) 100%);
+}
+.page-hero__inner { position: relative; z-index: 1; max-width: 1200px; margin: 0 auto; }
 .chip {
   display: inline-block;
   font-size: 0.68rem;
   letter-spacing: 0.32em;
   text-transform: uppercase;
-  color: var(--accent-3);
+  color: rgba(244,241,236,.85);
   padding: 0.4rem 0.95rem;
   border-radius: var(--radius-pill);
-  background: var(--glow-color);
-  border: 1px solid var(--border-mid);
+  background: rgba(244,241,236,.15);
+  border: 1px solid rgba(244,241,236,.3);
 }
 .page-hero__title {
   font-family: var(--font-display);
   font-size: clamp(2.5rem, 6vw, 5rem);
-  font-weight: 300;
-  letter-spacing: -0.03em;
-  color: var(--text-1);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: #F4F1EC;
   line-height: 1.05;
   margin-top: 0.75rem;
 }
@@ -193,7 +201,7 @@ onMounted(async () => {
   font-size: 0.75rem;
   letter-spacing: 0.2em;
   text-transform: uppercase;
-  color: var(--text-3);
+  color: rgba(244,241,236,.8);
 }
 
 /* ── CATALOG ── */

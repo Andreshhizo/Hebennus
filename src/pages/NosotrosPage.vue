@@ -158,7 +158,7 @@ const pilares = [
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
-  background: #3C5A87;   /* banda denim */
+  background: url('/editorial-gym.jpg') center / cover no-repeat;   /* foto + capa denim */
   border-bottom: 1px solid var(--border);
   padding: 0 2rem 5rem;
   overflow: hidden;
@@ -168,7 +168,7 @@ const pilares = [
   content: '';
   position: absolute;
   inset: 0;
-  background: radial-gradient(ellipse at 70% 40%, rgba(247,244,240,.12) 0%, transparent 60%);
+  background: linear-gradient(120deg, rgba(46,72,112,.9) 0%, rgba(46,72,112,.62) 55%, rgba(20,18,15,.6) 100%);
   pointer-events: none;
 }
 .nosotros-hero__inner {
@@ -274,7 +274,7 @@ const pilares = [
   justify-content: center;
   padding: 4rem 2rem;
   text-align: center;
-  background: url('/editorial-gym.jpg') center / cover no-repeat;
+  background: url('/editorial-run.jpg') center 30% / cover no-repeat;
 }
 .nos-editorial__overlay {
   position: absolute;
