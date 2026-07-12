@@ -2,6 +2,9 @@
 // Política de privacidad — PLANTILLA BASE para Hebennus (Ley 29733, Perú).
 // Revisa/ajusta los textos con tu información real antes de producción.
 import { MARCA } from '../lib/config.js'
+import { useSeo } from '../lib/useSeo.js'
+
+useSeo({ title: 'Política de privacidad', path: '/privacidad' })
 
 const EMPRESA = MARCA
 const CORREO  = 'hebennus.company@gmail.com'

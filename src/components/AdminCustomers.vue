@@ -260,7 +260,7 @@ onMounted(cargar)
 .cli__list { list-style: none; display: flex; flex-direction: column; gap: 0.6rem; }
 
 .cust { border: 1px solid var(--border-mid); background: var(--card-bg); animation: hb-fade-up 0.3s ease both; transition: border-color 0.2s ease, box-shadow 0.2s ease; }
-.cust:hover { box-shadow: 0 4px 18px rgba(0,0,0,0.08); }
+.cust:hover { box-shadow: var(--shadow-card-hover); }
 .cust__head { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: 0.9rem 1rem; cursor: pointer; flex-wrap: wrap; }
 .cust__main { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
 .cust__name { font-weight: 600; font-size: 0.9rem; color: var(--text-1); }

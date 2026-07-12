@@ -2,7 +2,14 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import { supabase }       from '../lib/supabase.js'
 import { WHATSAPP_NUMERO, NEXT_DROP_DATE } from '../lib/config.js'
+import { useSeo }         from '../lib/useSeo.js'
 import SkeletonCard       from '../components/SkeletonCard.vue'
+
+useSeo({
+  title: 'Próximos Lanzamientos',
+  description: 'Los próximos drops de Hebennus — ediciones limitadas. Entérate antes que nadie.',
+  path: '/lanzamientos',
+})
 
 const lanzamientos = ref([])
 const cargando     = ref(true)

@@ -3,6 +3,8 @@ import { ref, computed, onMounted, inject, watch } from 'vue'
 import { useRoute, RouterLink } from 'vue-router'
 import { supabase } from '../lib/supabase.js'
 import { WHATSAPP_NUMERO, STOCK_LOW_THRESHOLD } from '../lib/config.js'
+import { useSeo, SITE_URL } from '../lib/useSeo.js'
+import { useHead } from '@unhead/vue'
 import SizeGuideModal from '../components/SizeGuideModal.vue'
 
 const route     = useRoute()
@@ -95,6 +97,48 @@ const stockTotal     = computed(() => variantes.value.reduce((s, v) => s + (v.st
 const agotado        = computed(() => stockTotal.value === 0)
 const pocasUnidades  = computed(() => stockTotal.value > 0 && stockTotal.value <= STOCK_LOW_THRESHOLD)
 const precioFmt      = computed(() => `S/ ${Number(product.value?.price ?? 0).toFixed(2)}`)
+
+// ── SEO dinámico + datos estructurados (Product/Offer + Breadcrumb) ──
+useSeo({
+  title: () => product.value?.name,
+  description: () => product.value?.description || `${product.value?.name ?? 'Producto'} — Hebennus. Oversize, atlético y cómodo.`,
+  image: () => imagenes.value[0],
+  path: () => `/producto/${route.params.id}`,
+  type: 'product',
+  noindex: () => !cargando.value && !product.value,   // 404/no encontrado
+})
+useHead(computed(() => {
+  const p = product.value
+  if (!p) return {}
+  const url = `${SITE_URL}/producto/${route.params.id}`
+  return {
+    script: [
+      { type: 'application/ld+json', children: JSON.stringify({
+        '@context': 'https://schema.org', '@type': 'Product',
+        name: p.name,
+        description: p.description || undefined,
+        image: imagenes.value.length ? imagenes.value : undefined,
+        sku: varianteSel.value?.sku || variantes.value[0]?.sku || undefined,
+        brand: { '@type': 'Brand', name: 'Hebennus' },
+        offers: {
+          '@type': 'Offer',
+          price: Number(p.price),
+          priceCurrency: 'PEN',
+          availability: stockTotal.value > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+          url,
+        },
+      }) },
+      { type: 'application/ld+json', children: JSON.stringify({
+        '@context': 'https://schema.org', '@type': 'BreadcrumbList',
+        itemListElement: [
+          { '@type': 'ListItem', position: 1, name: 'Inicio', item: SITE_URL },
+          { '@type': 'ListItem', position: 2, name: 'Colección', item: `${SITE_URL}/coleccion` },
+          { '@type': 'ListItem', position: 3, name: p.name, item: url },
+        ],
+      }) },
+    ],
+  }
+}))
 
 // La combinación elegida existe pero está sin stock.
 const comboSinStock = computed(() => seleccionCompleta.value && stockSel.value <= 0)

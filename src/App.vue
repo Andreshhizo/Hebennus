@@ -1,11 +1,31 @@
 <script setup>
 import { ref, computed, watch, onMounted, onUnmounted, provide } from 'vue'
 import { RouterView, useRouter, useRoute } from 'vue-router'
+import { useHead } from '@unhead/vue'
+import { INSTAGRAM, TIKTOK } from './lib/config.js'
 import AppNav        from './components/AppNav.vue'
 import AppFooter     from './components/AppFooter.vue'
 import CartDrawer    from './components/CartDrawer.vue'
 import ToastNotif    from './components/ToastNotif.vue'
 import QuickBuyModal from './components/QuickBuyModal.vue'
+
+// JSON-LD de Organización (global) para Google — logo + redes.
+useHead({
+  script: [{
+    type: 'application/ld+json',
+    children: JSON.stringify({
+      '@context': 'https://schema.org',
+      '@type': 'Organization',
+      name: 'Hebennus',
+      url: 'https://www.hebennus.com',
+      logo: 'https://www.hebennus.com/logo.jpeg',
+      sameAs: [
+        `https://instagram.com/${INSTAGRAM}`,
+        `https://tiktok.com/@${TIKTOK}`,
+      ],
+    }),
+  }],
+})
 
 const CART_KEY  = 'hebennus-cart'
 const MAX_QTY   = 10    // máx. unidades por referencia (talla + producto)

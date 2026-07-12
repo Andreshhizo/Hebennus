@@ -198,12 +198,25 @@ onUnmounted(() => document.removeEventListener('click', onDocClick))
   gap: 2.5rem;
 }
 .nav__links a {
+  position: relative;
   font-size: 0.72rem;
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--text-2);
   transition: color 0.2s;
 }
+.nav__links a::after {
+  content: '';
+  position: absolute;
+  left: 0; bottom: -6px;
+  width: 100%; height: 2px;
+  background: var(--accent);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.28s var(--ease-out);
+}
+.nav__links a:hover::after,
+.nav__links a.router-link-active::after { transform: scaleX(1); }
 .nav__links a:hover,
 .nav__links a.router-link-active { color: var(--text-1); }
 .nav__brand {

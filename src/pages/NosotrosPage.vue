@@ -1,5 +1,12 @@
 <script setup>
 import { WHATSAPP_NUMERO } from '../lib/config.js'
+import { useSeo } from '../lib/useSeo.js'
+
+useSeo({
+  title: 'Nosotros',
+  description: 'Hebennus: juventud (Hebe), renacimiento (Bennu) y unión. Una marca de Lima, Perú.',
+  path: '/nosotros',
+})
 
 const pilares = [
   {

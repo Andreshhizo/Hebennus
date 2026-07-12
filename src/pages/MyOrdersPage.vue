@@ -187,7 +187,7 @@ onMounted(() => { if (user.value) cargar() })
 
 .orders { list-style: none; display: flex; flex-direction: column; gap: 0.6rem; }
 .order { border: 1px solid var(--border-mid); background: var(--card-bg); animation: hb-fade-up 0.3s ease both; transition: border-color 0.2s ease, box-shadow 0.2s ease; }
-.order:hover { box-shadow: 0 4px 18px rgba(0,0,0,0.08); }
+.order:hover { box-shadow: var(--shadow-card-hover); }
 .order__head { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: 0.9rem 1rem; cursor: pointer; }
 .order__main { display: flex; flex-direction: column; gap: 0.15rem; }
 .order__num { font-family: var(--font-display); font-weight: 700; font-size: 0.9rem; }

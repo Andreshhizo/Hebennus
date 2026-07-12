@@ -3,8 +3,11 @@ import { ref, onMounted, inject } from 'vue'
 import { RouterLink } from 'vue-router'
 import { supabase }   from '../lib/supabase.js'
 import { WHATSAPP_NUMERO } from '../lib/config.js'
+import { useSeo } from '../lib/useSeo.js'
 import ProductCard  from '../components/ProductCard.vue'
 import SkeletonCard from '../components/SkeletonCard.vue'
+
+useSeo({ path: '/' })
 
 const addToCart = inject('addToCart')
 const productos = ref([])
@@ -64,7 +67,7 @@ onMounted(async () => {
         <span class="chip">New In</span>
         <h2 class="featured__title">Últimas Piezas</h2>
       </header>
-      <div class="grid" v-reveal>
+      <div class="grid" v-reveal.stagger>
         <template v-if="cargando">
           <SkeletonCard v-for="i in 4" :key="i" />
         </template>

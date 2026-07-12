@@ -1,5 +1,8 @@
 <script setup>
 import { RouterLink } from 'vue-router'
+import { useSeo } from '../lib/useSeo.js'
+
+useSeo({ title: 'Página no encontrada', noindex: true })
 </script>
 
 <template>

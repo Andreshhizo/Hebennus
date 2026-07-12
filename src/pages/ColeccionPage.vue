@@ -2,8 +2,15 @@
 import { ref, computed, onMounted, inject } from 'vue'
 import { supabase }     from '../lib/supabase.js'
 import { zonaDePrenda } from '../lib/prendas.js'
+import { useSeo }       from '../lib/useSeo.js'
 import ProductCard      from '../components/ProductCard.vue'
 import SkeletonCard     from '../components/SkeletonCard.vue'
+
+useSeo({
+  title: 'Colección',
+  description: 'Explora la colección Hebennus: oversize, atlético y cómodo. Envío a todo el Perú.',
+  path: '/coleccion',
+})
 
 const addToCart = inject('addToCart')
 
@@ -142,7 +149,7 @@ onMounted(async () => {
     </div>
 
     <!-- Grid -->
-    <div v-else class="grid" v-reveal>
+    <div v-else class="grid" v-reveal.stagger>
       <ProductCard
         v-for="p in productos"
         :key="p.id"
