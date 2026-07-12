@@ -238,10 +238,9 @@ function handleAdd() {
             <div v-else :key="'ph'" class="gallery__placeholder">HEBENNUS</div>
           </Transition>
 
-          <div v-if="agotado" class="gallery__badge gallery__badge--out">Agotado</div>
-          <div v-else-if="pocasUnidades" class="gallery__badge gallery__badge--low">
-            Últimas {{ stockTotal }}
-          </div>
+          <div v-if="!agotado && product.badge" class="gallery__badge gallery__badge--tag">{{ product.badge }}</div>
+          <div v-else-if="pocasUnidades" class="gallery__badge gallery__badge--low">Últimas piezas</div>
+          <div v-if="agotado" class="gallery__soldout"><span>Sold Out</span></div>
 
           <!-- Carousel arrows -->
           <template v-if="imagenes.length > 1">
@@ -286,7 +285,13 @@ function handleAdd() {
 
       <!-- ── INFO ── -->
       <div class="pdp__info">
-        <p v-if="(product.categories && product.categories.length) || product.category" class="pdp__cat">{{ (product.categories && product.categories.length) ? product.categories.join(' · ') : product.category }}</p>
+        <div class="pdp__tags">
+          <span v-for="c in (product.categories && product.categories.length ? product.categories : (product.category ? [product.category] : []))"
+                :key="c" class="pdp__tag">{{ c }}</span>
+          <span v-if="agotado" class="pdp__tag pdp__tag--out">Sold Out</span>
+          <span v-else-if="pocasUnidades" class="pdp__tag pdp__tag--low">Últimas piezas</span>
+          <span v-if="product.badge" class="pdp__tag pdp__tag--badge">{{ product.badge }}</span>
+        </div>
         <h1 class="pdp__name">{{ product.name }}</h1>
         <p class="pdp__price">{{ precioFmt }}</p>
 
@@ -503,20 +508,37 @@ function handleAdd() {
 .gallery__badge {
   position: absolute;
   top: 1rem; left: 1rem;
+  z-index: 5;
   font-size: 0.65rem;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  padding: 0.35rem 0.85rem;
+  padding: 0.4rem 0.85rem;
   font-family: var(--font-display);
-  font-weight: 600;
-  border-radius: var(--radius-pill);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  box-shadow: 0 2px 12px rgba(0,0,0,0.25);
+  font-weight: 700;
+  border-radius: 4px;
   animation: hb-pop 0.35s var(--ease-spring) both;
 }
-.gallery__badge--out { background: var(--text-3); color: var(--ink); }
-.gallery__badge--low { background: var(--grad-cool); color: #fff; }
+.gallery__badge--tag { background: var(--accent); color: var(--on-accent); }
+.gallery__badge--low { background: #C9962F; color: #1a1408; }
+/* Franja Sold Out sobre la galería (la ficha sigue navegable) */
+.gallery__soldout {
+  position: absolute; inset: 0; z-index: 5;
+  display: flex; align-items: center; justify-content: center;
+  pointer-events: none;
+}
+.gallery__soldout span {
+  width: 130%;
+  transform: rotate(-8deg);
+  text-align: center;
+  background: rgba(20,18,15,.82);
+  color: #F4F1EC;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1.3rem;
+  letter-spacing: 0.4em;
+  text-transform: uppercase;
+  padding: 0.7rem 0;
+}
 
 /* ── CAROUSEL ARROWS ── */
 .gallery__arrow {
@@ -592,17 +614,26 @@ function handleAdd() {
 
 /* ── INFO ── */
 .pdp__info { display: flex; flex-direction: column; gap: 1rem; }
-.pdp__cat {
-  font-size: 0.65rem;
-  letter-spacing: 0.24em;
+.pdp__tags { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.pdp__tag {
+  font-size: 0.62rem;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: var(--accent-3);
+  font-weight: 700;
+  padding: 0.3rem 0.7rem;
+  border-radius: 4px;
+  background: var(--surface-2);
+  color: var(--text-2);
+  border: 1px solid var(--border-mid);
 }
+.pdp__tag--badge { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+.pdp__tag--low   { background: #C9962F; color: #1a1408; border-color: #C9962F; }
+.pdp__tag--out   { background: var(--text-1); color: var(--ink); border-color: var(--text-1); }
 .pdp__name {
   font-family: var(--font-display);
   font-size: clamp(1.6rem, 3vw, 2.4rem);
-  font-weight: 300;
-  letter-spacing: -0.025em;
+  font-weight: 700;
+  letter-spacing: -0.02em;
   color: var(--text-1);
   line-height: 1.15;
 }

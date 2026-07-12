@@ -14,6 +14,8 @@ import { subirImagenProducto } from '../lib/storage.js'
 const CATEGORIAS   = ['Style', 'Sport', 'Comfort']
 const TIPOS_PRENDA = ['polo', 'polera', 'casaca', 'short', 'pantalon', 'buzo']
 const TALLAS       = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'Única']
+// Etiqueta manual (sticker). "Sold Out" y "Últimas piezas" son AUTOMÁTICOS del stock.
+const BADGES       = ['Nuevo', 'Edición limitada', 'Restock', 'Preventa', 'Exclusivo']
 
 const productos = ref([])
 const cargando  = ref(true)
@@ -32,7 +34,7 @@ const subiendoFotoKey = ref('')   // clave `${pid}::${color}` en subida
 
 // Edición de campos del producto.
 const editId        = ref(null)
-const editForm      = reactive({ name: '', price: '', categories: [], tipo_prenda: '', description: '' })
+const editForm      = reactive({ name: '', price: '', categories: [], tipo_prenda: '', description: '', badge: '' })
 // Marca/desmarca una categoría en un array (para los checkboxes).
 function toggleCategoria(arr, cat) {
   const i = arr.indexOf(cat)
@@ -206,7 +208,7 @@ function abrirEdicion(p) {
   Object.assign(editForm, {
     name: p.name || '', price: p.price ?? '',
     categories: (p.categories && p.categories.length) ? [...p.categories] : (p.category ? [p.category] : []),
-    tipo_prenda: p.tipo_prenda || '', description: p.description || '',
+    tipo_prenda: p.tipo_prenda || '', description: p.description || '', badge: p.badge || '',
   })
 }
 function cancelarEdicion() { editId.value = null; editError.value = '' }
@@ -224,6 +226,7 @@ async function guardarEdicion(p) {
       category: editForm.categories[0] || null,   // legacy (primera categoría)
       tipo_prenda: editForm.tipo_prenda || null,
       description: editForm.description.trim() || null,
+      badge: editForm.badge || null,
     }
     const { error: e } = await supabase.from('products').update(patch).eq('id', p.id)
     if (e) throw e
@@ -312,7 +315,7 @@ const nuevoValido = computed(() => {
 
 function abrirNuevo() {
   Object.assign(nuevo, {
-    name: '', price: '', categories: [], tipo_prenda: '', description: '',
+    name: '', price: '', categories: [], tipo_prenda: '', description: '', badge: '',
     is_active: true, is_launch: false, launch_order: '',
     variants: [{ size: '', color: '', stock: '' }],
   })
@@ -369,6 +372,7 @@ async function guardarNuevo() {
       name: nuevo.name.trim(),
       price: Number(nuevo.price),
       categories: [...nuevo.categories],
+      badge: nuevo.badge || null,
       tipo_prenda: nuevo.tipo_prenda,
       description: nuevo.description.trim(),
       is_active: nuevo.is_active,
@@ -434,6 +438,12 @@ onMounted(cargar)
                   <option v-for="t in TIPOS_PRENDA" :key="t" :value="t">{{ t }}</option>
                 </select>
               </label>
+              <label class="edit__f"><span>Etiqueta (sticker)</span>
+                <select v-model="editForm.badge" class="edit__input">
+                  <option value="">Ninguna</option>
+                  <option v-for="b in BADGES" :key="b" :value="b">{{ b }}</option>
+                </select>
+              </label>
             </div>
             <label class="edit__f"><span>Descripción</span><textarea v-model="editForm.description" rows="2" class="edit__input"></textarea></label>
             <p v-if="editError" class="vtab__err">{{ editError }}</p>
@@ -450,7 +460,7 @@ onMounted(cargar)
           <div class="prod__main">
             <span class="prod__name">{{ p.name }}</span>
             <span class="prod__price">
-              {{ money(p.price) }}<template v-if="(p.categories && p.categories.length) || p.category"> · {{ (p.categories && p.categories.length) ? p.categories.join(' · ') : p.category }}</template><template v-if="p.tipo_prenda"> · {{ p.tipo_prenda }}</template>
+              {{ money(p.price) }}<template v-if="(p.categories && p.categories.length) || p.category"> · {{ (p.categories && p.categories.length) ? p.categories.join(' · ') : p.category }}</template><template v-if="p.tipo_prenda"> · {{ p.tipo_prenda }}</template><template v-if="p.badge"> · 🏷️ {{ p.badge }}</template>
             </span>
           </div>
           <div class="prod__headactions">
@@ -574,6 +584,12 @@ onMounted(cargar)
                 <select v-model="nuevo.tipo_prenda" class="edit__input">
                   <option value="">Elegir…</option>
                   <option v-for="t in TIPOS_PRENDA" :key="t" :value="t">{{ t }}</option>
+                </select>
+              </label>
+              <label class="edit__f"><span>Etiqueta (sticker)</span>
+                <select v-model="nuevo.badge" class="edit__input">
+                  <option value="">Ninguna</option>
+                  <option v-for="b in BADGES" :key="b" :value="b">{{ b }}</option>
                 </select>
               </label>
             </div>

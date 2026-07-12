@@ -117,9 +117,11 @@ function handleAdd() {
         </div>
       </Transition>
 
-      <!-- Stock badge -->
-      <div v-if="agotado" class="card__badge card__badge--out">Agotado</div>
-      <div v-else-if="pocasUnidades" class="card__badge card__badge--low">Últimas {{ stockTotal }}</div>
+      <!-- Sticker: etiqueta manual (Nuevo, etc.) o últimas piezas (auto) -->
+      <div v-if="!agotado && product.badge" class="card__sticker">{{ product.badge }}</div>
+      <div v-else-if="pocasUnidades" class="card__sticker card__sticker--low">Últimas piezas</div>
+      <!-- Franja SOLD OUT (la prenda sigue siendo clickeable) -->
+      <div v-if="agotado" class="card__soldout"><span>Sold Out</span></div>
 
       <!-- Carousel arrows -->
       <template v-if="imagenes.length > 1">
@@ -268,23 +270,47 @@ function handleAdd() {
 }
 
 /* ── STOCK BADGE ── */
-.card__badge {
+/* Sticker de esquina (etiqueta manual o "Últimas piezas") */
+.card__sticker {
   position: absolute;
   top: 0.75rem; left: 0.75rem;
+  z-index: 12;
   font-size: 0.6rem;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  padding: 0.3rem 0.7rem;
-  font-weight: 600;
+  padding: 0.35rem 0.7rem;
+  font-weight: 700;
   font-family: var(--font-display);
-  border-radius: var(--radius-pill);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  box-shadow: 0 2px 10px rgba(0,0,0,0.25);
+  border-radius: 4px;
+  background: var(--accent);
+  color: var(--on-accent);
   animation: hb-pop 0.35s var(--ease-spring) both;
 }
-.card__badge--out { background: rgba(0,0,0,0.65); color: var(--text-2); }
-.card__badge--low { background: var(--grad-cool); color: #fff; }
+.card__sticker--low { background: #C9962F; color: #1a1408; }  /* mostaza cálida = últimas piezas */
+
+/* Franja SOLD OUT (cruza la imagen; la card sigue clickeable) */
+.card__soldout {
+  position: absolute;
+  inset: 0;
+  z-index: 12;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+.card__soldout span {
+  width: 140%;
+  transform: rotate(-8deg);
+  text-align: center;
+  background: rgba(20,18,15,.82);
+  color: #F4F1EC;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 0.9rem;
+  letter-spacing: 0.35em;
+  text-transform: uppercase;
+  padding: 0.5rem 0;
+}
 
 /* ── CAROUSEL ARROWS ── */
 .card__arrow {
