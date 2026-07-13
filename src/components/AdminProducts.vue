@@ -32,6 +32,12 @@ const fotosEstado = ref({})
 const fotosMsg    = ref({})
 const subiendoFotoKey = ref('')   // clave `${pid}::${color}` en subida
 
+// Fotos de la TARJETA (catálogo): presentación (images[0]) + modelo (images[1]).
+const cardEdit        = ref({})   // { [pid]: { presentacion, modelo } }
+const cardEstado      = ref({})   // { [pid]: 'guardando'|'ok'|'error' }
+const cardMsg         = ref({})
+const subiendoCardKey = ref('')   // `${pid}::presentacion|modelo` en subida
+
 // Edición de campos del producto.
 const editId        = ref(null)
 const editForm      = reactive({ name: '', price: '', categories: [], tipo_prenda: '', description: '', badge: '' })
@@ -71,16 +77,21 @@ function sembrarEstadoEdicion() {
   const nuevoStock = {}
   const nuevasFotos = {}
   const varRows = {}
+  const cardRows = {}
   for (const p of productos.value) {
     for (const v of p.product_variants || []) nuevoStock[v.id] = v.stock ?? 0
     for (const color of coloresDe(p)) nuevasFotos[claveFoto(p.id, color)] = urlsIniciales(p, color).join('\n')
     varRows[p.id] = { size: '', color: '', stock: '' }
+    const imgs = Array.isArray(p.images) ? p.images : []
+    cardRows[p.id] = { presentacion: imgs[0] || '', modelo: imgs[1] || '' }
   }
   stockEdit.value = nuevoStock
   fotosEdit.value = nuevasFotos
   nuevaVar.value = varRows
+  cardEdit.value = cardRows
   stockEstado.value = {}; stockMsg.value = {}
   fotosEstado.value = {}; fotosMsg.value = {}
+  cardEstado.value = {}; cardMsg.value = {}
 }
 
 function coloresDe(p) {
@@ -164,10 +175,14 @@ async function guardarFotos(p) {
     planas.push(...urls)
   }
 
-  // Poblamos también `images` (compra rápida usa solo ese campo).
+  // `images` = [presentación, modelo, ...galería]. Conservamos las 2 fotos de
+  // tarjeta al frente (las controla la sección "Fotos de la tarjeta").
+  const cardImgs = [p.images?.[0], p.images?.[1]].filter(Boolean)
+  const images = [...cardImgs, ...planas.filter((u) => !cardImgs.includes(u))]
+
   const { error: e } = await supabase
     .from('products')
-    .update({ images_by_color: obj, images: planas })
+    .update({ images_by_color: obj, images })
     .eq('id', p.id)
 
   if (e) {
@@ -176,8 +191,59 @@ async function guardarFotos(p) {
     return
   }
   p.images_by_color = obj
-  p.images = planas
+  p.images = images
   fotosEstado.value = { ...fotosEstado.value, [p.id]: 'ok' }
+}
+
+// ── Fotos de la tarjeta (presentación + modelo) de un producto existente ──
+function claveCard(productId, campo) { return `${productId}::${campo}` }
+
+async function onSubirCard(ev, p, campo) {
+  const file = (ev.target.files || [])[0]
+  ev.target.value = ''
+  if (!file) return
+  const key = claveCard(p.id, campo)
+  subiendoCardKey.value = key
+  cardMsg.value = { ...cardMsg.value, [p.id]: '' }
+  try {
+    const url = await subirImagenProducto(file)
+    cardEdit.value = {
+      ...cardEdit.value,
+      [p.id]: { ...(cardEdit.value[p.id] || {}), [campo]: url },
+    }
+  } catch (err) {
+    cardEstado.value = { ...cardEstado.value, [p.id]: 'error' }
+    cardMsg.value = { ...cardMsg.value, [p.id]: err?.message || 'No se pudo subir la imagen.' }
+  } finally {
+    subiendoCardKey.value = ''
+  }
+}
+
+function quitarCard(p, campo) {
+  cardEdit.value = {
+    ...cardEdit.value,
+    [p.id]: { ...(cardEdit.value[p.id] || {}), [campo]: '' },
+  }
+}
+
+async function guardarCard(p) {
+  const c = cardEdit.value[p.id] || { presentacion: '', modelo: '' }
+  cardEstado.value = { ...cardEstado.value, [p.id]: 'guardando' }
+  cardMsg.value = { ...cardMsg.value, [p.id]: '' }
+
+  const cardImgs = [c.presentacion, c.modelo].filter(Boolean)
+  // Reemplazamos los 2 primeros (slots de tarjeta) y conservamos el resto de la galería.
+  const resto = (p.images || []).slice(2).filter((u) => u && !cardImgs.includes(u))
+  const images = [...cardImgs, ...resto]
+
+  const { error: e } = await supabase.from('products').update({ images }).eq('id', p.id)
+  if (e) {
+    cardEstado.value = { ...cardEstado.value, [p.id]: 'error' }
+    cardMsg.value = { ...cardMsg.value, [p.id]: 'No se pudo guardar: ' + e.message }
+    return
+  }
+  p.images = images
+  cardEstado.value = { ...cardEstado.value, [p.id]: 'ok' }
 }
 
 // Subir archivo(s) para un color de producto existente → agrega URLs al textarea.
@@ -292,6 +358,7 @@ const nuevo = reactive({
   variants: [{ size: '', color: '', stock: '' }],
 })
 const nuevoFotos = reactive({})   // { [color|'']: [url,...] }
+const nuevoCard  = reactive({ presentacion: '', modelo: '' })   // fotos de la tarjeta
 
 const coloresNuevo = computed(() => {
   const out = []; const seen = new Set()
@@ -320,6 +387,8 @@ function abrirNuevo() {
     variants: [{ size: '', color: '', stock: '' }],
   })
   Object.keys(nuevoFotos).forEach((k) => delete nuevoFotos[k])
+  nuevoCard.presentacion = ''
+  nuevoCard.modelo = ''
   errorNuevo.value = ''
   mostrarNuevo.value = true
 }
@@ -347,6 +416,22 @@ async function onSubirNuevo(ev, color) {
 }
 function quitarFotoNuevo(color, i) { (nuevoFotos[color] || []).splice(i, 1) }
 
+async function onSubirCardNuevo(ev, campo) {
+  const file = (ev.target.files || [])[0]
+  ev.target.value = ''
+  if (!file) return
+  errorNuevo.value = ''
+  subiendoNuevo.value = true
+  try {
+    nuevoCard[campo] = await subirImagenProducto(file)
+  } catch (err) {
+    errorNuevo.value = err?.message || 'No se pudo subir la imagen.'
+  } finally {
+    subiendoNuevo.value = false
+  }
+}
+function quitarCardNuevo(campo) { nuevoCard[campo] = '' }
+
 async function guardarNuevo() {
   if (!nuevoValido.value || guardandoNuevo.value) return
   errorNuevo.value = ''
@@ -354,17 +439,20 @@ async function guardarNuevo() {
   try {
     const colores = coloresNuevo.value
     let images_by_color = null
-    const images = []
+    const galeriaExtra = []
     if (colores.length) {
       images_by_color = {}
       for (const c of colores) {
         const urls = nuevoFotos[c] || []
-        if (urls.length) { images_by_color[c] = [...urls]; images.push(...urls) }
+        if (urls.length) { images_by_color[c] = [...urls]; galeriaExtra.push(...urls) }
       }
       if (!Object.keys(images_by_color).length) images_by_color = null
     } else {
-      images.push(...(nuevoFotos[''] || []))
+      galeriaExtra.push(...(nuevoFotos[''] || []))
     }
+    // `images` = [presentación, modelo, ...galería]. La tarjeta usa [0] y [1].
+    const cardImgs = [nuevoCard.presentacion, nuevoCard.modelo].filter(Boolean)
+    const images = [...cardImgs, ...galeriaExtra.filter((u) => !cardImgs.includes(u))]
     const variants = nuevo.variants
       .filter((v) => v.size)
       .map((v) => ({ size: v.size, color: (v.color || '').trim() || null, stock: Number(v.stock) || 0 }))
@@ -527,6 +615,44 @@ onMounted(cargar)
         </div>
       </div>
 
+      <!-- Fotos de la tarjeta (presentación + modelo) -->
+      <div class="prod__section">
+        <h4 class="prod__h4">Fotos de la tarjeta</h4>
+        <p class="prod__hint">La <strong>presentación</strong> se muestra primero (portada); la foto <strong>con modelo</strong> aparece al pasar el mouse.</p>
+        <div v-if="cardEdit[p.id]" class="cardpics">
+          <div class="cardpics__slot">
+            <span class="cardpics__label">Presentación (portada)</span>
+            <div v-if="cardEdit[p.id].presentacion" class="cardpics__thumb">
+              <img :src="cardEdit[p.id].presentacion" alt="" />
+              <button type="button" @click="quitarCard(p, 'presentacion')" aria-label="Quitar">✕</button>
+            </div>
+            <label v-else class="cardpics__drop">
+              <input type="file" accept="image/*" hidden @change="onSubirCard($event, p, 'presentacion')" />
+              <span>{{ subiendoCardKey === claveCard(p.id, 'presentacion') ? 'Subiendo…' : '📷 Subir presentación' }}</span>
+            </label>
+          </div>
+          <div class="cardpics__slot">
+            <span class="cardpics__label">Con modelo (hover)</span>
+            <div v-if="cardEdit[p.id].modelo" class="cardpics__thumb">
+              <img :src="cardEdit[p.id].modelo" alt="" />
+              <button type="button" @click="quitarCard(p, 'modelo')" aria-label="Quitar">✕</button>
+            </div>
+            <label v-else class="cardpics__drop">
+              <input type="file" accept="image/*" hidden @change="onSubirCard($event, p, 'modelo')" />
+              <span>{{ subiendoCardKey === claveCard(p.id, 'modelo') ? 'Subiendo…' : '📷 Subir modelo' }}</span>
+            </label>
+          </div>
+        </div>
+        <div class="fotos__bar">
+          <button class="fotos__save" :disabled="cardEstado[p.id] === 'guardando'" @click="guardarCard(p)">
+            <span v-if="cardEstado[p.id] === 'guardando'" class="spinner spinner--sm"></span>
+            {{ cardEstado[p.id] === 'guardando' ? 'Guardando…' : 'Guardar fotos de tarjeta' }}
+          </button>
+          <span v-if="cardEstado[p.id] === 'ok'" class="fotos__ok">✓ Guardado</span>
+          <span v-if="cardEstado[p.id] === 'error'" class="fotos__err">{{ cardMsg[p.id] }}</span>
+        </div>
+      </div>
+
       <!-- Fotos por color -->
       <div class="prod__section" v-if="coloresDe(p).length">
         <h4 class="prod__h4">Fotos por color</h4>
@@ -613,8 +739,35 @@ onMounted(cargar)
             </div>
             <button class="nm__addvar" @click="agregarVariante">＋ Agregar variante</button>
 
-            <h4 class="nm__h4">Imágenes</h4>
-            <p class="prod__hint">Sugerencia: sube una o más fotos por color. Si no usas colores, sube en "General".</p>
+            <h4 class="nm__h4">Fotos de la tarjeta</h4>
+            <p class="prod__hint">La <strong>presentación</strong> se ve primero (portada); la foto <strong>con modelo</strong> aparece al pasar el mouse en el catálogo.</p>
+            <div class="cardpics">
+              <div class="cardpics__slot">
+                <span class="cardpics__label">Presentación (portada)</span>
+                <div v-if="nuevoCard.presentacion" class="cardpics__thumb">
+                  <img :src="nuevoCard.presentacion" alt="" />
+                  <button type="button" @click="quitarCardNuevo('presentacion')" aria-label="Quitar">✕</button>
+                </div>
+                <label v-else class="cardpics__drop">
+                  <input type="file" accept="image/*" hidden @change="onSubirCardNuevo($event, 'presentacion')" />
+                  <span>📷 Subir presentación</span>
+                </label>
+              </div>
+              <div class="cardpics__slot">
+                <span class="cardpics__label">Con modelo (hover)</span>
+                <div v-if="nuevoCard.modelo" class="cardpics__thumb">
+                  <img :src="nuevoCard.modelo" alt="" />
+                  <button type="button" @click="quitarCardNuevo('modelo')" aria-label="Quitar">✕</button>
+                </div>
+                <label v-else class="cardpics__drop">
+                  <input type="file" accept="image/*" hidden @change="onSubirCardNuevo($event, 'modelo')" />
+                  <span>📷 Subir modelo</span>
+                </label>
+              </div>
+            </div>
+
+            <h4 class="nm__h4">Galería adicional (opcional)</h4>
+            <p class="prod__hint">Fotos extra para la ficha del producto. Por color si usas colores; si no, en "General".</p>
             <template v-if="coloresNuevo.length">
               <div v-for="color in coloresNuevo" :key="color" class="nm__fotos">
                 <div class="nm__fotoshead">
@@ -756,6 +909,25 @@ onMounted(cargar)
 .fotos__save:disabled { opacity: 0.5; cursor: not-allowed; }
 .fotos__ok { font-size: 0.74rem; color: var(--success); }
 .fotos__err { font-size: 0.74rem; color: var(--danger); }
+
+/* ── Fotos de la tarjeta (presentación + modelo) ── */
+.cardpics { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.8rem; margin-bottom: 0.3rem; }
+.cardpics__slot { display: flex; flex-direction: column; gap: 0.4rem; }
+.cardpics__label { font-size: 0.64rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-3); font-weight: 600; }
+.cardpics__drop {
+  display: flex; align-items: center; justify-content: center; text-align: center;
+  aspect-ratio: 3 / 4; padding: 0.6rem;
+  font-size: 0.74rem; font-weight: 600; color: var(--text-2);
+  background: var(--surface-2); border: 1px dashed var(--border-mid); border-radius: 8px; cursor: pointer;
+}
+.cardpics__drop:hover { color: var(--text-1); border-color: var(--accent); }
+.cardpics__thumb { position: relative; aspect-ratio: 3 / 4; border-radius: 8px; overflow: hidden; border: 1px solid var(--border-mid); }
+.cardpics__thumb img { width: 100%; height: 100%; object-fit: cover; }
+.cardpics__thumb button {
+  position: absolute; top: 5px; right: 5px; width: 22px; height: 22px; border-radius: 999px; border: none;
+  background: rgba(0,0,0,0.65); color: #fff; font-size: 0.7rem; cursor: pointer; display: grid; place-items: center;
+}
+.cardpics__thumb button:hover { background: rgba(0,0,0,0.85); }
 
 /* ── Modal Nuevo producto ── */
 .nm__overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.55); backdrop-filter: blur(3px); display: grid; place-items: center; z-index: 700; padding: 1rem; }

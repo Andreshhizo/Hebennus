@@ -15,7 +15,7 @@ const g = (v) => (typeof v === 'function' ? v() : unref(v))
 export function useSeo(opts = {}) {
   const title = computed(() => {
     const t = g(opts.title)
-    return t ? `${t} — ${MARCA}` : `${MARCA} — Make it Real`
+    return t ? `${t} — ${MARCA}` : MARCA
   })
   const description = computed(() => g(opts.description) || DEFT)
   const image = computed(() => g(opts.image) || DEFIMG)

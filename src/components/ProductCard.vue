@@ -1,36 +1,41 @@
 <script setup>
-import { ref, computed, inject } from 'vue'
+import { ref, computed } from 'vue'
 import { RouterLink } from 'vue-router'
 import { STOCK_LOW_THRESHOLD } from '../lib/config.js'
-import SizeGuideModal from './SizeGuideModal.vue'
 
 const props = defineProps({
   product: { type: Object, required: true },
 })
 const emit = defineEmits(['add-to-cart'])
 
-const openQuickBuy = inject('openQuickBuy', null)
-
-const tallaElegida = ref(null)
-const imagenIdx    = ref(0)
-const sacudir      = ref(false)
-const guideOpen    = ref(false)
-
 const variantes = computed(() => props.product.product_variants ?? [])
 
 // Colores disponibles = colores distintos no-nulos de las variantes.
 const colores = computed(() => [...new Set(variantes.value.map(v => v.color).filter(Boolean))])
-
-// Por defecto la galería muestra el primer color disponible (o la lista plana si no hay colores).
 const colorGaleria = computed(() => colores.value[0] ?? null)
 
-// Imágenes de un color = images_by_color[color] ?? images plano ?? [].
-const imagenes = computed(() => {
+// Galería de la TARJETA (estilo Nude): dos fotos.
+//   images[0] = foto de PRESENTACIÓN (portada, se ve primero)
+//   images[1] = foto CON MODELO     (se muestra al pasar el mouse)
+// Preferimos la lista plana `images`; si está vacía, caemos a la galería del
+// primer color (compatibilidad con productos antiguos por color).
+const galeria = computed(() => {
+  const flat = Array.isArray(props.product.images) ? props.product.images.filter(Boolean) : []
+  if (flat.length) return flat
   const c = colorGaleria.value
-  if (c) return props.product.images_by_color?.[c] ?? props.product.images ?? []
-  return props.product.images ?? []
+  const porColor = c ? (props.product.images_by_color?.[c] ?? []) : []
+  return porColor.filter(Boolean)
 })
-const imagen   = computed(() => imagenes.value[imagenIdx.value] ?? imagenes.value[0] ?? null)
+const fotoPresentacion = computed(() => galeria.value[0] ?? null)
+const fotoModelo        = computed(() => galeria.value[1] ?? null)
+
+// Swap de imagen al pasar el mouse: presentación → modelo.
+const mostrarModelo = ref(false)
+const imagenActual = computed(() =>
+  (mostrarModelo.value && fotoModelo.value) ? fotoModelo.value : fotoPresentacion.value
+)
+function onHover() { mostrarModelo.value = true }
+function onLeave() { mostrarModelo.value = false }
 
 const SIZE_ORD = ['XS','S','M','L','XL','XXL','Única','ÚNICA']
 // Tallas únicas (deduplicadas) y ordenadas — varias variantes con la misma talla
@@ -47,14 +52,6 @@ const tallas = computed(() => {
 })
 function tallaConStock(size) { return variantes.value.some(v => v.size === size && (v.stock ?? 0) > 0) }
 
-// Resuelve la variante por talla + color por defecto: la primera variante con stock
-// de esa talla; si ninguna tiene stock, la primera. Su color se propaga al carrito.
-const varianteActiva = computed(() => {
-  if (!tallaElegida.value) return null
-  const deLaTalla = variantes.value.filter(v => v.size === tallaElegida.value)
-  return deLaTalla.find(v => (v.stock ?? 0) > 0) ?? deLaTalla[0] ?? null
-})
-
 const stockTotal    = computed(() => variantes.value.reduce((s, v) => s + (v.stock ?? 0), 0))
 // Producto AGOTADO = todas las variantes con stock <= 0 (o sin variantes con stock).
 const agotado       = computed(() => stockTotal.value === 0)
@@ -62,51 +59,50 @@ const pocasUnidades = computed(() => stockTotal.value > 0 && stockTotal.value <=
 
 const precioFmt = computed(() => `S/ ${Number(props.product.price).toFixed(2)}`)
 
-function onHover() { if (imagenes.value.length > 1) imagenIdx.value = 1 }
-function onLeave() { imagenIdx.value = 0 }
-function irA(idx)  { imagenIdx.value = idx }
-
-// Navegación del carrusel con wrap-around.
-function prevImg() {
-  const n = imagenes.value.length
-  if (n <= 1) return
-  imagenIdx.value = (imagenIdx.value - 1 + n) % n
-}
-function nextImg() {
-  const n = imagenes.value.length
-  if (n <= 1) return
-  imagenIdx.value = (imagenIdx.value + 1) % n
-}
-
-function handleAdd() {
-  if (agotado.value) return
-  if (!tallaElegida.value) {
-    sacudir.value = true
-    setTimeout(() => { sacudir.value = false }, 500)
-    return
-  }
+// Quick-add por talla (reemplaza los antiguos botones de overlay "Ver / Compra rápida").
+function quickAdd(size) {
+  if (agotado.value || !tallaConStock(size)) return
+  const deLaTalla = variantes.value.filter(v => v.size === size)
+  const variante  = deLaTalla.find(v => (v.stock ?? 0) > 0) ?? deLaTalla[0] ?? null
   emit('add-to-cart', {
     name:      props.product.name,
-    size:      tallaElegida.value,
-    color:     varianteActiva.value?.color ?? null,
+    size,
+    color:     variante?.color ?? null,
     price:     props.product.price,
-    image:     imagenes.value[0] ?? null,
+    image:     fotoPresentacion.value,
     productId: props.product.id,
-    variantId: varianteActiva.value?.id,
+    variantId: variante?.id,
   })
-  tallaElegida.value = null
 }
+
+// ── Swatches de color ──
+const COLOR_HEX = {
+  negro: '#1a1a1a', blanco: '#f2efe9', hueso: '#ece5d8', crema: '#e8e0cf', beige: '#d9cdb4',
+  gris: '#9a9a97', 'gris claro': '#c7c7c3', 'gris oscuro': '#5a5a58', plomo: '#7d7d7a',
+  azul: '#2e4870', 'azul marino': '#1f2f4d', marino: '#1f2f4d', navy: '#1f2f4d',
+  denim: '#3a567e', celeste: '#9fc0d8', 'azul claro': '#9fc0d8',
+  verde: '#4a5d3a', 'verde militar': '#4b533a', 'verde oscuro': '#33452f', oliva: '#6b6a3a',
+  rojo: '#9b3535', vino: '#6e2437', 'rojo vino': '#6e2437', guinda: '#6e2437',
+  rosa: '#d9a3ad', rosado: '#d9a3ad', fucsia: '#b53a72',
+  amarillo: '#d8c24a', mostaza: '#c9962f', naranja: '#cc6b3a',
+  marron: '#6b4f3a', cafe: '#6b4f3a', chocolate: '#4a3527', camel: '#b08a5a',
+  morado: '#6a4d7a', lila: '#a58cc0', purpura: '#6a4d7a', turquesa: '#3aa6a0',
+}
+function normColor(c) {
+  return (c || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim()
+}
+function colorHex(c) { return COLOR_HEX[normColor(c)] ?? null }
 </script>
 
 <template>
-  <article class="card">
-    <!-- Image -->
+  <article class="card" :class="{ 'card--out': agotado }">
+    <!-- Media: presentación → modelo al pasar el mouse -->
     <div class="card__media" @mouseenter="onHover" @mouseleave="onLeave">
       <Transition name="img-swap" mode="out-in">
         <img
-          v-if="imagen"
-          :key="imagenIdx"
-          :src="imagen"
+          v-if="imagenActual"
+          :key="imagenActual"
+          :src="imagenActual"
           :alt="product.name"
           loading="lazy"
           class="card__img"
@@ -117,52 +113,27 @@ function handleAdd() {
         </div>
       </Transition>
 
+      <!-- Enlace a la ficha (cubre la imagen; las tallas van por encima) -->
+      <RouterLink :to="`/producto/${product.id}`" class="card__link" :aria-label="`Ver ${product.name}`" />
+
       <!-- Sticker: etiqueta manual (Nuevo, etc.) o últimas piezas (auto) -->
       <div v-if="!agotado && product.badge" class="card__sticker">{{ product.badge }}</div>
       <div v-else-if="pocasUnidades" class="card__sticker card__sticker--low">Últimas piezas</div>
       <!-- Franja SOLD OUT (la prenda sigue siendo clickeable) -->
       <div v-if="agotado" class="card__soldout"><span>Sold Out</span></div>
 
-      <!-- Carousel arrows -->
-      <template v-if="imagenes.length > 1">
+      <!-- Tallas rápidas (estilo Nude): aparecen al hover; en táctil, siempre -->
+      <div v-if="!agotado && tallas.length" class="card__quick">
         <button
+          v-for="t in tallas"
+          :key="t"
           type="button"
-          class="card__arrow card__arrow--prev"
-          aria-label="Imagen anterior"
-          @click.stop="prevImg"
-        >‹</button>
-        <button
-          type="button"
-          class="card__arrow card__arrow--next"
-          aria-label="Imagen siguiente"
-          @click.stop="nextImg"
-        >›</button>
-      </template>
-
-      <!-- Image dots -->
-      <div v-if="imagenes.length > 1" class="card__dots" aria-hidden="true">
-        <button
-          v-for="(_, i) in imagenes"
-          :key="i"
-          class="card__dot"
-          :class="{ 'card__dot--active': imagenIdx === i }"
-          @click.stop="irA(i)"
-          @mouseenter.stop="irA(i)"
-        ></button>
-      </div>
-
-      <!-- Hover overlay -->
-      <div class="card__overlay" aria-hidden="true">
-        <RouterLink
-          :to="`/producto/${product.id}`"
-          class="card__overlay-btn card__overlay-btn--ver"
-          @click.stop
-        >Ver producto</RouterLink>
-        <button
-          v-if="openQuickBuy && !agotado"
-          class="card__overlay-btn card__overlay-btn--quick"
-          @click.stop="openQuickBuy(product)"
-        >Compra rápida</button>
+          class="card__quick-btn"
+          :class="{ 'card__quick-btn--out': !tallaConStock(t) }"
+          :disabled="!tallaConStock(t)"
+          :aria-label="`Añadir talla ${t}`"
+          @click.prevent.stop="quickAdd(t)"
+        >{{ t }}</button>
       </div>
     </div>
 
@@ -172,48 +143,17 @@ function handleAdd() {
         <RouterLink :to="`/producto/${product.id}`" class="card__name">{{ product.name }}</RouterLink>
         <span class="card__price">{{ precioFmt }}</span>
       </div>
-
-      <p v-if="product.description" class="card__desc">{{ product.description }}</p>
-
-      <!-- Sizes header -->
-      <div class="card__sizes-hd">
-        <span class="card__sizes-label">Talla</span>
-        <button class="card__guide-btn" @click="guideOpen = true">Guía →</button>
+      <div v-if="colores.length" class="card__colors" :aria-label="`Colores: ${colores.join(', ')}`">
+        <span
+          v-for="c in colores"
+          :key="c"
+          class="card__swatch"
+          :class="{ 'card__swatch--empty': !colorHex(c) }"
+          :style="colorHex(c) ? { background: colorHex(c) } : null"
+          :title="c"
+        ></span>
       </div>
-
-      <!-- Size selector -->
-      <div class="card__sizes" :class="{ 'card__sizes--shake': sacudir }" role="group" :aria-label="`Tallas de ${product.name}`">
-        <button
-          v-for="t in tallas"
-          :key="t"
-          class="size-btn"
-          :class="{
-            'size-btn--active': tallaElegida === t,
-            'size-btn--out':    !tallaConStock(t),
-          }"
-          :disabled="!tallaConStock(t)"
-          :aria-pressed="tallaElegida === t"
-          @click="tallaElegida = tallaElegida === t ? null : t"
-        >{{ t }}</button>
-      </div>
-
-      <!-- Add to cart -->
-      <button
-        class="card__add"
-        :class="{
-          'card__add--ready':    tallaElegida && !agotado,
-          'card__add--disabled': agotado,
-        }"
-        :disabled="agotado"
-        @click="handleAdd"
-      >
-        <template v-if="agotado">Agotado</template>
-        <template v-else-if="tallaElegida">Añadir — {{ tallaElegida }}</template>
-        <template v-else>Elige una talla</template>
-      </button>
     </div>
-
-    <SizeGuideModal :open="guideOpen" @close="guideOpen = false" />
   </article>
 </template>
 
@@ -221,15 +161,7 @@ function handleAdd() {
 .card {
   display: flex;
   flex-direction: column;
-  background: var(--card-bg);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-soft);
-  overflow: hidden;
-  transition: box-shadow 0.4s var(--ease-out), transform 0.4s var(--ease-out);
-}
-.card:hover {
-  box-shadow: var(--shadow-hover);
-  transform: translateY(-4px);
+  background: transparent;
 }
 
 /* ── MEDIA ── */
@@ -238,20 +170,18 @@ function handleAdd() {
   aspect-ratio: 3 / 4;
   background: var(--surface-2);
   overflow: hidden;
-  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
 }
 .card__img {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transition: transform 0.8s var(--ease-out), filter 0.4s var(--ease-out);
+  transition: filter 0.4s var(--ease-out);
 }
-.card:hover .card__img { transform: scale(1.05); }
 /* Producto agotado: escala de grises + oscurecido */
-.card__img--out { filter: grayscale(1) brightness(0.5); }
+.card__img--out { filter: grayscale(1) brightness(0.55); }
 
-.img-swap-enter-active { transition: opacity 0.22s ease; }
-.img-swap-leave-active { transition: opacity 0.15s ease; }
+.img-swap-enter-active { transition: opacity 0.28s ease; }
+.img-swap-leave-active { transition: opacity 0.18s ease; }
 .img-swap-enter-from,
 .img-swap-leave-to { opacity: 0; }
 
@@ -268,6 +198,9 @@ function handleAdd() {
   color: var(--text-3);
   letter-spacing: 0.25em;
 }
+
+/* Enlace que cubre la imagen (navega a la ficha) */
+.card__link { position: absolute; inset: 0; z-index: 5; }
 
 /* ── STOCK BADGE ── */
 /* Sticker de esquina (etiqueta manual o "Últimas piezas") */
@@ -312,267 +245,95 @@ function handleAdd() {
   padding: 0.5rem 0;
 }
 
-/* ── CAROUSEL ARROWS ── */
-.card__arrow {
+/* ── TALLAS RÁPIDAS (estilo Nude) ── */
+.card__quick {
   position: absolute;
-  top: 50%;
-  transform: translateY(-50%) scale(0.9);
-  z-index: 11;
-  width: 2.1rem;
-  height: 2.1rem;
-  display: grid;
-  place-items: center;
-  background: rgba(0,0,0,0.4);
-  color: var(--text-1);
-  border: 1px solid rgba(255,255,255,0.25);
-  border-radius: var(--radius-pill);
-  font-size: 1.25rem;
-  line-height: 1;
-  cursor: pointer;
-  opacity: 0;
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-  transition: opacity 0.3s var(--ease-out), transform 0.3s var(--ease-spring), background 0.2s var(--ease-out), border-color 0.2s var(--ease-out);
-}
-.card:hover .card__arrow { opacity: 1; transform: translateY(-50%) scale(1); }
-.card__arrow:hover {
-  background: rgba(0,0,0,0.7);
-  border-color: rgba(255,255,255,0.55);
-  transform: translateY(-50%) scale(1.1);
-}
-.card__arrow:active { transform: translateY(-50%) scale(0.94); }
-.card__arrow:focus-visible { opacity: 1; transform: translateY(-50%) scale(1); outline: 2px solid var(--accent); outline-offset: 2px; }
-.card__arrow--prev { left: 0.6rem; }
-.card__arrow--next { right: 0.6rem; }
-
-/* ── DOTS ── */
-.card__dots {
-  position: absolute;
-  bottom: 0.75rem;
-  left: 50%;
-  transform: translateX(-50%);
+  left: 0; right: 0; bottom: 0;
+  z-index: 15;
   display: flex;
   gap: 0.3rem;
-  z-index: 10;
-  opacity: 0;
-  transition: opacity 0.25s ease;
-}
-.card:hover .card__dots { opacity: 1; }
-.card__dot {
-  width: 5px; height: 5px;
-  border-radius: var(--radius-pill);
-  background: var(--overlay-dot);
-  transition: background 0.25s var(--ease-out), transform 0.3s var(--ease-spring), width 0.3s var(--ease-spring);
-}
-.card__dot--active { background: var(--grad-cool); width: 16px; transform: scale(1.15); }
-.card__dot:hover:not(.card__dot--active) { background: var(--overlay-dot-hover); transform: scale(1.2); }
-
-/* ── HOVER OVERLAY ── */
-.card__overlay {
-  position: absolute;
-  inset: 0;
-  background: rgba(0,0,0,0.52);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
   justify-content: center;
-  gap: 0.6rem;
+  flex-wrap: wrap;
+  padding: 0.65rem 0.55rem;
+  background: linear-gradient(to top, rgba(20,18,15,0.72) 0%, rgba(20,18,15,0.28) 62%, rgba(20,18,15,0) 100%);
   opacity: 0;
-  transition: opacity 0.3s ease;
+  transform: translateY(8px);
+  transition: opacity 0.28s var(--ease-out), transform 0.28s var(--ease-out);
   pointer-events: none;
 }
-.card:hover .card__overlay {
-  opacity: 1;
-  pointer-events: auto;
+.card:hover .card__quick { opacity: 1; transform: translateY(0); pointer-events: auto; }
+.card__quick-btn {
+  min-width: 2rem;
+  padding: 0.42rem 0.55rem;
+  font-size: 0.7rem;
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: #14120f;
+  background: rgba(244,241,236,0.95);
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: background 0.18s var(--ease-out), color 0.18s var(--ease-out), transform 0.18s var(--ease-spring);
+}
+.card__quick-btn:hover:not(:disabled) { background: #14120f; color: #f4f1ec; }
+.card__quick-btn:active:not(:disabled) { transform: scale(0.92); }
+.card__quick-btn--out {
+  opacity: 0.45;
+  text-decoration: line-through;
+  cursor: not-allowed;
 }
 
-/* En pantallas táctiles NO hay :hover → mostrar flechas, dots y acciones siempre.
-   La compra rápida y navegar fotos deben ser alcanzables desde el celular. */
+/* En pantallas táctiles NO hay :hover → mostrar tallas siempre (accesibles en móvil). */
 @media (hover: none) {
-  .card__arrow { opacity: 1; transform: translateY(-50%) scale(1); }
-  .card__dots { opacity: 1; }
-  .card__overlay {
-    opacity: 1;
-    pointer-events: auto;
-    justify-content: flex-end;
-    padding-bottom: 0.85rem;
-    background: linear-gradient(to top, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0.18) 42%, rgba(0,0,0,0) 72%);
-  }
-}
-.card__overlay-btn {
-  padding: 0.6rem 1.5rem;
-  font-size: 0.68rem;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  font-family: var(--font-display);
-  font-weight: 500;
-  cursor: pointer;
-  border-radius: var(--radius-pill);
-  transform: translateY(8px);
-  opacity: 0;
-  transition: transform 0.35s var(--ease-spring), opacity 0.3s var(--ease-out),
-              background 0.2s var(--ease-out), border-color 0.2s var(--ease-out), color 0.2s var(--ease-out);
-}
-.card:hover .card__overlay-btn { transform: translateY(0); opacity: 1; }
-.card:hover .card__overlay-btn--quick { transition-delay: 0.05s; }
-.card__overlay-btn:active { transform: scale(0.96); }
-.card__overlay-btn--ver {
-  background: var(--text-1);
-  color: var(--ink);
-  border: 1px solid var(--text-1);
-}
-.card__overlay-btn--ver:hover {
-  background: var(--grad-cool);
-  border-color: transparent;
-  color: #fff;
-}
-.card__overlay-btn--quick {
-  background: rgba(255,255,255,0.06);
-  color: var(--text-1);
-  border: 1px solid rgba(255,255,255,0.45);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
-}
-.card__overlay-btn--quick:hover {
-  background: rgba(255,255,255,0.16);
-  border-color: rgba(255,255,255,0.75);
+  .card__quick { opacity: 1; transform: none; pointer-events: auto; }
 }
 
 /* ── BODY ── */
 .card__body {
-  padding: 1.1rem 1rem 1.4rem;
+  padding: 0.85rem 0.15rem 1.2rem;
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  flex: 1;
 }
 .card__row {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
-  gap: 0.5rem;
+  gap: 0.6rem;
 }
 .card__name {
   font-family: var(--font-display);
-  font-size: 0.95rem;
+  font-size: 0.82rem;
   font-weight: 500;
+  letter-spacing: 0.01em;
   color: var(--text-1);
-  line-height: 1.3;
+  line-height: 1.35;
   transition: color 0.2s;
 }
 .card__name:hover { color: var(--copper-light); }
 .card__price {
   font-family: var(--font-display);
-  font-size: 0.9rem;
+  font-size: 0.82rem;
   color: var(--text-1);
   white-space: nowrap;
   font-weight: 600;
 }
-.card__desc {
-  font-size: 0.78rem;
-  color: var(--text-3);
-  line-height: 1.55;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
 
-/* ── SIZES HEADER ── */
-.card__sizes-hd {
+/* ── SWATCHES DE COLOR ── */
+.card__colors {
   display: flex;
+  gap: 0.32rem;
   align-items: center;
-  justify-content: space-between;
-  margin-top: 0.1rem;
 }
-.card__sizes-label {
-  font-size: 0.65rem;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--text-3);
-}
-.card__guide-btn {
-  font-size: 0.65rem;
-  color: var(--text-3);
-  letter-spacing: 0.08em;
-  transition: color 0.2s;
-}
-.card__guide-btn:hover { color: var(--text-1); }
-
-/* ── SIZES ── */
-.card__sizes {
-  display: flex;
-  gap: 0.3rem;
-  flex-wrap: wrap;
-}
-.size-btn {
-  min-width: 2.2rem;
-  padding: 0.35rem 0.5rem;
-  background: transparent;
-  color: var(--text-2);
+.card__swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
   border: 1px solid var(--border-mid);
-  border-radius: var(--radius-pill);
-  font-size: 0.74rem;
-  font-family: var(--font-body);
-  transition: transform 0.25s var(--ease-spring), background 0.2s var(--ease-out),
-              border-color 0.2s var(--ease-out), color 0.2s var(--ease-out);
-  cursor: pointer;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.12);
 }
-.size-btn:hover:not(:disabled):not(.size-btn--active) {
-  border-color: var(--text-2);
-  color: var(--text-1);
-  transform: translateY(-2px);
+.card__swatch--empty {
+  background: repeating-linear-gradient(45deg, var(--surface-2), var(--surface-2) 3px, var(--border-mid) 3px, var(--border-mid) 4px);
 }
-.size-btn:active:not(:disabled) { transform: scale(0.94); }
-.size-btn--active {
-  background: var(--text-1);
-  color: var(--ink);
-  border-color: var(--text-1);
-  transform: translateY(-1px);
-}
-.size-btn--out {
-  opacity: 0.3;
-  cursor: not-allowed;
-  text-decoration: line-through;
-}
-@keyframes shake {
-  0%,100% { transform: translateX(0); }
-  20%     { transform: translateX(-5px); }
-  40%     { transform: translateX(5px); }
-  60%     { transform: translateX(-4px); }
-  80%     { transform: translateX(4px); }
-}
-.card__sizes--shake { animation: shake 0.45s ease; }
-
-/* ── ADD BUTTON ── */
-.card__add {
-  margin-top: auto;
-  padding: 0.8rem 1rem;
-  width: 100%;
-  background: transparent;
-  color: var(--text-3);
-  border: 1px solid var(--border-mid);
-  border-radius: var(--radius-pill);
-  font-size: 0.72rem;
-  font-family: var(--font-display);
-  font-weight: 500;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  cursor: pointer;
-  transition: transform 0.25s var(--ease-spring), background 0.25s var(--ease-out),
-              border-color 0.25s var(--ease-out), color 0.25s var(--ease-out), box-shadow 0.25s var(--ease-out);
-}
-.card__add--ready {
-  background: var(--grad-cool);
-  color: #fff;
-  border-color: transparent;
-  box-shadow: 0 6px 18px var(--glow-color);
-}
-.card__add--ready:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 10px 26px var(--glow-color);
-  filter: brightness(1.05);
-}
-.card__add--ready:active { transform: scale(0.97); }
-.card__add--disabled { opacity: 0.45; cursor: not-allowed; }
 </style>
