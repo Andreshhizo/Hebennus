@@ -1,15 +1,18 @@
 <script setup>
-// ─── Galería de fotos reordenable (solo con clics) ──────────────────────────
-// Muestra miniaturas en el ORDEN en que se guardan (images / images_by_color).
-// Cada foto se mueve con ◀ ▶ y se quita con ✕. Subir agrega al final.
+// ─── Galería de fotos reordenable ───────────────────────────────────────────
+// Muestra miniaturas en el ORDEN en que se guardan (products.images).
+// Reordenar: ARRASTRAR con el mouse (drag & drop nativo) o los botones ◀ ▶
+// (respaldo táctil/accesible). Quitar con ✕. "＋ Subir" agrega archivos al final.
 // v-model = array de URLs. La posición en el array = orden en la tienda.
 import { ref } from 'vue'
 import { subirImagenProducto } from '../lib/storage.js'
 
 const props = defineProps({
   modelValue: { type: Array, default: () => [] },
-  // Muestra etiquetas "Portada" (pos 1) y "Hover" (pos 2) — solo galería principal.
+  // Muestra etiquetas "Portada" (pos 1) y "Hover" (pos 2) — solo galería de tarjeta.
   tags: { type: Boolean, default: false },
+  // Límite de fotos (p. ej. 2 para la tarjeta). 0 = sin límite.
+  max: { type: Number, default: 0 },
 })
 const emit = defineEmits(['update:modelValue'])
 
@@ -36,10 +39,46 @@ function quitar(i) {
   commit(a)
 }
 
+// ── Drag & drop nativo ──
+const dragIndex = ref(null)   // índice que se está arrastrando
+const overIndex = ref(null)   // índice destino resaltado
+
+function onDragStart(i, ev) {
+  dragIndex.value = i
+  if (ev.dataTransfer) {
+    ev.dataTransfer.effectAllowed = 'move'
+    // Firefox necesita datos para iniciar el arrastre.
+    try { ev.dataTransfer.setData('text/plain', String(i)) } catch (_) {}
+  }
+}
+function onDragOver(i) {
+  if (dragIndex.value === null) return
+  overIndex.value = i
+}
+function onDrop(i) {
+  const from = dragIndex.value
+  onDragEnd()
+  if (from === null || from === i) return
+  const a = [...props.modelValue]
+  const [movido] = a.splice(from, 1)
+  a.splice(i, 0, movido)
+  commit(a)
+}
+function onDragEnd() {
+  dragIndex.value = null
+  overIndex.value = null
+}
+
 async function onSubir(ev) {
-  const files = Array.from(ev.target.files || [])
+  let files = Array.from(ev.target.files || [])
   ev.target.value = ''
   if (!files.length) return
+  // Respetar el límite (si aplica).
+  if (props.max) {
+    const room = props.max - props.modelValue.length
+    if (room <= 0) return
+    if (files.length > room) files = files.slice(0, room)
+  }
   errorMsg.value = ''
   subiendo.value = true
   try {
@@ -57,12 +96,23 @@ async function onSubir(ev) {
 <template>
   <div class="pr">
     <div class="pr__grid">
-      <div v-for="(url, i) in modelValue" :key="url" class="pr__item">
-        <div class="pr__thumb">
-          <img :src="url" alt="" loading="lazy" />
+      <div
+        v-for="(url, i) in modelValue"
+        :key="url"
+        class="pr__item"
+        :class="{ 'pr__item--dragging': dragIndex === i, 'pr__item--over': overIndex === i && dragIndex !== i }"
+        draggable="true"
+        @dragstart="onDragStart(i, $event)"
+        @dragover.prevent="onDragOver(i)"
+        @drop.prevent="onDrop(i)"
+        @dragend="onDragEnd"
+      >
+        <div class="pr__thumb" :title="'Arrastra para reordenar'">
+          <img :src="url" alt="" loading="lazy" draggable="false" />
           <span v-if="tags && i === 0" class="pr__tag pr__tag--cover">Portada</span>
           <span v-else-if="tags && i === 1" class="pr__tag pr__tag--hover">Hover</span>
           <span v-else class="pr__num">{{ i + 1 }}</span>
+          <span class="pr__grip" aria-hidden="true">⠿</span>
           <button type="button" class="pr__x" @click="quitar(i)" aria-label="Quitar foto">✕</button>
         </div>
         <div class="pr__moves">
@@ -79,8 +129,8 @@ async function onSubir(ev) {
         </div>
       </div>
 
-      <label class="pr__add" :class="{ 'pr__add--busy': subiendo }">
-        <input type="file" accept="image/*" multiple hidden @change="onSubir" :disabled="subiendo" />
+      <label v-if="!max || modelValue.length < max" class="pr__add" :class="{ 'pr__add--busy': subiendo }">
+        <input type="file" accept="image/*" :multiple="!max || max - modelValue.length > 1" hidden @change="onSubir" :disabled="subiendo" />
         <span v-if="subiendo" class="pr__spin"></span>
         <span class="pr__add-txt">{{ subiendo ? 'Subiendo…' : '＋ Subir' }}</span>
       </label>
@@ -97,6 +147,7 @@ async function onSubir(ev) {
   align-items: flex-start;
 }
 .pr__item { display: flex; flex-direction: column; gap: 0.3rem; width: 84px; }
+.pr__item--dragging { opacity: 0.4; }
 .pr__thumb {
   position: relative;
   width: 84px;
@@ -105,8 +156,14 @@ async function onSubir(ev) {
   overflow: hidden;
   border: 1px solid var(--border-mid);
   background: var(--surface-2);
+  cursor: grab;
 }
-.pr__thumb img { width: 100%; height: 100%; object-fit: cover; }
+.pr__thumb:active { cursor: grabbing; }
+.pr__item--over .pr__thumb {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent);
+}
+.pr__thumb img { width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
 .pr__num {
   position: absolute;
   top: 4px; left: 4px;
@@ -128,6 +185,17 @@ async function onSubir(ev) {
   background: var(--accent);
 }
 .pr__tag--hover { background: #C9962F; color: #1a1408; }
+.pr__grip {
+  position: absolute;
+  bottom: 3px; left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.8rem; line-height: 1;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.6);
+  opacity: 0; transition: opacity 0.15s;
+  pointer-events: none;
+}
+.pr__thumb:hover .pr__grip { opacity: 0.85; }
 .pr__x {
   position: absolute;
   top: 4px; right: 4px;
@@ -175,4 +243,5 @@ async function onSubir(ev) {
   animation: spin 0.7s linear infinite;
 }
 .pr__err { font-size: 0.72rem; color: var(--danger); margin-top: 0.5rem; }
+@keyframes spin { to { transform: rotate(360deg); } }
 </style>
