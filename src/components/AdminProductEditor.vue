@@ -16,6 +16,7 @@ import { reactive, ref, computed, onMounted, watch, nextTick } from 'vue'
 import { supabase } from '../lib/supabase.js'
 import PhotoReorder from './PhotoReorder.vue'
 import ProductPreview from './ProductPreview.vue'
+import AdminErrorModal from './AdminErrorModal.vue'
 
 const props = defineProps({
   mode:    { type: String, default: 'editar' },   // 'crear' | 'editar'
@@ -174,6 +175,18 @@ function toggleCategoria(cat) {
   if (i >= 0) draft.categories.splice(i, 1); else draft.categories.push(cat)
 }
 function stockValido(raw) { const n = Number(raw); return Number.isInteger(n) && n >= 0 }
+
+// Genera un slug único a partir del nombre (la columna slug es NOT NULL + UNIQUE).
+// Sufijo aleatorio corto para evitar colisiones entre productos con nombre igual.
+function generarSlug(name) {
+  const base = String(name || 'producto')
+    .toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')   // quita acentos
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '') || 'producto'
+  const sufijo = Math.random().toString(36).slice(2, 8)
+  return `${base}-${sufijo}`
+}
 function variantesOrdenadas() {
   return [...variantes.value].sort((a, b) => {
     const c = (a.color || '').localeCompare(b.color || '')
@@ -278,6 +291,7 @@ async function guardar() {
         .map(v => ({ size: v.size, color: (v.color || '').trim() || null, stock: Number(v.stock) || 0 }))
       const payload = {
         name: draft.name.trim(),
+        slug: generarSlug(draft.name),   // slug es NOT NULL en la BD
         price: Number(draft.price),
         categories: [...draft.categories],
         badge: draft.badge || null,
@@ -352,6 +366,7 @@ function volver() {
     </header>
 
     <p v-if="error" class="ape__err" role="alert">{{ error }}</p>
+    <AdminErrorModal :open="!!error" :error="error" @close="error = ''" />
 
     <div class="ape__layout">
       <div class="ape__form">

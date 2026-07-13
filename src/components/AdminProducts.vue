@@ -10,6 +10,7 @@ import { ref, onMounted } from 'vue'
 import { supabase } from '../lib/supabase.js'
 import AdminProductGrid from './AdminProductGrid.vue'
 import AdminProductEditor from './AdminProductEditor.vue'
+import AdminErrorModal from './AdminErrorModal.vue'
 
 const productos = ref([])
 const cargando  = ref(true)
@@ -66,6 +67,7 @@ onMounted(cargar)
 <template>
   <div class="prods">
     <p v-if="error" class="prods__error" role="alert">{{ error }}</p>
+    <AdminErrorModal :open="!!error" :error="error" @close="error = ''" />
 
     <AdminProductEditor
       v-if="editando"
