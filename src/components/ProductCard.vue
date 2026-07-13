@@ -304,7 +304,7 @@ function colorHex(c) { return COLOR_HEX[normColor(c)] ?? null }
 }
 .card__name {
   font-family: var(--font-display);
-  font-size: 0.82rem;
+  font-size: 0.95rem;
   font-weight: 500;
   letter-spacing: 0.01em;
   color: var(--text-1);
@@ -314,7 +314,7 @@ function colorHex(c) { return COLOR_HEX[normColor(c)] ?? null }
 .card__name:hover { color: var(--copper-light); }
 .card__price {
   font-family: var(--font-display);
-  font-size: 0.82rem;
+  font-size: 0.92rem;
   color: var(--text-1);
   white-space: nowrap;
   font-weight: 600;

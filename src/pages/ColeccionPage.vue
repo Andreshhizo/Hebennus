@@ -310,8 +310,8 @@ onMounted(async () => {
 /* ── GRID ── */
 .grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 1.5rem;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.75rem;
 }
 
 /* ── STATES ── */
@@ -346,7 +346,7 @@ onMounted(async () => {
 .state__reset:hover { border-color: var(--text-1); background: var(--glow-color); transform: translateY(-2px); }
 .state__reset:active { transform: scale(0.97); }
 
-@media (max-width: 1024px) { .grid { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 1024px) { .grid { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: 720px)  { .grid { grid-template-columns: repeat(2, 1fr); gap: 1rem; } }
 @media (max-width: 600px)  {
   .catalog { padding: 2.5rem 1.25rem 5rem; }

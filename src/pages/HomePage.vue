@@ -290,8 +290,8 @@ onMounted(async () => {
 }
 .grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 1.5rem;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.75rem;
 }
 .featured__more {
   margin-top: 3.5rem;
@@ -458,7 +458,7 @@ onMounted(async () => {
 
 /* ── RESPONSIVE ── */
 @media (max-width: 1024px) {
-  .grid { grid-template-columns: repeat(3, 1fr); }
+  .grid { grid-template-columns: repeat(2, 1fr); }
   .pilares__grid { grid-template-columns: repeat(2, 1fr); }
 }
 @media (max-width: 720px) {
