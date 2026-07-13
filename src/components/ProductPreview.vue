@@ -8,13 +8,15 @@ import { ref, computed, watch } from 'vue'
 import ProductCard from './ProductCard.vue'
 
 const props = defineProps({
-  // Objeto con la forma que consume ProductCard: { id, name, price, images, product_variants, badge }
+  // Objeto con la forma que consume ProductCard: { id, name, price, card_images, product_variants, badge }
   product:  { type: Object, required: true },
+  // Galería de la ficha (detalle) — INDEPENDIENTE de las fotos de tarjeta.
+  gallery:  { type: Array, default: () => [] },
   // En modo crear no hay id → evitamos navegación real del card.
   creating: { type: Boolean, default: false },
 })
 
-const imagenes = computed(() => (Array.isArray(props.product.images) ? props.product.images.filter(Boolean) : []))
+const imagenes = computed(() => props.gallery.filter(Boolean))
 const selectedIdx = ref(0)
 const imagenPrincipal = computed(() => imagenes.value[selectedIdx.value] ?? imagenes.value[0] ?? null)
 

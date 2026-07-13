@@ -41,7 +41,6 @@ const draft = reactive({
 const tarjeta = ref([])    // images[0..1]
 const detalle = ref([])    // images[2..]
 const avisoColor = ref(false)
-const imagenes = computed(() => [...tarjeta.value, ...detalle.value])
 
 // ── Variantes en vivo (modo editar) ──
 const variantes  = ref([])          // copia de product.product_variants
@@ -80,23 +79,31 @@ function seed() {
     is_launch: !!p.is_launch,
     launch_order: p.launch_order ?? '',
   })
-  // Unión deduplicada: images primero, luego URLs de images_by_color no presentes.
-  const union = []
-  const seen = new Set()
-  for (const u of (Array.isArray(p.images) ? p.images : [])) {
-    if (u && !seen.has(u)) { seen.add(u); union.push(u) }
-  }
+  // Fotos de tarjeta (card_images) y galería de detalle (images) INDEPENDIENTES.
+  const cardImgs = (Array.isArray(p.card_images) ? p.card_images : []).filter(Boolean)
+  const imgs     = (Array.isArray(p.images) ? p.images : []).filter(Boolean)
+  // Fotos que vivían en images_by_color (productos por color antiguos).
   const ibc = p.images_by_color || {}
-  let teniaColor = false
+  const ibcUrls = []
   for (const color of Object.keys(ibc)) {
-    for (const u of (Array.isArray(ibc[color]) ? ibc[color] : [])) {
-      teniaColor = true
-      if (u && !seen.has(u)) { seen.add(u); union.push(u) }
-    }
+    for (const u of (Array.isArray(ibc[color]) ? ibc[color] : [])) if (u) ibcUrls.push(u)
   }
-  tarjeta.value = union.slice(0, 2)
-  detalle.value = union.slice(2)
-  avisoColor.value = teniaColor
+  const dedup = (arr) => {
+    const s = new Set(); const out = []
+    for (const u of arr) if (!s.has(u)) { s.add(u); out.push(u) }
+    return out
+  }
+  if (cardImgs.length) {
+    // Modelo nuevo: card_images = tarjeta; images = galería de detalle.
+    tarjeta.value = cardImgs.slice(0, 2)
+    detalle.value = dedup([...imgs, ...ibcUrls])
+  } else {
+    // Modelo antiguo: images = [portada, hover, ...detalle] (mezclado) → lo separamos.
+    const union = dedup([...imgs, ...ibcUrls])
+    tarjeta.value = union.slice(0, 2)
+    detalle.value = union.slice(2)
+  }
+  avisoColor.value = ibcUrls.length > 0
   // Variantes en vivo
   variantes.value = [...(p.product_variants || [])]
   const st = {}
@@ -118,7 +125,8 @@ const cardProduct = computed(() => ({
   id: props.product?.id,
   name: draft.name || 'Producto',
   price: Number(draft.price) || 0,
-  images: imagenes.value,
+  card_images: [...tarjeta.value],
+  images: [...detalle.value],
   badge: draft.badge || null,
   product_variants: esCrear.value
     ? draft.variants.filter(v => v.size).map(v => ({ size: v.size, color: (v.color || '').trim() || null, stock: Number(v.stock) || 0 }))
@@ -227,7 +235,8 @@ async function guardar() {
   error.value = ''
   guardando.value = true
   try {
-    const images = [...imagenes.value]
+    const card_images = [...tarjeta.value]   // portada + hover (solo tarjeta)
+    const images = [...detalle.value]        // galería de la ficha (solo detalle)
     if (esCrear.value) {
       const variants = draft.variants
         .filter(v => v.size)
@@ -242,6 +251,7 @@ async function guardar() {
         is_active: draft.is_active,
         is_launch: draft.is_launch,
         launch_order: draft.is_launch && draft.launch_order !== '' ? Number(draft.launch_order) : null,
+        card_images,
         images,
         images_by_color: null,
         variants,
@@ -260,8 +270,9 @@ async function guardar() {
         is_active: draft.is_active,
         is_launch: draft.is_launch,
         launch_order: draft.is_launch && draft.launch_order !== '' ? Number(draft.launch_order) : null,
-        images,
-        images_by_color: null,   // deprecación: la ficha usa la galería única
+        card_images,               // solo tarjeta
+        images,                    // solo galería de detalle
+        images_by_color: null,     // deprecado (todo migró a card_images + images)
       }
       const { error: e } = await supabase.from('products').update(patch).eq('id', props.product.id)
       if (e) throw e
@@ -420,7 +431,7 @@ function volver() {
       </div>
 
       <aside class="ape__preview">
-        <ProductPreview :product="cardProduct" :creating="esCrear" />
+        <ProductPreview :product="cardProduct" :gallery="detalle" :creating="esCrear" />
       </aside>
     </div>
   </div>

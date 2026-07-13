@@ -14,12 +14,14 @@ const variantes = computed(() => props.product.product_variants ?? [])
 const colores = computed(() => [...new Set(variantes.value.map(v => v.color).filter(Boolean))])
 const colorGaleria = computed(() => colores.value[0] ?? null)
 
-// Galería de la TARJETA (estilo Nude): dos fotos.
-//   images[0] = foto de PRESENTACIÓN (portada, se ve primero)
-//   images[1] = foto CON MODELO     (se muestra al pasar el mouse)
-// Preferimos la lista plana `images`; si está vacía, caemos a la galería del
-// primer color (compatibilidad con productos antiguos por color).
+// Galería de la TARJETA (estilo Nude): dos fotos, INDEPENDIENTES de la ficha.
+//   card_images[0] = PORTADA (se ve primero)
+//   card_images[1] = HOVER   (se muestra al pasar el mouse)
+// Preferimos `card_images`; si no existe (productos antiguos), caemos a la
+// lista plana `images` (donde [0]/[1] eran portada/hover) y luego al color.
 const galeria = computed(() => {
+  const card = Array.isArray(props.product.card_images) ? props.product.card_images.filter(Boolean) : []
+  if (card.length) return card
   const flat = Array.isArray(props.product.images) ? props.product.images.filter(Boolean) : []
   if (flat.length) return flat
   const c = colorGaleria.value

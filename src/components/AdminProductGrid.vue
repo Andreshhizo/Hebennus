@@ -17,6 +17,7 @@ function catsDe(p) {
   return (p.categories && p.categories.length) ? p.categories : (p.category ? [p.category] : [])
 }
 function thumb(p) {
+  if (Array.isArray(p.card_images) && p.card_images[0]) return p.card_images[0]
   if (Array.isArray(p.images) && p.images[0]) return p.images[0]
   const ibc = p.images_by_color || {}
   for (const c of Object.keys(ibc)) if (ibc[c]?.[0]) return ibc[c][0]
