@@ -1,14 +1,16 @@
 <script setup>
 // ─── Panel admin · Vista PRODUCTOS ──────────────────────────────────────────
 // Crear productos, editar sus campos (nombre/precio/categoría/tipo/descripción),
-// activar/desactivar, gestionar variantes (talla/color/stock) y subir fotos por
-// color (products.images_by_color, JSONB) a Supabase Storage.
+// activar/desactivar, gestionar variantes (talla/color/stock) y gestionar las
+// fotos con orden visual (products.images = galería principal [0]=portada,
+// [1]=hover; products.images_by_color = galería por color) en Supabase Storage.
 //
 // Permisos: RPC create_product (gate is_admin), policies RLS de UPDATE/INSERT/
 // DELETE en products/product_variants para el admin, y bucket 'product-images'.
 import { ref, reactive, computed, onMounted } from 'vue'
 import { supabase } from '../lib/supabase.js'
 import { subirImagenProducto } from '../lib/storage.js'
+import PhotoReorder from './PhotoReorder.vue'
 
 // Listas fijas (deben coincidir con los filtros de la tienda: ColeccionPage + prendas.js).
 const CATEGORIAS   = ['Style', 'Sport', 'Comfort']
@@ -26,17 +28,13 @@ const stockEdit   = ref({})
 const stockEstado = ref({})
 const stockMsg    = ref({})
 
-// Estado de fotos por producto+color.
-const fotosEdit   = ref({})
+// Estado de fotos (edición) — arrays ordenables.
+//   galEdit[pid]        = images (galería principal: [0]=portada, [1]=hover)
+//   colorGal[pid::color] = images_by_color[color] (galería de ese color)
+const galEdit     = ref({})
+const colorGal    = ref({})
 const fotosEstado = ref({})
 const fotosMsg    = ref({})
-const subiendoFotoKey = ref('')   // clave `${pid}::${color}` en subida
-
-// Fotos de la TARJETA (catálogo): presentación (images[0]) + modelo (images[1]).
-const cardEdit        = ref({})   // { [pid]: { presentacion, modelo } }
-const cardEstado      = ref({})   // { [pid]: 'guardando'|'ok'|'error' }
-const cardMsg         = ref({})
-const subiendoCardKey = ref('')   // `${pid}::presentacion|modelo` en subida
 
 // Edición de campos del producto.
 const editId        = ref(null)
@@ -75,24 +73,29 @@ async function cargar() {
 
 function sembrarEstadoEdicion() {
   const nuevoStock = {}
-  const nuevasFotos = {}
+  const nuevasGal = {}
+  const nuevasColorGal = {}
   const varRows = {}
-  const cardRows = {}
   for (const p of productos.value) {
     for (const v of p.product_variants || []) nuevoStock[v.id] = v.stock ?? 0
-    for (const color of coloresDe(p)) nuevasFotos[claveFoto(p.id, color)] = urlsIniciales(p, color).join('\n')
+    nuevasGal[p.id] = Array.isArray(p.images) ? [...p.images] : []
+    for (const color of coloresDe(p)) {
+      const ibc = p.images_by_color
+      nuevasColorGal[claveFoto(p.id, color)] = (ibc && Array.isArray(ibc[color])) ? [...ibc[color]] : []
+    }
     varRows[p.id] = { size: '', color: '', stock: '' }
-    const imgs = Array.isArray(p.images) ? p.images : []
-    cardRows[p.id] = { presentacion: imgs[0] || '', modelo: imgs[1] || '' }
   }
   stockEdit.value = nuevoStock
-  fotosEdit.value = nuevasFotos
+  galEdit.value = nuevasGal
+  colorGal.value = nuevasColorGal
   nuevaVar.value = varRows
-  cardEdit.value = cardRows
   stockEstado.value = {}; stockMsg.value = {}
   fotosEstado.value = {}; fotosMsg.value = {}
-  cardEstado.value = {}; cardMsg.value = {}
 }
+
+// Setters para v-model dinámico (reemplazo del objeto → reactividad garantizada).
+function setGal(pid, arr)        { galEdit.value = { ...galEdit.value, [pid]: arr } }
+function setColorGal(key, arr)   { colorGal.value = { ...colorGal.value, [key]: arr } }
 
 function coloresDe(p) {
   const out = []; const seen = new Set()
@@ -112,20 +115,7 @@ function variantesOrdenadas(p) {
   })
 }
 
-function urlsIniciales(p, color) {
-  const ibc = p.images_by_color
-  if (ibc && Array.isArray(ibc[color]) && ibc[color].length) return ibc[color].map(String)
-  const colores = coloresDe(p)
-  if (colores.length === 1 && Array.isArray(p.images) && p.images.length) return p.images.map(String)
-  return []
-}
-
 function claveFoto(productId, color) { return `${productId}::${color}` }
-
-function nFotos(p, color) {
-  const txt = fotosEdit.value[claveFoto(p.id, color)] || ''
-  return txt.split('\n').map((s) => s.trim()).filter(Boolean).length
-}
 
 function stockValido(raw) {
   const n = Number(raw)
@@ -161,28 +151,28 @@ function stockSucio(variant) {
   return String(stockEdit.value[variant.id]) !== String(variant.stock)
 }
 
-// ── Guardar fotos por color (desde los textareas) ──
+// ── Guardar fotos del producto (galería principal + por color) ──
+// El orden de cada array = orden en la tienda. images[0]=portada, [1]=hover.
 async function guardarFotos(p) {
   fotosEstado.value = { ...fotosEstado.value, [p.id]: 'guardando' }
   fotosMsg.value = { ...fotosMsg.value, [p.id]: '' }
 
-  const obj = {}
-  const planas = []
-  for (const color of coloresDe(p)) {
-    const txt = fotosEdit.value[claveFoto(p.id, color)] || ''
-    const urls = txt.split('\n').map((s) => s.trim()).filter(Boolean)
-    obj[color] = urls
-    planas.push(...urls)
-  }
+  const images = [...(galEdit.value[p.id] || [])]
 
-  // `images` = [presentación, modelo, ...galería]. Conservamos las 2 fotos de
-  // tarjeta al frente (las controla la sección "Fotos de la tarjeta").
-  const cardImgs = [p.images?.[0], p.images?.[1]].filter(Boolean)
-  const images = [...cardImgs, ...planas.filter((u) => !cardImgs.includes(u))]
+  let images_by_color = null
+  const colores = coloresDe(p)
+  if (colores.length) {
+    images_by_color = {}
+    for (const color of colores) {
+      const urls = colorGal.value[claveFoto(p.id, color)] || []
+      if (urls.length) images_by_color[color] = [...urls]
+    }
+    if (!Object.keys(images_by_color).length) images_by_color = null
+  }
 
   const { error: e } = await supabase
     .from('products')
-    .update({ images_by_color: obj, images })
+    .update({ images, images_by_color })
     .eq('id', p.id)
 
   if (e) {
@@ -190,81 +180,9 @@ async function guardarFotos(p) {
     fotosMsg.value = { ...fotosMsg.value, [p.id]: 'No se pudo guardar: ' + e.message }
     return
   }
-  p.images_by_color = obj
   p.images = images
+  p.images_by_color = images_by_color
   fotosEstado.value = { ...fotosEstado.value, [p.id]: 'ok' }
-}
-
-// ── Fotos de la tarjeta (presentación + modelo) de un producto existente ──
-function claveCard(productId, campo) { return `${productId}::${campo}` }
-
-async function onSubirCard(ev, p, campo) {
-  const file = (ev.target.files || [])[0]
-  ev.target.value = ''
-  if (!file) return
-  const key = claveCard(p.id, campo)
-  subiendoCardKey.value = key
-  cardMsg.value = { ...cardMsg.value, [p.id]: '' }
-  try {
-    const url = await subirImagenProducto(file)
-    cardEdit.value = {
-      ...cardEdit.value,
-      [p.id]: { ...(cardEdit.value[p.id] || {}), [campo]: url },
-    }
-  } catch (err) {
-    cardEstado.value = { ...cardEstado.value, [p.id]: 'error' }
-    cardMsg.value = { ...cardMsg.value, [p.id]: err?.message || 'No se pudo subir la imagen.' }
-  } finally {
-    subiendoCardKey.value = ''
-  }
-}
-
-function quitarCard(p, campo) {
-  cardEdit.value = {
-    ...cardEdit.value,
-    [p.id]: { ...(cardEdit.value[p.id] || {}), [campo]: '' },
-  }
-}
-
-async function guardarCard(p) {
-  const c = cardEdit.value[p.id] || { presentacion: '', modelo: '' }
-  cardEstado.value = { ...cardEstado.value, [p.id]: 'guardando' }
-  cardMsg.value = { ...cardMsg.value, [p.id]: '' }
-
-  const cardImgs = [c.presentacion, c.modelo].filter(Boolean)
-  // Reemplazamos los 2 primeros (slots de tarjeta) y conservamos el resto de la galería.
-  const resto = (p.images || []).slice(2).filter((u) => u && !cardImgs.includes(u))
-  const images = [...cardImgs, ...resto]
-
-  const { error: e } = await supabase.from('products').update({ images }).eq('id', p.id)
-  if (e) {
-    cardEstado.value = { ...cardEstado.value, [p.id]: 'error' }
-    cardMsg.value = { ...cardMsg.value, [p.id]: 'No se pudo guardar: ' + e.message }
-    return
-  }
-  p.images = images
-  cardEstado.value = { ...cardEstado.value, [p.id]: 'ok' }
-}
-
-// Subir archivo(s) para un color de producto existente → agrega URLs al textarea.
-async function onSubirExistente(ev, p, color) {
-  const files = Array.from(ev.target.files || [])
-  ev.target.value = ''
-  if (!files.length) return
-  const key = claveFoto(p.id, color)
-  subiendoFotoKey.value = key
-  try {
-    const urls = []
-    for (const f of files) urls.push(await subirImagenProducto(f))
-    const actual = fotosEdit.value[key] || ''
-    const sep = actual.trim() ? '\n' : ''
-    fotosEdit.value = { ...fotosEdit.value, [key]: actual + sep + urls.join('\n') }
-  } catch (err) {
-    fotosEstado.value = { ...fotosEstado.value, [p.id]: 'error' }
-    fotosMsg.value = { ...fotosMsg.value, [p.id]: err?.message || 'No se pudo subir la imagen.' }
-  } finally {
-    subiendoFotoKey.value = ''
-  }
 }
 
 // ── Editar campos del producto ──
@@ -350,15 +268,15 @@ async function eliminarVariante(p, v) {
 // ── Crear producto nuevo ──
 const mostrarNuevo   = ref(false)
 const guardandoNuevo = ref(false)
-const subiendoNuevo  = ref(false)
 const errorNuevo     = ref('')
 const nuevo = reactive({
   name: '', price: '', categories: [], tipo_prenda: '', description: '',
   is_active: true, is_launch: false, launch_order: '',
   variants: [{ size: '', color: '', stock: '' }],
 })
-const nuevoFotos = reactive({})   // { [color|'']: [url,...] }
-const nuevoCard  = reactive({ presentacion: '', modelo: '' })   // fotos de la tarjeta
+const nuevoGal   = ref([])        // galería principal (images: [0]=portada, [1]=hover)
+const nuevoFotos = reactive({})   // { [color]: [url,...] } — galería por color
+function setNuevoColor(color, arr) { nuevoFotos[color] = arr }
 
 const coloresNuevo = computed(() => {
   const out = []; const seen = new Set()
@@ -387,50 +305,13 @@ function abrirNuevo() {
     variants: [{ size: '', color: '', stock: '' }],
   })
   Object.keys(nuevoFotos).forEach((k) => delete nuevoFotos[k])
-  nuevoCard.presentacion = ''
-  nuevoCard.modelo = ''
+  nuevoGal.value = []
   errorNuevo.value = ''
   mostrarNuevo.value = true
 }
 function cerrarNuevo() { mostrarNuevo.value = false }
 function agregarVariante() { nuevo.variants.push({ size: '', color: '', stock: '' }) }
 function quitarVariante(i) { if (nuevo.variants.length > 1) nuevo.variants.splice(i, 1) }
-
-async function onSubirNuevo(ev, color) {
-  const files = Array.from(ev.target.files || [])
-  ev.target.value = ''
-  if (!files.length) return
-  errorNuevo.value = ''
-  subiendoNuevo.value = true
-  try {
-    for (const f of files) {
-      const url = await subirImagenProducto(f)
-      if (!nuevoFotos[color]) nuevoFotos[color] = []
-      nuevoFotos[color].push(url)
-    }
-  } catch (err) {
-    errorNuevo.value = err?.message || 'No se pudo subir la imagen.'
-  } finally {
-    subiendoNuevo.value = false
-  }
-}
-function quitarFotoNuevo(color, i) { (nuevoFotos[color] || []).splice(i, 1) }
-
-async function onSubirCardNuevo(ev, campo) {
-  const file = (ev.target.files || [])[0]
-  ev.target.value = ''
-  if (!file) return
-  errorNuevo.value = ''
-  subiendoNuevo.value = true
-  try {
-    nuevoCard[campo] = await subirImagenProducto(file)
-  } catch (err) {
-    errorNuevo.value = err?.message || 'No se pudo subir la imagen.'
-  } finally {
-    subiendoNuevo.value = false
-  }
-}
-function quitarCardNuevo(campo) { nuevoCard[campo] = '' }
 
 async function guardarNuevo() {
   if (!nuevoValido.value || guardandoNuevo.value) return
@@ -439,20 +320,16 @@ async function guardarNuevo() {
   try {
     const colores = coloresNuevo.value
     let images_by_color = null
-    const galeriaExtra = []
     if (colores.length) {
       images_by_color = {}
       for (const c of colores) {
         const urls = nuevoFotos[c] || []
-        if (urls.length) { images_by_color[c] = [...urls]; galeriaExtra.push(...urls) }
+        if (urls.length) images_by_color[c] = [...urls]
       }
       if (!Object.keys(images_by_color).length) images_by_color = null
-    } else {
-      galeriaExtra.push(...(nuevoFotos[''] || []))
     }
-    // `images` = [presentación, modelo, ...galería]. La tarjeta usa [0] y [1].
-    const cardImgs = [nuevoCard.presentacion, nuevoCard.modelo].filter(Boolean)
-    const images = [...cardImgs, ...galeriaExtra.filter((u) => !cardImgs.includes(u))]
+    // `images` = galería principal en el orden elegido ([0]=portada, [1]=hover).
+    const images = [...nuevoGal.value]
     const variants = nuevo.variants
       .filter((v) => v.size)
       .map((v) => ({ size: v.size, color: (v.color || '').trim() || null, stock: Number(v.stock) || 0 }))
@@ -615,64 +492,28 @@ onMounted(cargar)
         </div>
       </div>
 
-      <!-- Fotos de la tarjeta (presentación + modelo) -->
+      <!-- Fotos del producto (orden en la tienda) -->
       <div class="prod__section">
-        <h4 class="prod__h4">Fotos de la tarjeta</h4>
-        <p class="prod__hint">La <strong>presentación</strong> se muestra primero (portada); la foto <strong>con modelo</strong> aparece al pasar el mouse.</p>
-        <div v-if="cardEdit[p.id]" class="cardpics">
-          <div class="cardpics__slot">
-            <span class="cardpics__label">Presentación (portada)</span>
-            <div v-if="cardEdit[p.id].presentacion" class="cardpics__thumb">
-              <img :src="cardEdit[p.id].presentacion" alt="" />
-              <button type="button" @click="quitarCard(p, 'presentacion')" aria-label="Quitar">✕</button>
-            </div>
-            <label v-else class="cardpics__drop">
-              <input type="file" accept="image/*" hidden @change="onSubirCard($event, p, 'presentacion')" />
-              <span>{{ subiendoCardKey === claveCard(p.id, 'presentacion') ? 'Subiendo…' : '📷 Subir presentación' }}</span>
-            </label>
-          </div>
-          <div class="cardpics__slot">
-            <span class="cardpics__label">Con modelo (hover)</span>
-            <div v-if="cardEdit[p.id].modelo" class="cardpics__thumb">
-              <img :src="cardEdit[p.id].modelo" alt="" />
-              <button type="button" @click="quitarCard(p, 'modelo')" aria-label="Quitar">✕</button>
-            </div>
-            <label v-else class="cardpics__drop">
-              <input type="file" accept="image/*" hidden @change="onSubirCard($event, p, 'modelo')" />
-              <span>{{ subiendoCardKey === claveCard(p.id, 'modelo') ? 'Subiendo…' : '📷 Subir modelo' }}</span>
-            </label>
-          </div>
-        </div>
-        <div class="fotos__bar">
-          <button class="fotos__save" :disabled="cardEstado[p.id] === 'guardando'" @click="guardarCard(p)">
-            <span v-if="cardEstado[p.id] === 'guardando'" class="spinner spinner--sm"></span>
-            {{ cardEstado[p.id] === 'guardando' ? 'Guardando…' : 'Guardar fotos de tarjeta' }}
-          </button>
-          <span v-if="cardEstado[p.id] === 'ok'" class="fotos__ok">✓ Guardado</span>
-          <span v-if="cardEstado[p.id] === 'error'" class="fotos__err">{{ cardMsg[p.id] }}</span>
-        </div>
-      </div>
+        <h4 class="prod__h4">Fotos del producto</h4>
+        <p class="prod__hint">Cambia el orden con ◀ ▶. La <strong>1.ª</strong> es la portada (se ve primero) y la <strong>2.ª</strong> aparece al pasar el mouse. Ese orden es el que se muestra en la tienda.</p>
+        <PhotoReorder
+          v-if="galEdit[p.id]"
+          :model-value="galEdit[p.id]"
+          tags
+          @update:model-value="setGal(p.id, $event)"
+        />
 
-      <!-- Fotos por color -->
-      <div class="prod__section" v-if="coloresDe(p).length">
-        <h4 class="prod__h4">Fotos por color</h4>
-        <p class="prod__hint">Sube archivos o pega URLs (una por línea). El orden define el de las imágenes.</p>
-        <div class="fotos">
-          <div v-for="color in coloresDe(p)" :key="color" class="fotos__col">
-            <label class="fotos__label">
-              <span class="fotos__color">{{ color }}</span>
-              <span class="fotos__count">{{ nFotos(p, color) }} foto(s)</span>
-            </label>
-            <label class="fotos__upload">
-              <input type="file" accept="image/*" multiple hidden @change="onSubirExistente($event, p, color)" />
-              <span>{{ subiendoFotoKey === claveFoto(p.id, color) ? 'Subiendo…' : '📷 Subir archivo' }}</span>
-            </label>
-            <textarea
-              v-model="fotosEdit[claveFoto(p.id, color)]" class="fotos__area" rows="4"
-              placeholder="https://…/foto1.jpg&#10;https://…/foto2.jpg" spellcheck="false"
-            ></textarea>
+        <template v-if="coloresDe(p).length">
+          <p class="prod__hint prod__hint--mt">Fotos por color (opcional) — se muestran en la ficha al elegir ese color.</p>
+          <div v-for="color in coloresDe(p)" :key="color" class="colorgal">
+            <span class="colorgal__name">{{ color }}</span>
+            <PhotoReorder
+              :model-value="colorGal[claveFoto(p.id, color)] || []"
+              @update:model-value="setColorGal(claveFoto(p.id, color), $event)"
+            />
           </div>
-        </div>
+        </template>
+
         <div class="fotos__bar">
           <button class="fotos__save" :disabled="fotosEstado[p.id] === 'guardando'" @click="guardarFotos(p)">
             <span v-if="fotosEstado[p.id] === 'guardando'" class="spinner spinner--sm"></span>
@@ -739,77 +580,28 @@ onMounted(cargar)
             </div>
             <button class="nm__addvar" @click="agregarVariante">＋ Agregar variante</button>
 
-            <h4 class="nm__h4">Fotos de la tarjeta</h4>
-            <p class="prod__hint">La <strong>presentación</strong> se ve primero (portada); la foto <strong>con modelo</strong> aparece al pasar el mouse en el catálogo.</p>
-            <div class="cardpics">
-              <div class="cardpics__slot">
-                <span class="cardpics__label">Presentación (portada)</span>
-                <div v-if="nuevoCard.presentacion" class="cardpics__thumb">
-                  <img :src="nuevoCard.presentacion" alt="" />
-                  <button type="button" @click="quitarCardNuevo('presentacion')" aria-label="Quitar">✕</button>
-                </div>
-                <label v-else class="cardpics__drop">
-                  <input type="file" accept="image/*" hidden @change="onSubirCardNuevo($event, 'presentacion')" />
-                  <span>📷 Subir presentación</span>
-                </label>
-              </div>
-              <div class="cardpics__slot">
-                <span class="cardpics__label">Con modelo (hover)</span>
-                <div v-if="nuevoCard.modelo" class="cardpics__thumb">
-                  <img :src="nuevoCard.modelo" alt="" />
-                  <button type="button" @click="quitarCardNuevo('modelo')" aria-label="Quitar">✕</button>
-                </div>
-                <label v-else class="cardpics__drop">
-                  <input type="file" accept="image/*" hidden @change="onSubirCardNuevo($event, 'modelo')" />
-                  <span>📷 Subir modelo</span>
-                </label>
-              </div>
-            </div>
+            <h4 class="nm__h4">Fotos del producto</h4>
+            <p class="prod__hint">Ordena con ◀ ▶. La <strong>1.ª</strong> es la portada (se ve primero) y la <strong>2.ª</strong> aparece al pasar el mouse en el catálogo.</p>
+            <PhotoReorder v-model="nuevoGal" tags />
 
-            <h4 class="nm__h4">Galería adicional (opcional)</h4>
-            <p class="prod__hint">Fotos extra para la ficha del producto. Por color si usas colores; si no, en "General".</p>
             <template v-if="coloresNuevo.length">
-              <div v-for="color in coloresNuevo" :key="color" class="nm__fotos">
-                <div class="nm__fotoshead">
-                  <span class="fotos__color">{{ color }}</span>
-                  <label class="fotos__upload">
-                    <input type="file" accept="image/*" multiple hidden @change="onSubirNuevo($event, color)" />
-                    <span>📷 Subir</span>
-                  </label>
-                </div>
-                <div v-if="(nuevoFotos[color] || []).length" class="nm__thumbs">
-                  <div v-for="(url, i) in nuevoFotos[color]" :key="url" class="nm__thumb">
-                    <img :src="url" alt="" />
-                    <button @click="quitarFotoNuevo(color, i)" aria-label="Quitar">✕</button>
-                  </div>
-                </div>
+              <h4 class="nm__h4">Fotos por color (opcional)</h4>
+              <p class="prod__hint">Se muestran en la ficha al elegir ese color.</p>
+              <div v-for="color in coloresNuevo" :key="color" class="colorgal">
+                <span class="colorgal__name">{{ color }}</span>
+                <PhotoReorder
+                  :model-value="nuevoFotos[color] || []"
+                  @update:model-value="setNuevoColor(color, $event)"
+                />
               </div>
             </template>
-            <template v-else>
-              <div class="nm__fotos">
-                <div class="nm__fotoshead">
-                  <span class="fotos__color">General</span>
-                  <label class="fotos__upload">
-                    <input type="file" accept="image/*" multiple hidden @change="onSubirNuevo($event, '')" />
-                    <span>📷 Subir</span>
-                  </label>
-                </div>
-                <div v-if="(nuevoFotos[''] || []).length" class="nm__thumbs">
-                  <div v-for="(url, i) in nuevoFotos['']" :key="url" class="nm__thumb">
-                    <img :src="url" alt="" />
-                    <button @click="quitarFotoNuevo('', i)" aria-label="Quitar">✕</button>
-                  </div>
-                </div>
-              </div>
-            </template>
-            <p v-if="subiendoNuevo" class="prod__hint">Subiendo imagen…</p>
 
             <p v-if="errorNuevo" class="vtab__err">{{ errorNuevo }}</p>
           </div>
 
           <div class="nm__foot">
             <button class="edit__cancel" @click="cerrarNuevo">Cancelar</button>
-            <button class="fotos__save" :disabled="!nuevoValido || guardandoNuevo || subiendoNuevo" @click="guardarNuevo">
+            <button class="fotos__save" :disabled="!nuevoValido || guardandoNuevo" @click="guardarNuevo">
               <span v-if="guardandoNuevo" class="spinner spinner--sm"></span>
               {{ guardandoNuevo ? 'Creando…' : 'Crear producto' }}
             </button>
@@ -893,41 +685,16 @@ onMounted(cargar)
 .addvar__input:focus-visible { border-color: var(--accent); }
 .addvar__stock { width: 90px; }
 
-/* ── Fotos por color ── */
-.fotos { display: grid; grid-template-columns: 1fr; gap: 1rem; }
-.fotos__col { display: flex; flex-direction: column; gap: 0.4rem; }
-.fotos__label { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
-.fotos__color { font-size: 0.8rem; font-weight: 600; color: var(--text-1); text-transform: capitalize; }
-.fotos__count { font-size: 0.68rem; color: var(--text-3); }
-.fotos__upload { display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem; padding: 0.4rem 0.7rem; font-size: 0.72rem; font-weight: 600; background: var(--surface-2); border: 1px dashed var(--border-mid); color: var(--text-2); cursor: pointer; border-radius: 6px; width: fit-content; }
-.fotos__upload:hover { color: var(--text-1); border-color: var(--accent); }
-.fotos__area { width: 100%; background: var(--surface-2); border: 1px solid var(--border-mid); color: var(--text-1); padding: 0.55rem 0.65rem; font-size: 0.78rem; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; line-height: 1.5; outline: none; resize: vertical; }
-.fotos__area:focus-visible { border-color: var(--accent); }
+/* ── Fotos del producto (galería + reordenar) ── */
+.prod__hint--mt { margin-top: 1rem; }
+.colorgal { display: flex; flex-direction: column; gap: 0.4rem; margin-bottom: 0.9rem; }
+.colorgal__name { font-size: 0.8rem; font-weight: 600; color: var(--text-1); text-transform: capitalize; }
 .fotos__bar { display: flex; align-items: center; gap: 0.8rem; margin-top: 0.9rem; flex-wrap: wrap; }
 .fotos__save { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.5rem 1rem; font-size: 0.74rem; font-weight: 600; cursor: pointer; background: var(--accent); border: 1px solid var(--accent); color: var(--ink); border-radius: 6px; }
 .fotos__save:hover:not(:disabled) { filter: brightness(1.08); }
 .fotos__save:disabled { opacity: 0.5; cursor: not-allowed; }
 .fotos__ok { font-size: 0.74rem; color: var(--success); }
 .fotos__err { font-size: 0.74rem; color: var(--danger); }
-
-/* ── Fotos de la tarjeta (presentación + modelo) ── */
-.cardpics { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.8rem; margin-bottom: 0.3rem; }
-.cardpics__slot { display: flex; flex-direction: column; gap: 0.4rem; }
-.cardpics__label { font-size: 0.64rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-3); font-weight: 600; }
-.cardpics__drop {
-  display: flex; align-items: center; justify-content: center; text-align: center;
-  aspect-ratio: 3 / 4; padding: 0.6rem;
-  font-size: 0.74rem; font-weight: 600; color: var(--text-2);
-  background: var(--surface-2); border: 1px dashed var(--border-mid); border-radius: 8px; cursor: pointer;
-}
-.cardpics__drop:hover { color: var(--text-1); border-color: var(--accent); }
-.cardpics__thumb { position: relative; aspect-ratio: 3 / 4; border-radius: 8px; overflow: hidden; border: 1px solid var(--border-mid); }
-.cardpics__thumb img { width: 100%; height: 100%; object-fit: cover; }
-.cardpics__thumb button {
-  position: absolute; top: 5px; right: 5px; width: 22px; height: 22px; border-radius: 999px; border: none;
-  background: rgba(0,0,0,0.65); color: #fff; font-size: 0.7rem; cursor: pointer; display: grid; place-items: center;
-}
-.cardpics__thumb button:hover { background: rgba(0,0,0,0.85); }
 
 /* ── Modal Nuevo producto ── */
 .nm__overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.55); backdrop-filter: blur(3px); display: grid; place-items: center; z-index: 700; padding: 1rem; }
@@ -946,12 +713,6 @@ onMounted(cargar)
 .nvar__del:disabled { opacity: 0.3; cursor: not-allowed; }
 .nm__addvar { align-self: flex-start; padding: 0.4rem 0.8rem; font-size: 0.74rem; font-weight: 600; background: var(--surface-2); border: 1px solid var(--border-mid); color: var(--text-2); cursor: pointer; border-radius: 6px; }
 .nm__addvar:hover { color: var(--text-1); border-color: var(--accent); }
-.nm__fotos { display: flex; flex-direction: column; gap: 0.5rem; padding: 0.7rem; border: 1px solid var(--border); border-radius: 8px; }
-.nm__fotoshead { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; }
-.nm__thumbs { display: flex; gap: 0.5rem; flex-wrap: wrap; }
-.nm__thumb { position: relative; width: 64px; height: 64px; border-radius: 6px; overflow: hidden; border: 1px solid var(--border-mid); }
-.nm__thumb img { width: 100%; height: 100%; object-fit: cover; }
-.nm__thumb button { position: absolute; top: 2px; right: 2px; width: 18px; height: 18px; border-radius: 999px; border: none; background: rgba(0,0,0,0.65); color: #fff; font-size: 0.65rem; cursor: pointer; display: grid; place-items: center; }
 .nm__foot { display: flex; justify-content: flex-end; gap: 0.7rem; padding: 1rem 1.25rem; border-top: 1px solid var(--border); }
 
 .fade-enter-active, .fade-leave-active { transition: opacity 0.2s ease; }
@@ -962,9 +723,6 @@ onMounted(cargar)
 .spinner--sm { width: 13px; height: 13px; border-width: 2px; border-color: currentColor; border-top-color: transparent; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-@media (min-width: 720px) {
-  .fotos { grid-template-columns: repeat(2, 1fr); }
-}
 @media (max-width: 560px) {
   .edit__grid { grid-template-columns: 1fr; }
 }
