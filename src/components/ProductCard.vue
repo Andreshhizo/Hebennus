@@ -55,8 +55,8 @@ const tallas = computed(() => {
 function tallaConStock(size) { return variantes.value.some(v => v.size === size && (v.stock ?? 0) > 0) }
 
 const stockTotal    = computed(() => variantes.value.reduce((s, v) => s + (v.stock ?? 0), 0))
-// Producto AGOTADO = todas las variantes con stock <= 0 (o sin variantes con stock).
-const agotado       = computed(() => stockTotal.value === 0)
+// Producto AGOTADO = marcado manualmente como Sold Out, o sin stock en ninguna variante.
+const agotado       = computed(() => !!props.product.sold_out || stockTotal.value === 0)
 const pocasUnidades = computed(() => stockTotal.value > 0 && stockTotal.value <= STOCK_LOW_THRESHOLD)
 
 const precioFmt = computed(() => `S/ ${Number(props.product.price).toFixed(2)}`)
@@ -205,25 +205,26 @@ function colorHex(c) { return COLOR_HEX[normColor(c)] ?? null }
 .card__link { position: absolute; inset: 0; z-index: 5; }
 
 /* ── STOCK BADGE ── */
-/* Sticker de esquina (etiqueta manual o "Últimas piezas") */
+/* Sticker de esquina (etiqueta manual o "Últimas piezas") — sobresaliente */
 .card__sticker {
   position: absolute;
-  top: 0.75rem; left: 0.75rem;
+  top: 0.85rem; left: 0.85rem;
   z-index: 12;
-  font-size: 0.6rem;
-  letter-spacing: 0.16em;
+  font-size: 0.7rem;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  padding: 0.35rem 0.7rem;
-  font-weight: 700;
+  padding: 0.42rem 0.85rem;
+  font-weight: 800;
   font-family: var(--font-display);
-  border-radius: 4px;
+  border-radius: 6px;
   background: var(--accent);
   color: var(--on-accent);
+  box-shadow: 0 4px 14px rgba(0,0,0,0.28);
   animation: hb-pop 0.35s var(--ease-spring) both;
 }
 .card__sticker--low { background: #C9962F; color: #1a1408; }  /* mostaza cálida = últimas piezas */
 
-/* Franja SOLD OUT (cruza la imagen; la card sigue clickeable) */
+/* Cinta SOLD OUT (cruza la imagen; la card sigue clickeable) — blanca, letra negra */
 .card__soldout {
   position: absolute;
   inset: 0;
@@ -234,17 +235,17 @@ function colorHex(c) { return COLOR_HEX[normColor(c)] ?? null }
   pointer-events: none;
 }
 .card__soldout span {
-  width: 140%;
-  transform: rotate(-8deg);
+  width: 100%;
   text-align: center;
-  background: rgba(20,18,15,.82);
-  color: #F4F1EC;
+  background: #F4F1EC;
+  color: #14120f;
   font-family: var(--font-display);
   font-weight: 800;
-  font-size: 0.9rem;
-  letter-spacing: 0.35em;
+  font-size: 0.95rem;
+  letter-spacing: 0.34em;
   text-transform: uppercase;
-  padding: 0.5rem 0;
+  padding: 0.6rem 0;
+  box-shadow: 0 3px 16px rgba(0,0,0,0.35);
 }
 
 /* ── TALLAS RÁPIDAS (estilo Nude) ── */

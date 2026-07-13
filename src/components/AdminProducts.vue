@@ -42,6 +42,14 @@ function abrirEdicion(p)   { seedDuplicado.value = null; editando.value = p }
 function duplicar(p)       { seedDuplicado.value = p; editando.value = 'nuevo' }
 function volver()          { editando.value = null; seedDuplicado.value = null }
 
+// Marcar/quitar "Sold Out" con un clic desde la grilla (guardado inmediato).
+async function toggleSoldOut(p) {
+  const valor = !p.sold_out
+  p.sold_out = valor   // optimista
+  const { error: e } = await supabase.from('products').update({ sold_out: valor }).eq('id', p.id)
+  if (e) { p.sold_out = !valor; error.value = 'No se pudo cambiar Sold Out: ' + e.message }
+}
+
 function onSaved() {
   // Crear/duplicar: recargar para ver el nuevo producto y volver a la grilla.
   // Editar: el objeto ya se actualizó in-place; permanecemos en el editor.
@@ -76,6 +84,7 @@ onMounted(cargar)
       @select="abrirEdicion"
       @nuevo="abrirNuevo"
       @duplicar="duplicar"
+      @toggle-soldout="toggleSoldOut"
       @refresh="cargar"
     />
   </div>

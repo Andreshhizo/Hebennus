@@ -93,8 +93,8 @@ const seleccionCompleta = computed(() =>
 )
 
 const stockTotal     = computed(() => variantes.value.reduce((s, v) => s + (v.stock ?? 0), 0))
-// Producto AGOTADO = todas las variantes con stock <= 0.
-const agotado        = computed(() => stockTotal.value === 0)
+// Producto AGOTADO = marcado manualmente como Sold Out, o sin stock en ninguna variante.
+const agotado        = computed(() => !!product.value?.sold_out || stockTotal.value === 0)
 const pocasUnidades  = computed(() => stockTotal.value > 0 && stockTotal.value <= STOCK_LOW_THRESHOLD)
 const precioFmt      = computed(() => `S/ ${Number(product.value?.price ?? 0).toFixed(2)}`)
 
@@ -124,7 +124,7 @@ useHead(computed(() => {
           '@type': 'Offer',
           price: Number(p.price),
           priceCurrency: 'PEN',
-          availability: stockTotal.value > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+          availability: agotado.value ? 'https://schema.org/OutOfStock' : 'https://schema.org/InStock',
           url,
         },
       }) },
@@ -348,6 +348,12 @@ function handleAdd() {
           ¡Solo quedan {{ stockTotal }} unidades!
         </p>
 
+        <!-- Aviso destacado: agotado / sold out (compra bloqueada) -->
+        <div v-if="agotado" class="pdp__soldout-note" role="status">
+          <span class="pdp__soldout-tag">Sold Out</span>
+          <span>Este producto no está disponible para pedidos por ahora.</span>
+        </div>
+
         <!-- Add to cart -->
         <button
           class="pdp__add"
@@ -358,7 +364,7 @@ function handleAdd() {
           :disabled="!puedeAgregar"
           @click="handleAdd"
         >
-          <template v-if="agotado">Producto agotado</template>
+          <template v-if="agotado">Sold Out — no disponible</template>
           <template v-else-if="comboSinStock">Sin stock en esa combinación</template>
           <template v-else-if="!seleccionCompleta">{{ tieneColores ? 'Selecciona una talla y color' : 'Selecciona una talla' }}</template>
           <template v-else>Añadir al carrito — {{ tallaElegida }}<template v-if="colorElegido"> / {{ colorElegido }}</template></template>
@@ -509,35 +515,36 @@ function handleAdd() {
   position: absolute;
   top: 1rem; left: 1rem;
   z-index: 5;
-  font-size: 0.65rem;
-  letter-spacing: 0.18em;
+  font-size: 0.74rem;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  padding: 0.4rem 0.85rem;
+  padding: 0.5rem 1rem;
   font-family: var(--font-display);
-  font-weight: 700;
-  border-radius: 4px;
+  font-weight: 800;
+  border-radius: 6px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.28);
   animation: hb-pop 0.35s var(--ease-spring) both;
 }
 .gallery__badge--tag { background: var(--accent); color: var(--on-accent); }
 .gallery__badge--low { background: #C9962F; color: #1a1408; }
-/* Franja Sold Out sobre la galería (la ficha sigue navegable) */
+/* Cinta Sold Out sobre la galería (la ficha sigue navegable) — blanca, letra negra */
 .gallery__soldout {
   position: absolute; inset: 0; z-index: 5;
   display: flex; align-items: center; justify-content: center;
   pointer-events: none;
 }
 .gallery__soldout span {
-  width: 130%;
-  transform: rotate(-8deg);
+  width: 100%;
   text-align: center;
-  background: rgba(20,18,15,.82);
-  color: #F4F1EC;
+  background: #F4F1EC;
+  color: #14120f;
   font-family: var(--font-display);
   font-weight: 800;
-  font-size: 1.3rem;
-  letter-spacing: 0.4em;
+  font-size: 1.4rem;
+  letter-spacing: 0.38em;
   text-transform: uppercase;
-  padding: 0.7rem 0;
+  padding: 0.85rem 0;
+  box-shadow: 0 4px 22px rgba(0,0,0,0.4);
 }
 
 /* ── CAROUSEL ARROWS ── */
@@ -616,19 +623,46 @@ function handleAdd() {
 .pdp__info { display: flex; flex-direction: column; gap: 1rem; }
 .pdp__tags { display: flex; flex-wrap: wrap; gap: 0.4rem; }
 .pdp__tag {
-  font-size: 0.62rem;
-  letter-spacing: 0.16em;
+  font-size: 0.68rem;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  font-weight: 700;
-  padding: 0.3rem 0.7rem;
-  border-radius: 4px;
+  font-weight: 800;
+  font-family: var(--font-display);
+  padding: 0.38rem 0.85rem;
+  border-radius: 6px;
   background: var(--surface-2);
   color: var(--text-2);
   border: 1px solid var(--border-mid);
 }
-.pdp__tag--badge { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+.pdp__tag--badge { background: var(--accent); color: var(--on-accent); border-color: var(--accent); box-shadow: 0 3px 12px rgba(0,0,0,0.2); }
 .pdp__tag--low   { background: #C9962F; color: #1a1408; border-color: #C9962F; }
-.pdp__tag--out   { background: var(--text-1); color: var(--ink); border-color: var(--text-1); }
+.pdp__tag--out   { background: #F4F1EC; color: #14120f; border-color: #14120f; }
+
+/* Aviso destacado de Sold Out (compra bloqueada) */
+.pdp__soldout-note {
+  display: flex; align-items: center; gap: 0.7rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--border-mid);
+  border-left: 4px solid #14120f;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text-1);
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+.pdp__soldout-tag {
+  flex-shrink: 0;
+  font-family: var(--font-display);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 0.72rem;
+  padding: 0.35rem 0.7rem;
+  border-radius: 6px;
+  background: #F4F1EC;
+  color: #14120f;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+}
 .pdp__name {
   font-family: var(--font-display);
   font-size: clamp(1.6rem, 3vw, 2.4rem);

@@ -8,7 +8,7 @@ const props = defineProps({
   products: { type: Array, default: () => [] },
   loading:  { type: Boolean, default: false },
 })
-const emit = defineEmits(['select', 'nuevo', 'refresh', 'duplicar'])
+const emit = defineEmits(['select', 'nuevo', 'refresh', 'duplicar', 'toggle-soldout'])
 
 const CATEGORIAS = ['Todos', 'Style', 'Sport', 'Comfort']
 const filtro = ref('Todos')
@@ -67,13 +67,20 @@ const filtrados = computed(() =>
           <img v-if="thumb(p)" :src="thumb(p)" :alt="p.name" loading="lazy" class="pcard__img" />
           <div v-else class="pcard__ph"><span>HEBENNUS</span></div>
           <span v-if="p.badge" class="pcard__badge">{{ p.badge }}</span>
-          <span v-if="stockTotal(p) === 0" class="pcard__out">Agotado</span>
+          <span v-if="p.sold_out || stockTotal(p) === 0" class="pcard__out">Sold Out</span>
           <span v-if="!p.is_active" class="pcard__inactive">Inactivo</span>
-          <button
-            type="button" class="pcard__dup"
-            title="Duplicar producto" aria-label="Duplicar producto"
-            @click.stop="emit('duplicar', p)"
-          >⧉ Duplicar</button>
+          <div class="pcard__acts">
+            <button
+              type="button" class="pcard__act" :class="{ 'pcard__act--on': p.sold_out }"
+              :title="p.sold_out ? 'Marcar como disponible' : 'Marcar como Sold Out'"
+              @click.stop="emit('toggle-soldout', p)"
+            >{{ p.sold_out ? '✓ Disponible' : '⛔ Sold Out' }}</button>
+            <button
+              type="button" class="pcard__act"
+              title="Duplicar producto"
+              @click.stop="emit('duplicar', p)"
+            >⧉ Duplicar</button>
+          </div>
         </div>
         <div class="pcard__body">
           <span class="pcard__name">{{ p.name }}</span>
@@ -140,18 +147,24 @@ const filtrados = computed(() =>
   font-size: 0.55rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
   padding: 0.25rem 0.5rem; border-radius: 4px; background: rgba(0,0,0,0.6); color: #fff;
 }
-.pcard__dup {
+.pcard__acts {
   position: absolute; bottom: 0.5rem; right: 0.5rem;
+  display: flex; flex-direction: column; align-items: flex-end; gap: 0.3rem;
+  opacity: 0; transform: translateY(4px);
+  transition: opacity 0.18s var(--ease-out), transform 0.18s var(--ease-out);
+}
+.pcard:hover .pcard__acts { opacity: 1; transform: translateY(0); }
+.pcard__act {
   display: inline-flex; align-items: center; gap: 0.25rem;
   font-size: 0.6rem; font-weight: 700; letter-spacing: 0.04em;
   padding: 0.3rem 0.55rem; border: none; border-radius: 6px;
-  background: rgba(20,18,15,0.78); color: #F4F1EC; cursor: pointer;
-  opacity: 0; transform: translateY(4px);
-  transition: opacity 0.18s var(--ease-out), transform 0.18s var(--ease-out), background 0.18s;
+  background: rgba(20,18,15,0.82); color: #F4F1EC; cursor: pointer;
+  transition: background 0.18s, color 0.18s;
 }
-.pcard:hover .pcard__dup { opacity: 1; transform: translateY(0); }
-.pcard__dup:hover { background: var(--accent); color: var(--on-accent); }
-@media (hover: none) { .pcard__dup { opacity: 1; transform: none; } }
+.pcard__act:hover { background: var(--accent); color: var(--on-accent); }
+.pcard__act--on { background: #F4F1EC; color: #14120f; }
+.pcard__act--on:hover { background: #fff; color: #14120f; }
+@media (hover: none) { .pcard__acts { opacity: 1; transform: none; } }
 .pcard__body { padding: 0.7rem 0.75rem 0.9rem; display: flex; flex-direction: column; gap: 0.35rem; }
 .pcard__name { font-family: var(--font-display); font-weight: 600; font-size: 0.85rem; color: var(--text-1); line-height: 1.3; }
 .pcard__row { display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem; }

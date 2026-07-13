@@ -24,6 +24,7 @@ const imagenPrincipal = computed(() => imagenes.value[selectedIdx.value] ?? imag
 watch(imagenes, (arr) => { if (selectedIdx.value > arr.length - 1) selectedIdx.value = 0 })
 
 const agotado = computed(() => {
+  if (props.product.sold_out) return true
   const vs = props.product.product_variants ?? []
   if (!vs.length) return false
   return vs.reduce((s, v) => s + (v.stock ?? 0), 0) === 0

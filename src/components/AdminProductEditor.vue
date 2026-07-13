@@ -35,7 +35,7 @@ const esCrear = computed(() => props.mode === 'crear')
 // ── Borrador de campos ──
 const draft = reactive({
   name: '', price: '', categories: [], tipo_prenda: '', description: '',
-  badge: '', is_active: true, is_launch: false, launch_order: '',
+  badge: '', is_active: true, sold_out: false, is_launch: false, launch_order: '',
   variants: [{ size: '', color: '', stock: '' }],   // solo modo crear
 })
 
@@ -98,6 +98,7 @@ function seed() {
         description: s.description || '',
         badge: s.badge || '',
         is_active: s.is_active !== false,
+        sold_out: false,           // el duplicado nace disponible
         is_launch: false,          // no copiamos el flag de lanzamiento
         launch_order: '',
         variants: (s.product_variants || [])
@@ -111,7 +112,7 @@ function seed() {
     } else {
       Object.assign(draft, {
         name: '', price: '', categories: [], tipo_prenda: '', description: '',
-        badge: '', is_active: true, is_launch: false, launch_order: '',
+        badge: '', is_active: true, sold_out: false, is_launch: false, launch_order: '',
         variants: [{ size: '', color: '', stock: '' }],
       })
       tarjeta.value = []
@@ -129,6 +130,7 @@ function seed() {
     description: p.description || '',
     badge: p.badge || '',
     is_active: p.is_active !== false,
+    sold_out: p.sold_out === true,
     is_launch: !!p.is_launch,
     launch_order: p.launch_order ?? '',
   })
@@ -160,6 +162,7 @@ const cardProduct = computed(() => ({
   card_images: [...tarjeta.value],
   images: [...detalle.value],
   badge: draft.badge || null,
+  sold_out: draft.sold_out,
   product_variants: esCrear.value
     ? draft.variants.filter(v => v.size).map(v => ({ size: v.size, color: (v.color || '').trim() || null, stock: Number(v.stock) || 0 }))
     : variantes.value,
@@ -281,6 +284,7 @@ async function guardar() {
         tipo_prenda: draft.tipo_prenda,
         description: draft.description.trim(),
         is_active: draft.is_active,
+        sold_out: draft.sold_out,
         is_launch: draft.is_launch,
         launch_order: draft.is_launch && draft.launch_order !== '' ? Number(draft.launch_order) : null,
         card_images,
@@ -300,6 +304,7 @@ async function guardar() {
         description: draft.description.trim() || null,
         badge: draft.badge || null,
         is_active: draft.is_active,
+        sold_out: draft.sold_out,
         is_launch: draft.is_launch,
         launch_order: draft.is_launch && draft.launch_order !== '' ? Number(draft.launch_order) : null,
         card_images,               // solo tarjeta
@@ -334,6 +339,10 @@ function volver() {
         <label class="ape__active">
           <input type="checkbox" v-model="draft.is_active" />
           {{ draft.is_active ? 'Activo' : 'Inactivo' }}
+        </label>
+        <label class="ape__soldout" :class="{ 'ape__soldout--on': draft.sold_out }">
+          <input type="checkbox" v-model="draft.sold_out" />
+          Sold Out
         </label>
         <button class="ape__save" :disabled="!puedeGuardar || guardando" @click="guardar">
           <span v-if="guardando" class="spinner spinner--sm"></span>
@@ -484,6 +493,14 @@ function volver() {
 .ape__title { flex: 1; font-family: var(--font-display); font-weight: 700; font-size: 1.05rem; color: var(--text-1); min-width: 0; }
 .ape__headright { display: flex; align-items: center; gap: 0.9rem; }
 .ape__active { display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.8rem; color: var(--text-2); cursor: pointer; }
+.ape__soldout {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  font-size: 0.78rem; font-weight: 700; letter-spacing: 0.04em;
+  color: var(--text-2); cursor: pointer;
+  padding: 0.35rem 0.7rem; border: 1px solid var(--border-mid); border-radius: 6px;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.ape__soldout--on { background: #F4F1EC; color: #14120f; border-color: #14120f; }
 .ape__save {
   display: inline-flex; align-items: center; gap: 0.4rem;
   padding: 0.55rem 1.2rem; font-size: 0.78rem; font-weight: 700;
