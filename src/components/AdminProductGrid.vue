@@ -8,7 +8,7 @@ const props = defineProps({
   products: { type: Array, default: () => [] },
   loading:  { type: Boolean, default: false },
 })
-const emit = defineEmits(['select', 'nuevo', 'refresh'])
+const emit = defineEmits(['select', 'nuevo', 'refresh', 'duplicar'])
 
 const CATEGORIAS = ['Todos', 'Style', 'Sport', 'Comfort']
 const filtro = ref('Todos')
@@ -56,10 +56,12 @@ const filtrados = computed(() =>
     <p v-else-if="!filtrados.length" class="pg__empty">Sin productos en "{{ filtro }}".</p>
 
     <div v-else class="pg__grid">
-      <button
+      <div
         v-for="p in filtrados" :key="p.id"
         class="pcard" :class="{ 'pcard--off': !p.is_active }"
+        role="button" tabindex="0"
         @click="emit('select', p)"
+        @keydown.enter="emit('select', p)"
       >
         <div class="pcard__media">
           <img v-if="thumb(p)" :src="thumb(p)" :alt="p.name" loading="lazy" class="pcard__img" />
@@ -67,6 +69,11 @@ const filtrados = computed(() =>
           <span v-if="p.badge" class="pcard__badge">{{ p.badge }}</span>
           <span v-if="stockTotal(p) === 0" class="pcard__out">Agotado</span>
           <span v-if="!p.is_active" class="pcard__inactive">Inactivo</span>
+          <button
+            type="button" class="pcard__dup"
+            title="Duplicar producto" aria-label="Duplicar producto"
+            @click.stop="emit('duplicar', p)"
+          >⧉ Duplicar</button>
         </div>
         <div class="pcard__body">
           <span class="pcard__name">{{ p.name }}</span>
@@ -78,7 +85,7 @@ const filtrados = computed(() =>
             <span v-for="c in catsDe(p)" :key="c" class="pcard__cat">{{ c }}</span>
           </div>
         </div>
-      </button>
+      </div>
     </div>
   </div>
 </template>
@@ -133,6 +140,18 @@ const filtrados = computed(() =>
   font-size: 0.55rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
   padding: 0.25rem 0.5rem; border-radius: 4px; background: rgba(0,0,0,0.6); color: #fff;
 }
+.pcard__dup {
+  position: absolute; bottom: 0.5rem; right: 0.5rem;
+  display: inline-flex; align-items: center; gap: 0.25rem;
+  font-size: 0.6rem; font-weight: 700; letter-spacing: 0.04em;
+  padding: 0.3rem 0.55rem; border: none; border-radius: 6px;
+  background: rgba(20,18,15,0.78); color: #F4F1EC; cursor: pointer;
+  opacity: 0; transform: translateY(4px);
+  transition: opacity 0.18s var(--ease-out), transform 0.18s var(--ease-out), background 0.18s;
+}
+.pcard:hover .pcard__dup { opacity: 1; transform: translateY(0); }
+.pcard__dup:hover { background: var(--accent); color: var(--on-accent); }
+@media (hover: none) { .pcard__dup { opacity: 1; transform: none; } }
 .pcard__body { padding: 0.7rem 0.75rem 0.9rem; display: flex; flex-direction: column; gap: 0.35rem; }
 .pcard__name { font-family: var(--font-display); font-weight: 600; font-size: 0.85rem; color: var(--text-1); line-height: 1.3; }
 .pcard__row { display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem; }

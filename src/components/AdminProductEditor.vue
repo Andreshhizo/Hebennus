@@ -20,6 +20,8 @@ import ProductPreview from './ProductPreview.vue'
 const props = defineProps({
   mode:    { type: String, default: 'editar' },   // 'crear' | 'editar'
   product: { type: Object, default: null },
+  // Producto origen para DUPLICAR (solo en modo crear): pre-carga el borrador.
+  seed:    { type: Object, default: null },
 })
 const emit = defineEmits(['back', 'saved'])
 
@@ -54,16 +56,67 @@ const guardando = ref(false)
 const error     = ref('')
 const sucio     = ref(false)        // cambios sin guardar (campos + fotos)
 
+// Separa las fotos de un producto en tarjeta (2) y galería de detalle,
+// contemplando el modelo nuevo (card_images) y el antiguo (images mezclado +
+// images_by_color). Reutilizado por editar y por duplicar.
+function separarFotos(src) {
+  const cardImgs = (Array.isArray(src.card_images) ? src.card_images : []).filter(Boolean)
+  const imgs     = (Array.isArray(src.images) ? src.images : []).filter(Boolean)
+  const ibc = src.images_by_color || {}
+  const ibcUrls = []
+  for (const color of Object.keys(ibc)) {
+    for (const u of (Array.isArray(ibc[color]) ? ibc[color] : [])) if (u) ibcUrls.push(u)
+  }
+  const dedup = (arr) => {
+    const s = new Set(); const out = []
+    for (const u of arr) if (!s.has(u)) { s.add(u); out.push(u) }
+    return out
+  }
+  let t, d
+  if (cardImgs.length) {
+    t = cardImgs.slice(0, 2)
+    d = dedup([...imgs, ...ibcUrls])
+  } else {
+    const union = dedup([...imgs, ...ibcUrls])
+    t = union.slice(0, 2)
+    d = union.slice(2)
+  }
+  return { tarjeta: t, detalle: d, teniaColor: ibcUrls.length > 0 }
+}
+
 // ── Sembrado ──
 function seed() {
   if (esCrear.value) {
-    Object.assign(draft, {
-      name: '', price: '', categories: [], tipo_prenda: '', description: '',
-      badge: '', is_active: true, is_launch: false, launch_order: '',
-      variants: [{ size: '', color: '', stock: '' }],
-    })
-    tarjeta.value = []
-    detalle.value = []
+    const s = props.seed
+    if (s) {
+      // DUPLICAR: pre-cargar desde el producto origen (sin id; nombre + " (copia)").
+      Object.assign(draft, {
+        name: (s.name || 'Producto') + ' (copia)',
+        price: s.price ?? '',
+        categories: (s.categories && s.categories.length) ? [...s.categories] : (s.category ? [s.category] : []),
+        tipo_prenda: s.tipo_prenda || '',
+        description: s.description || '',
+        badge: s.badge || '',
+        is_active: s.is_active !== false,
+        is_launch: false,          // no copiamos el flag de lanzamiento
+        launch_order: '',
+        variants: (s.product_variants || [])
+          .filter(v => v.size)
+          .map(v => ({ size: v.size, color: v.color || '', stock: String(v.stock ?? 0) })),
+      })
+      if (!draft.variants.length) draft.variants = [{ size: '', color: '', stock: '' }]
+      const { tarjeta: t, detalle: d } = separarFotos(s)   // mismas URLs (storage compartido)
+      tarjeta.value = [...t]
+      detalle.value = [...d]
+    } else {
+      Object.assign(draft, {
+        name: '', price: '', categories: [], tipo_prenda: '', description: '',
+        badge: '', is_active: true, is_launch: false, launch_order: '',
+        variants: [{ size: '', color: '', stock: '' }],
+      })
+      tarjeta.value = []
+      detalle.value = []
+    }
     avisoColor.value = false
     return
   }
@@ -79,31 +132,10 @@ function seed() {
     is_launch: !!p.is_launch,
     launch_order: p.launch_order ?? '',
   })
-  // Fotos de tarjeta (card_images) y galería de detalle (images) INDEPENDIENTES.
-  const cardImgs = (Array.isArray(p.card_images) ? p.card_images : []).filter(Boolean)
-  const imgs     = (Array.isArray(p.images) ? p.images : []).filter(Boolean)
-  // Fotos que vivían en images_by_color (productos por color antiguos).
-  const ibc = p.images_by_color || {}
-  const ibcUrls = []
-  for (const color of Object.keys(ibc)) {
-    for (const u of (Array.isArray(ibc[color]) ? ibc[color] : [])) if (u) ibcUrls.push(u)
-  }
-  const dedup = (arr) => {
-    const s = new Set(); const out = []
-    for (const u of arr) if (!s.has(u)) { s.add(u); out.push(u) }
-    return out
-  }
-  if (cardImgs.length) {
-    // Modelo nuevo: card_images = tarjeta; images = galería de detalle.
-    tarjeta.value = cardImgs.slice(0, 2)
-    detalle.value = dedup([...imgs, ...ibcUrls])
-  } else {
-    // Modelo antiguo: images = [portada, hover, ...detalle] (mezclado) → lo separamos.
-    const union = dedup([...imgs, ...ibcUrls])
-    tarjeta.value = union.slice(0, 2)
-    detalle.value = union.slice(2)
-  }
-  avisoColor.value = ibcUrls.length > 0
+  const { tarjeta: t, detalle: d, teniaColor } = separarFotos(p)
+  tarjeta.value = [...t]
+  detalle.value = [...d]
+  avisoColor.value = teniaColor
   // Variantes en vivo
   variantes.value = [...(p.product_variants || [])]
   const st = {}
@@ -297,7 +329,7 @@ function volver() {
   <div class="ape">
     <header class="ape__head">
       <button class="ape__back" @click="volver">← Volver</button>
-      <h3 class="ape__title">{{ esCrear ? 'Nuevo producto' : (draft.name || 'Editar producto') }}</h3>
+      <h3 class="ape__title">{{ esCrear ? (seed ? 'Duplicar producto' : 'Nuevo producto') : (draft.name || 'Editar producto') }}</h3>
       <div class="ape__headright">
         <label class="ape__active">
           <input type="checkbox" v-model="draft.is_active" />

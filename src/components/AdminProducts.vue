@@ -17,6 +17,8 @@ const error     = ref('')
 
 // null = grilla; 'nuevo' = crear; objeto producto = editar.
 const editando = ref(null)
+// Producto origen al DUPLICAR (modo crear pre-cargado). null = crear en blanco.
+const seedDuplicado = ref(null)
 
 async function cargar() {
   cargando.value = true
@@ -35,15 +37,17 @@ async function cargar() {
   }
 }
 
-function abrirNuevo()      { editando.value = 'nuevo' }
-function abrirEdicion(p)   { editando.value = p }
-function volver()          { editando.value = null }
+function abrirNuevo()      { seedDuplicado.value = null; editando.value = 'nuevo' }
+function abrirEdicion(p)   { seedDuplicado.value = null; editando.value = p }
+function duplicar(p)       { seedDuplicado.value = p; editando.value = 'nuevo' }
+function volver()          { editando.value = null; seedDuplicado.value = null }
 
 function onSaved() {
-  // Crear: recargar para ver el nuevo producto y volver a la grilla.
+  // Crear/duplicar: recargar para ver el nuevo producto y volver a la grilla.
   // Editar: el objeto ya se actualizó in-place; permanecemos en el editor.
   if (editando.value === 'nuevo') {
     editando.value = null
+    seedDuplicado.value = null
     cargar()
   }
 }
@@ -57,9 +61,10 @@ onMounted(cargar)
 
     <AdminProductEditor
       v-if="editando"
-      :key="editando === 'nuevo' ? 'nuevo' : editando.id"
+      :key="editando === 'nuevo' ? ('nuevo-' + (seedDuplicado?.id || 'blank')) : editando.id"
       :mode="editando === 'nuevo' ? 'crear' : 'editar'"
       :product="editando === 'nuevo' ? null : editando"
+      :seed="editando === 'nuevo' ? seedDuplicado : null"
       @back="volver"
       @saved="onSaved"
     />
@@ -70,6 +75,7 @@ onMounted(cargar)
       :loading="cargando"
       @select="abrirEdicion"
       @nuevo="abrirNuevo"
+      @duplicar="duplicar"
       @refresh="cargar"
     />
   </div>
