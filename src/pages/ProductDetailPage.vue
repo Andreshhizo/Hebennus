@@ -37,6 +37,21 @@ async function fetchProduct(id) {
   if (error) cargaError.value = true
   product.value  = data
   cargando.value = false
+
+  // Métrica: registra la vista de la ficha (fire-and-forget). Dedupe por sesión
+  // para que refrescar/volver no infle el conteo → views ≈ sesiones únicas.
+  if (data) registrarVista(id)
+}
+
+// Registra una visita a la ficha vía RPC pública. No bloquea ni rompe si falla
+// (es solo métrica del panel). Una vez por producto y sesión.
+function registrarVista(id) {
+  try {
+    const key = 'hb-viewed-' + id
+    if (sessionStorage.getItem(key)) return
+    sessionStorage.setItem(key, '1')
+    supabase.rpc('log_product_view', { p_product_id: id }).then(() => {}, () => {})
+  } catch (_) { /* noop */ }
 }
 
 onMounted(() => fetchProduct(route.params.id))

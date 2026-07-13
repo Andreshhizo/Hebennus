@@ -7,6 +7,7 @@ import { supabase } from '../lib/supabase.js'
 import { purgeSupabaseTokens } from '../lib/useAuth.js'
 import { ESTADOS, ESTADO_COLOR, ESTADO_LABEL, ESTADOS_DEVUELVE_STOCK } from '../lib/pedidos.js'
 import { validarTelefonoPE } from '../lib/validation.js'
+import AdminDashboard from '../components/AdminDashboard.vue'
 import AdminCustomers from '../components/AdminCustomers.vue'
 import AdminProducts from '../components/AdminProducts.vue'
 import AdminPaymentTests from '../components/AdminPaymentTests.vue'
@@ -16,9 +17,9 @@ import AdminPaymentTests from '../components/AdminPaymentTests.vue'
 // por eso lo exponemos como constante.
 const DEV = import.meta.env.DEV
 
-const vista = ref('pedidos')   // 'pedidos' | 'clientes' | 'productos' | 'tests' (solo en dev)
+const vista = ref('resumen')   // 'resumen' | 'pedidos' | 'clientes' | 'productos' | 'tests' (solo en dev)
 
-const TITULOS = { pedidos: 'Pedidos', clientes: 'Clientes', productos: 'Productos', tests: 'Tests de pago' }
+const TITULOS = { resumen: 'Resumen', pedidos: 'Pedidos', clientes: 'Clientes', productos: 'Productos', tests: 'Tests de pago' }
 // Método de pago en formato legible para el panel
 const METODO_PAGO_LABEL = {
   izipay:        'Tarjeta/Izipay',
@@ -336,6 +337,7 @@ onMounted(async () => {
     </header>
 
     <div class="dash__tabs">
+      <button :class="['dtab', { 'dtab--on': vista === 'resumen' }]" @click="vista = 'resumen'">Resumen</button>
       <button :class="['dtab', { 'dtab--on': vista === 'pedidos' }]" @click="vista = 'pedidos'">Pedidos</button>
       <button :class="['dtab', { 'dtab--on': vista === 'clientes' }]" @click="vista = 'clientes'">Clientes</button>
       <button :class="['dtab', { 'dtab--on': vista === 'productos' }]" @click="vista = 'productos'">Productos</button>
@@ -343,7 +345,9 @@ onMounted(async () => {
       <button v-if="DEV" :class="['dtab', { 'dtab--on': vista === 'tests' }]" @click="vista = 'tests'">Tests de pago</button>
     </div>
 
-    <template v-if="vista === 'pedidos'">
+    <AdminDashboard v-if="vista === 'resumen'" />
+
+    <template v-else-if="vista === 'pedidos'">
     <div class="dash__filters">
       <button :class="['chip', { 'chip--on': filtro === 'todos' }]" @click="filtro = 'todos'">Todos</button>
       <button
