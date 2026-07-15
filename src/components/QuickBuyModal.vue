@@ -189,7 +189,7 @@ function handleAdd() {
             </button>
 
             <RouterLink
-              :to="`/producto/${product.id}`"
+              :to="`/producto/${product.slug || product.id}`"
               class="qb__detail"
               @click="emit('close')"
             >Ver página completa →</RouterLink>

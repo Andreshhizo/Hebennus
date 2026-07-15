@@ -116,7 +116,7 @@ function colorHex(c) { return COLOR_HEX[normColor(c)] ?? null }
       </Transition>
 
       <!-- Enlace a la ficha (cubre la imagen; las tallas van por encima) -->
-      <RouterLink :to="`/producto/${product.id}`" class="card__link" :aria-label="`Ver ${product.name}`" />
+      <RouterLink :to="`/producto/${product.slug || product.id}`" class="card__link" :aria-label="`Ver ${product.name}`" />
 
       <!-- Sticker: etiqueta manual (Nuevo, etc.) o últimas piezas (auto) -->
       <div v-if="!agotado && product.badge" class="card__sticker">{{ product.badge }}</div>
@@ -142,7 +142,7 @@ function colorHex(c) { return COLOR_HEX[normColor(c)] ?? null }
     <!-- Body -->
     <div class="card__body">
       <div class="card__row">
-        <RouterLink :to="`/producto/${product.id}`" class="card__name">{{ product.name }}</RouterLink>
+        <RouterLink :to="`/producto/${product.slug || product.id}`" class="card__name">{{ product.name }}</RouterLink>
         <span class="card__price">{{ precioFmt }}</span>
       </div>
       <div v-if="colores.length" class="card__colors" :aria-label="`Colores: ${colores.join(', ')}`">

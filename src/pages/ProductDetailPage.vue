@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, onMounted, inject, watch } from 'vue'
-import { useRoute, RouterLink } from 'vue-router'
+import { useRoute, useRouter, RouterLink } from 'vue-router'
 import { supabase } from '../lib/supabase.js'
 import { WHATSAPP_NUMERO, STOCK_LOW_THRESHOLD } from '../lib/config.js'
 import { useSeo, SITE_URL } from '../lib/useSeo.js'
@@ -8,7 +8,11 @@ import { useHead } from '@unhead/vue'
 import SizeGuideModal from '../components/SizeGuideModal.vue'
 
 const route     = useRoute()
+const router    = useRouter()
 const addToCart = inject('addToCart')
+
+// Detecta si el parámetro es un UUID (id) o un slug para elegir la columna.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 const product      = ref(null)
 const cargando     = ref(true)
@@ -18,7 +22,7 @@ const colorElegido = ref(null)
 const guideOpen    = ref(false)
 const cargaError   = ref(false)
 
-async function fetchProduct(id) {
+async function fetchProduct(param) {
   cargando.value     = true
   cargaError.value   = false
   imagenIdx.value    = 0
@@ -26,21 +30,27 @@ async function fetchProduct(id) {
   colorElegido.value = null
   product.value      = null
 
+  // El parámetro de la ruta puede ser el UUID (enlaces viejos) o el slug:
+  // elegimos la columna según la forma del valor.
+  const columna = UUID_RE.test(param) ? 'id' : 'slug'
+
   // maybeSingle: 0 filas → data=null SIN error (producto realmente no existe);
   // error solo en fallo de red/BD → así no mostramos "404" cuando es un error.
   const { data, error } = await supabase
     .from('products')
     .select('*, product_variants(*)')
-    .eq('id', id)
+    .eq(columna, param)
     .maybeSingle()
 
   if (error) cargaError.value = true
   product.value  = data
   cargando.value = false
 
-  // Métrica: registra la vista de la ficha (fire-and-forget). Dedupe por sesión
-  // para que refrescar/volver no infle el conteo → views ≈ sesiones únicas.
-  if (data) registrarVista(id)
+  if (data) {
+    // Canonicaliza a la URL de slug (id viejo o slug desactualizado → slug real).
+    if (data.slug && param !== data.slug) router.replace(`/producto/${data.slug}`)
+    registrarVista(data.id)   // SIEMPRE el UUID real (la RPC exige uuid)
+  }
 }
 
 // Registra una visita a la ficha vía RPC pública. No bloquea ni rompe si falla
@@ -55,7 +65,9 @@ function registrarVista(id) {
 }
 
 onMounted(() => fetchProduct(route.params.id))
-watch(() => route.params.id, id => { if (id) fetchProduct(id) })
+// Evita el doble fetch tras la redirección a slug: si el nuevo param ya es el
+// slug del producto cargado, no volvemos a pedirlo.
+watch(() => route.params.id, (nuevo) => { if (nuevo && nuevo !== product.value?.slug) fetchProduct(nuevo) })
 
 const variantes = computed(() => product.value?.product_variants ?? [])
 
@@ -118,14 +130,14 @@ useSeo({
   title: () => product.value?.name,
   description: () => product.value?.description || `${product.value?.name ?? 'Producto'} — Hebennus. Oversize, atlético y cómodo.`,
   image: () => imagenes.value[0],
-  path: () => `/producto/${route.params.id}`,
+  path: () => `/producto/${product.value?.slug || route.params.id}`,
   type: 'product',
   noindex: () => !cargando.value && !product.value,   // 404/no encontrado
 })
 useHead(computed(() => {
   const p = product.value
   if (!p) return {}
-  const url = `${SITE_URL}/producto/${route.params.id}`
+  const url = `${SITE_URL}/producto/${p.slug || route.params.id}`
   return {
     script: [
       { type: 'application/ld+json', children: JSON.stringify({
