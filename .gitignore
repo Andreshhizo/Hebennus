@@ -11,3 +11,10 @@ supabase/.branches
 
 # Screenshots locales (pueden contener credenciales — nunca subir)
 Screenshot*.png
+
+# Archivos locales sueltos (no versionar)
+*.xlsx
+~$*
+# Imágenes fuente sueltas en la raíz (las versionadas viven en public/)
+/logo_fondo_transparente.png
+/favicon_logo_circulo.ico
