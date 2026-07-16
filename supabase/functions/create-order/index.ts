@@ -102,10 +102,13 @@ Deno.serve(async (req: Request) => {
 
   // 2) Validar precios contra la BD (nunca confiar en el navegador).
   const ids = [...new Set(pedido.items.map((i) => i.product_id).filter(Boolean))] as string[]
-  const priceMap = new Map<string, { name: string; price: number; is_active: boolean }>()
+  const priceMap = new Map<string, { name: string; price: number; is_active: boolean; image: string | null }>()
   if (ids.length) {
-    const { data: prods } = await admin.from('products').select('id, name, price, is_active').in('id', ids)
-    for (const p of prods ?? []) priceMap.set(p.id, { name: p.name, price: Number(p.price), is_active: p.is_active })
+    const { data: prods } = await admin.from('products').select('id, name, price, is_active, card_images, images').in('id', ids)
+    for (const p of prods ?? []) priceMap.set(p.id, {
+      name: p.name, price: Number(p.price), is_active: p.is_active,
+      image: (Array.isArray(p.card_images) && p.card_images[0]) || (Array.isArray(p.images) && p.images[0]) || null,
+    })
   }
 
   let subtotal = 0
@@ -124,7 +127,7 @@ Deno.serve(async (req: Request) => {
     if (!(unit >= 0)) return json({ error: 'Precio inválido' }, 400)
     const sub  = round2(unit * qty)
     subtotal  += sub
-    items.push({ ...it, name: p.name, qty, unit_price: unit, subtotal: sub })
+    items.push({ ...it, name: p.name, qty, unit_price: unit, subtotal: sub, image: p.image })
   }
   subtotal = round2(subtotal)
 

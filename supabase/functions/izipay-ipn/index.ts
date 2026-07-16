@@ -137,6 +137,16 @@ Deno.serve(async (req: Request) => {
           comprobante_tipo: order.comprobante_tipo,
           razon_social: order.razon_social,
         }
+        // Miniaturas para el correo: traemos las imágenes de los productos (best-effort).
+        const imgMap = new Map<string, string>()
+        const pids = [...new Set((rows ?? []).map((r) => r.product_id).filter(Boolean))] as string[]
+        if (pids.length) {
+          const { data: prods } = await admin.from('products').select('id, card_images, images').in('id', pids)
+          for (const p of prods ?? []) {
+            const img = (Array.isArray(p.card_images) && p.card_images[0]) || (Array.isArray(p.images) && p.images[0]) || null
+            if (img) imgMap.set(p.id, img)
+          }
+        }
         const items: ItemPedido[] = (rows ?? []).map((it) => ({
           product_id: it.product_id,
           name: it.name,
@@ -145,6 +155,7 @@ Deno.serve(async (req: Request) => {
           qty: Number(it.qty),
           unit_price: Number(it.unit_price),
           subtotal: Number(it.subtotal),
+          image: it.product_id ? (imgMap.get(it.product_id) ?? null) : null,
         }))
         const totals = {
           subtotal: Number(order.subtotal ?? 0),
