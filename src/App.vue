@@ -103,10 +103,10 @@ function addToCart(item) {
     i => i.productId === item.productId && i.size === item.size && (i.color ?? null) === (item.color ?? null)
   )
   if (idx >= 0) {
-    // No superar el máximo por referencia
-    if (carrito.value[idx].qty < MAX_QTY) {
-      carrito.value[idx].qty = carrito.value[idx].qty + 1
-    }
+    // Ya está en el carrito: si se alcanzó el tope por referencia no se agrega
+    // nada → salimos ANTES del toast para no mostrar un "Añadido" falso.
+    if (carrito.value[idx].qty >= MAX_QTY) return
+    carrito.value[idx].qty = carrito.value[idx].qty + 1
   } else {
     if (carrito.value.length >= MAX_ITEMS) return // límite de líneas
     carrito.value.push({ ...item, qty: 1 })

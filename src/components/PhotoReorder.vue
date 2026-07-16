@@ -98,7 +98,7 @@ async function onSubir(ev) {
     <div class="pr__grid">
       <div
         v-for="(url, i) in modelValue"
-        :key="url"
+        :key="url + '__' + i"
         class="pr__item"
         :class="{ 'pr__item--dragging': dragIndex === i, 'pr__item--over': overIndex === i && dragIndex !== i }"
         draggable="true"

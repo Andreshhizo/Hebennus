@@ -91,7 +91,11 @@ Deno.serve(async (req: Request) => {
       user_id: userId,
     },
   })
-  if (error) return json({ error: 'No se pudo registrar el reclamo', detail: error.message }, 500)
+  if (error) {
+    // No exponer el mensaje interno de Postgres/RPC al cliente; solo en servidor.
+    console.error('[create-ticket] Error en RPC create_ticket:', error.message)
+    return json({ error: 'No se pudo registrar el reclamo' }, 500)
+  }
   const ticketNumber: string = data?.ticket_number ?? '—'
 
   // ── Correos best-effort (no deben tumbar el reclamo si Resend falla) ──

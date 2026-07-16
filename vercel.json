@@ -17,7 +17,10 @@
         { "key": "X-Content-Type-Options", "value": "nosniff" },
         { "key": "X-Frame-Options", "value": "SAMEORIGIN" },
         { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
-        { "key": "Permissions-Policy", "value": "geolocation=(), microphone=(), camera=()" }
+        { "key": "Permissions-Policy", "value": "geolocation=(), microphone=(), camera=()" },
+        { "key": "Strict-Transport-Security", "value": "max-age=63072000; includeSubDomains; preload" },
+        { "key": "X-CSP-Note", "value": "vercel.json es JSON estricto (no admite comentarios). NOTA: la CSP de abajo esta en 'Content-Security-Policy-Report-Only' A PROPOSITO: NO bloquea nada, solo reporta, para validar en produccion que la politica no rompe el checkout de Izipay (krypton/micuentaweb). Cuando el reporte este limpio, renombrar la clave 'Content-Security-Policy-Report-Only' a 'Content-Security-Policy' para hacerla enforced." },
+        { "key": "Content-Security-Policy-Report-Only", "value": "default-src 'self'; script-src 'self' 'unsafe-inline' https://api.micuentaweb.pe https://static.micuentaweb.pe https://secure.micuentaweb.pe; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://api.micuentaweb.pe https://static.micuentaweb.pe; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://lvodqgscealzkjywhyas.supabase.co https://static.micuentaweb.pe https://secure.micuentaweb.pe; connect-src 'self' https://lvodqgscealzkjywhyas.supabase.co https://api.micuentaweb.pe https://static.micuentaweb.pe https://secure.micuentaweb.pe; frame-src https://api.micuentaweb.pe https://static.micuentaweb.pe https://secure.micuentaweb.pe; base-uri 'self'; form-action 'self'" }
       ]
     }
   ]

@@ -100,6 +100,16 @@ async function cargarPedidos() {
       .order('created_at', { ascending: false })
     if (error) throw error
     pedidos.value = data || []
+    // Admin·1: si hay un modal abierto, re-vincúlalo al objeto NUEVO de la lista
+    // (los de `data` son instancias nuevas; el `detalle.value` viejo quedaría
+    // desincronizado y seguiría mostrando "Marcar pagado"/estado antiguos).
+    // Se busca por order_number (o id); si ya no existe, se cierra el modal.
+    if (detalle.value) {
+      const prev = detalle.value
+      detalle.value = pedidos.value.find(p =>
+        (prev.order_number && p.order_number === prev.order_number) || p.id === prev.id,
+      ) || null
+    }
   } catch (e) {
     pedidosError.value = e.message
   } finally {
@@ -149,8 +159,15 @@ async function salir() {
 // Cambia el estado logístico vía RPC admin_set_order_status (reconciliación de
 // stock incluida). Pide confirmación al cancelar/reembolsar y avisa al cliente
 // por correo al marcar 'enviado'. Da feedback por pedido.
-async function cambiarEstado(pedido, nuevo) {
-  if (!nuevo || nuevo === pedido.status || estadoBusy.value) return
+async function cambiarEstado(pedido, nuevo, ev) {
+  if (!nuevo || nuevo === pedido.status) return
+  // Admin·4: si ya hay un cambio de estado en vuelo, ignora este pero devuelve el
+  // <select> a su valor real. Con :value (one-way) el DOM se quedaría mostrando
+  // un estado que nunca se guardó.
+  if (estadoBusy.value) {
+    if (ev && ev.target) ev.target.value = pedido.status
+    return
+  }
 
   // Cancelar/reembolsar repone stock → confirmar.
   if (ESTADOS_DEVUELVE_STOCK.includes(nuevo)) {
@@ -252,10 +269,21 @@ function fmtFecha(s) {
 }
 function money(n) { return 'S/ ' + Number(n ?? 0).toFixed(2) }
 
+// Admin·8: normaliza lo pegado/tecleado en el teléfono. Deja solo dígitos y, si
+// quedan 11 empezando en 51 (p. ej. "+51 987 654 321"), quita el prefijo país
+// antes de recortar a 9. Evita el corte erróneo de replace+slice(0,9).
+function normalizarTelefono(v) {
+  let d = String(v ?? '').replace(/\D/g, '')
+  if (d.length === 11 && d.startsWith('51')) d = d.slice(2)
+  return d.slice(0, 9)
+}
+
 // ── Detalle del pedido (modal) + edición de datos de contacto/envío ──
 function abrirDetalle(o) {
   detalle.value = o
   pedMsg.value = null
+  // Admin·6: limpia el mensaje de estado previo para no mostrar el ✓/error viejo.
+  estadoMsg.value = { ...estadoMsg.value, [o.id]: null }
   editPed.customer_name  = o.customer_name || ''
   editPed.customer_phone = o.customer_phone || ''
   editPed.notes          = o.notes || ''
@@ -267,7 +295,13 @@ async function guardarDatos() {
   if (!o || guardandoPed.value) return
   pedMsg.value = null
   if (editPed.customer_name.trim().length < 3) { pedMsg.value = { tipo: 'error', texto: 'Ingresa el nombre del cliente.' }; return }
-  if (!validarTelefonoPE(editPed.customer_phone)) { pedMsg.value = { tipo: 'error', texto: 'Teléfono inválido (9 dígitos, empieza con 9).' }; return }
+  // Admin·5: valida el teléfono SOLO si el admin lo cambió respecto al guardado.
+  // Así se pueden editar dirección/notas aunque el teléfono heredado sea inválido.
+  const telOriginal = (o.customer_phone || '').trim()
+  const telNuevo = editPed.customer_phone.trim()
+  if (telNuevo !== telOriginal && !validarTelefonoPE(telNuevo)) {
+    pedMsg.value = { tipo: 'error', texto: 'Teléfono inválido (9 dígitos, empieza con 9).' }; return
+  }
   guardandoPed.value = true
   try {
     const patch = {
@@ -290,9 +324,16 @@ async function guardarDatos() {
 async function verPedido(id) {
   vista.value = 'pedidos'
   filtro.value = 'todos'
+  busqueda.value = ''            // Admin·7: no dejar la lista filtrada ocultando el pedido
   await nextTick()
-  const o = pedidos.value.find((p) => p.id === id)
+  let o = pedidos.value.find((p) => p.id === id)
+  if (!o) {
+    // No está en el cache (lista vieja o aún sin cargar): recarga y reintenta.
+    await cargarPedidos()
+    o = pedidos.value.find((p) => p.id === id)
+  }
   if (o) abrirDetalle(o)
+  else pedidosError.value = 'No se encontró el pedido solicitado. Actualiza la lista.'
 }
 
 onMounted(async () => {
@@ -456,7 +497,7 @@ onMounted(async () => {
                 </button>
                 <label class="order__estado">
                   Estado:
-                  <select :value="detalle.status" :disabled="estadoBusy === detalle.id" @change="cambiarEstado(detalle, $event.target.value)">
+                  <select :value="detalle.status" :disabled="estadoBusy === detalle.id" @change="cambiarEstado(detalle, $event.target.value, $event)">
                     <option v-for="e in ESTADOS" :key="e" :value="e">{{ ESTADO_LABEL[e] }}</option>
                   </select>
                   <span v-if="estadoBusy === detalle.id" class="spinner spinner--sm"></span>
@@ -472,8 +513,8 @@ onMounted(async () => {
               <div class="odm__grid">
                 <label class="odm__f"><span>Nombre</span><input v-model="editPed.customer_name" class="odm__input" /></label>
                 <label class="odm__f"><span>Teléfono</span>
-                  <input v-model="editPed.customer_phone" inputmode="numeric" maxlength="9" class="odm__input"
-                         @input="editPed.customer_phone = editPed.customer_phone.replace(/\D/g,'').slice(0,9)" />
+                  <input v-model="editPed.customer_phone" inputmode="numeric" maxlength="20" class="odm__input"
+                         @input="editPed.customer_phone = normalizarTelefono(editPed.customer_phone)" />
                 </label>
               </div>
               <label class="odm__f"><span>Dirección / notas de envío</span>

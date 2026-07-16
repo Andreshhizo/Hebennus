@@ -140,10 +140,24 @@ Deno.serve(async (req: Request) => {
   let discount = 0
   let discountReason: string | null = null
   if (pedido.quiere_descuento) {
-    // Escapamos los comodines de LIKE (% y _) para un match exacto case-insensitive.
-    const emailLike = c.customer_email.trim().replace(/[%_]/g, '\\$&')
-    const { count } = await admin.from('orders').select('id', { count: 'exact', head: true }).ilike('customer_email', emailLike)
-    if ((count ?? 0) === 0) { discount = round2(subtotal * WELCOME_PCT); discountReason = 'bienvenida_10' }
+    // Normaliza el correo: minúsculas + quita el alias "+..." del local part
+    // (estilo Gmail: "juan+promo@gmail.com" → "juan@gmail.com"). Así un cliente no
+    // puede regenerar el 10% de bienvenida usando alias con "+".
+    const normalizeEmail = (e: string) => e.trim().toLowerCase().replace(/\+[^@]*(?=@)/, '')
+    const normalized = normalizeEmail(c.customer_email)
+    const [local, domain] = normalized.split('@')
+    // Escapamos los comodines de LIKE (% _ \) para acotar candidatos por dominio +
+    // inicio del local part; el match EXACTO (ignorando el alias) se hace en JS abajo.
+    const esc = (s: string) => s.replace(/[\\%_]/g, '\\$&')
+    // Solo cuentan como "compra previa real" los pedidos PAGADOS o los de
+    // contraentrega ya ENTREGADOS. Un pedido pendiente/abandonado NO quita el 10%.
+    const { data: previos } = await admin
+      .from('orders')
+      .select('customer_email')
+      .or('payment_status.eq.pagado,and(payment_method.eq.contraentrega,status.eq.entregado)')
+      .ilike('customer_email', `${esc(local)}%@${esc(domain)}`)
+    const yaCompro = (previos ?? []).some((o) => normalizeEmail(o.customer_email ?? '') === normalized)
+    if (!yaCompro) { discount = round2(subtotal * WELCOME_PCT); discountReason = 'bienvenida_10' }
   }
   const total = Math.max(0, round2(subtotal + shipping - discount))
 
@@ -168,7 +182,12 @@ Deno.serve(async (req: Request) => {
     defer_stock: deferStock,
   }
   const { data: result, error: rpcError } = await admin.rpc('create_order', { payload: rpcPayload })
-  if (rpcError) return json({ error: 'No se pudo registrar el pedido', detail: rpcError.message }, 500)
+  if (rpcError) {
+    // No filtramos el detalle del error al cliente (puede exponer internals de la BD).
+    // Lo logueamos en el servidor y devolvemos un mensaje genérico en español.
+    console.error('[create-order] RPC create_order falló:', rpcError.message)
+    return json({ error: 'No se pudo registrar el pedido. Inténtalo de nuevo.' }, 500)
+  }
   const orderNumber: string = result?.order_number ?? '—'
 
   // 7) Contacto de marketing (con consentimiento, Ley 29733).

@@ -47,7 +47,11 @@ Deno.serve(async (req: Request) => {
   const admin = createClient(supabaseUrl, serviceKey)
 
   const { data, error } = await admin.rpc('email_existe', { p_email: email })
-  if (error) return json({ error: 'No se pudo verificar el correo', detail: error.message }, 500)
+  if (error) {
+    // No exponer el mensaje interno al cliente; solo se loguea en el servidor.
+    console.error('[check-email] Error en RPC email_existe:', error.message)
+    return json({ error: 'No se pudo verificar el correo' }, 500)
+  }
 
   return json({ exists: data === true })
 })

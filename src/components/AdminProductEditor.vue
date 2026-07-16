@@ -195,18 +195,25 @@ function variantesOrdenadas() {
   })
 }
 
-// ── Validación de creación ──
-const puedeCrear = computed(() => {
+// ── Validación ──
+// Campos exigidos SIEMPRE (crear y editar): nombre, precio ≥ 0, ≥1 categoría y
+// tipo de prenda. Sin categoría o tipo el producto desaparece de los filtros de
+// la tienda (ColeccionPage filtra por categories/category y tipo_prenda).
+const validacionesBase = computed(() => {
   if (!draft.name.trim()) return false
   if (!(Number(draft.price) >= 0)) return false
   if (!draft.categories.length || !draft.tipo_prenda) return false
+  return true
+})
+const puedeCrear = computed(() => {
+  if (!validacionesBase.value) return false
   const conTalla = draft.variants.filter(v => v.size)
   if (!conTalla.length) return false
   for (const v of conTalla) if (!stockValido(v.stock === '' ? 0 : v.stock)) return false
   return true
 })
 const puedeGuardar = computed(() =>
-  esCrear.value ? puedeCrear.value : (draft.name.trim() && Number(draft.price) >= 0)
+  esCrear.value ? puedeCrear.value : validacionesBase.value
 )
 
 // ── Variantes (crear) ──

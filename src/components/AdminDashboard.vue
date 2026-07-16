@@ -16,9 +16,10 @@ import { STOCK_LOW_THRESHOLD } from '../lib/config.js'
 const DAY = 86400000
 const CANCELADOS = new Set(['cancelado', 'reembolsado'])   // no cuentan como ingreso
 const METODOS = ['izipay', 'yape_manual', 'contraentrega']
-const METODO_LABEL = { izipay: 'Tarjeta / Izipay', yape_manual: 'Yape (manual)', contraentrega: 'Contraentrega' }
+// 'otro' agrupa métodos nulos/desconocidos (no se asumen como Contraentrega).
+const METODO_LABEL = { izipay: 'Tarjeta / Izipay', yape_manual: 'Yape (manual)', contraentrega: 'Contraentrega', otro: 'Otro / Desconocido' }
 // Paleta categórica de marca en orden FIJO (nunca se cicla ni se repinta por rango).
-const METODO_COLOR = { izipay: 'var(--accent)', yape_manual: 'var(--accent-2)', contraentrega: 'var(--accent-3)' }
+const METODO_COLOR = { izipay: 'var(--accent)', yape_manual: 'var(--accent-2)', contraentrega: 'var(--accent-3)', otro: 'var(--text-3)' }
 
 // ── Estado ──
 const cargando = ref(true)
@@ -71,6 +72,15 @@ function enRango(fecha) {
   return true
 }
 
+// Rango personalizado inválido: "Hasta" es anterior a "Desde" (hasta es exclusivo,
+// = fin de día + 1; si es <= desde el rango está al revés). Avisamos en vez de
+// mostrar "Sin datos" sin explicación.
+const rangoInvalido = computed(() => {
+  if (preset.value !== 'custom') return false
+  const { desde, hasta } = rango.value
+  return !!(desde && hasta && +hasta <= +desde)
+})
+
 // ── Colecciones filtradas ──
 const pedidosPeriodo = computed(() => orders.value.filter(o => enRango(o.created_at)))
 const pedidosValidos = computed(() => pedidosPeriodo.value.filter(o => !CANCELADOS.has(o.status)))
@@ -80,7 +90,8 @@ const clientesNuevos = computed(() => profiles.value.filter(p => p.created_at &&
 const kpis = computed(() => {
   const validos = pedidosValidos.value
   const ingresos = validos.reduce((s, o) => s + Number(o.total || 0), 0)
-  const cobrado  = pedidosPeriodo.value.filter(o => o.payment_status === 'pagado').reduce((s, o) => s + Number(o.total || 0), 0)
+  // Cobrado = pagados que NO estén cancelados/reembolsados (si no, superaría "ingresos").
+  const cobrado  = validos.filter(o => o.payment_status === 'pagado').reduce((s, o) => s + Number(o.total || 0), 0)
   const unidades = validos.reduce((s, o) => s + (o.order_items || []).reduce((a, it) => a + Number(it.qty || 0), 0), 0)
   const nPed = pedidosPeriodo.value.length
   // Conversión (proxy): pedidos por cada 100 vistas de ficha en el período.
@@ -156,6 +167,7 @@ const porEstado = computed(() => {
 const porCobro = computed(() => {
   let pagado = 0, fallido = 0, pendiente = 0
   for (const o of pedidosPeriodo.value) {
+    if (CANCELADOS.has(o.status)) continue   // cancelados/reembolsados no cuentan como cobro
     if (o.payment_status === 'pagado') pagado++
     else if (o.payment_status === 'fallido') fallido++
     else pendiente++
@@ -165,14 +177,19 @@ const porCobro = computed(() => {
 
 // ── Desglose por método de pago ──
 const porMetodo = computed(() => {
-  const m = Object.fromEntries(METODOS.map(k => [k, { count: 0, revenue: 0 }]))
+  const claves = [...METODOS, 'otro']
+  const m = Object.fromEntries(claves.map(k => [k, { count: 0, revenue: 0 }]))
   for (const o of pedidosPeriodo.value) {
-    const k = METODOS.includes(o.payment_method) ? o.payment_method : 'contraentrega'
+    // Método nulo/desconocido → 'otro' (no se cuenta como Contraentrega).
+    const k = METODOS.includes(o.payment_method) ? o.payment_method : 'otro'
     m[k].count++
     if (!CANCELADOS.has(o.status)) m[k].revenue += Number(o.total || 0)
   }
-  const max = Math.max(1, ...METODOS.map(k => m[k].count))
-  return METODOS.map(k => ({ metodo: k, ...m[k], pct: (m[k].count / max) * 100 }))
+  const max = Math.max(1, ...claves.map(k => m[k].count))
+  // 'otro' solo aparece si hubo pedidos con método desconocido (no ensucia el gráfico).
+  return claves
+    .filter(k => k !== 'otro' || m[k].count > 0)
+    .map(k => ({ metodo: k, ...m[k], pct: (m[k].count / max) * 100 }))
 })
 
 // ── Salud de inventario (foto ACTUAL; no depende del rango) ──
@@ -245,8 +262,13 @@ async function cargar() {
   await cargarVistas()
 }
 
+// Token de secuencia: al cambiar el rango varias consultas quedan en vuelo; solo
+// la última puede escribir el estado (una respuesta lenta no pisa a una reciente).
+let vistasReqId = 0
+
 // Las vistas se agregan en el servidor por rango → se re-consultan al cambiar el filtro.
 async function cargarVistas() {
+  const reqId = ++vistasReqId
   vistasError.value = false
   const { desde, hasta } = rango.value
   const p_desde = desde ? desde.toISOString() : null
@@ -256,10 +278,12 @@ async function cargarVistas() {
       supabase.rpc('admin_product_views', { p_desde, p_hasta, p_limit: 8 }),
       supabase.rpc('admin_product_views_total', { p_desde, p_hasta }),
     ])
+    if (reqId !== vistasReqId) return   // respuesta obsoleta: llegó otra consulta después
     if (rank.error) throw rank.error
     vistas.value = rank.data || []
     vistasTotal.value = total.error ? null : Number(total.data ?? 0)
   } catch (_) {
+    if (reqId !== vistasReqId) return   // no piso el estado de una consulta más reciente
     vistas.value = []
     vistasTotal.value = null
     vistasError.value = true   // RPC no desplegada aún o sin permisos
@@ -288,8 +312,12 @@ function exportarCSV() {
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
+  // Nombre autodescriptivo: incluye el rango (fechas reales en personalizado).
+  const rangoSlug = preset.value === 'custom'
+    ? `${customDesde.value || 'inicio'}_a_${customHasta.value || 'hoy'}`
+    : preset.value
   a.href = url
-  a.download = `hebennus-pedidos-${preset.value}.csv`
+  a.download = `hebennus-pedidos-${rangoSlug}.csv`
   document.body.appendChild(a)
   a.click()
   a.remove()
@@ -332,9 +360,10 @@ onMounted(cargar)
   </div>
 
   <p v-if="error" class="dsh__error" role="alert">{{ error }}</p>
+  <p v-if="rangoInvalido" class="dsh__error" role="alert">La fecha «Hasta» es anterior a «Desde». Corrige el rango para ver datos.</p>
   <div v-if="cargando" class="dsh__center"><span class="spinner"></span></div>
 
-  <template v-else>
+  <template v-else-if="!rangoInvalido">
     <!-- ░░ KPIs ░░ -->
     <p class="dsh__period">{{ rango.label }}</p>
     <div class="kpis">

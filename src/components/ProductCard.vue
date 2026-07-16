@@ -1,18 +1,21 @@
 <script setup>
 import { ref, computed } from 'vue'
-import { RouterLink } from 'vue-router'
+import { RouterLink, useRouter } from 'vue-router'
 import { STOCK_LOW_THRESHOLD } from '../lib/config.js'
 
 const props = defineProps({
   product: { type: Object, required: true },
 })
 const emit = defineEmits(['add-to-cart'])
+const router = useRouter()
 
 const variantes = computed(() => props.product.product_variants ?? [])
 
 // Colores disponibles = colores distintos no-nulos de las variantes.
 const colores = computed(() => [...new Set(variantes.value.map(v => v.color).filter(Boolean))])
 const colorGaleria = computed(() => colores.value[0] ?? null)
+// Con más de un color no podemos elegir por el cliente: el quick-add llevaría a la ficha.
+const esMulticolor = computed(() => colores.value.length > 1)
 
 // Galería de la TARJETA (estilo Nude): dos fotos, INDEPENDIENTES de la ficha.
 //   card_images[0] = PORTADA (se ve primero)
@@ -64,6 +67,12 @@ const precioFmt = computed(() => `S/ ${Number(props.product.price).toFixed(2)}`)
 // Quick-add por talla (reemplaza los antiguos botones de overlay "Ver / Compra rápida").
 function quickAdd(size) {
   if (agotado.value || !tallaConStock(size)) return
+  // Multicolor: NO agregamos un color al azar. Llevamos a la ficha para que el
+  // cliente elija color (y la imagen añadida corresponda al color elegido).
+  if (esMulticolor.value) {
+    router.push(`/producto/${props.product.slug || props.product.id}`)
+    return
+  }
   const deLaTalla = variantes.value.filter(v => v.size === size)
   const variante  = deLaTalla.find(v => (v.stock ?? 0) > 0) ?? deLaTalla[0] ?? null
   emit('add-to-cart', {
@@ -133,7 +142,7 @@ function colorHex(c) { return COLOR_HEX[normColor(c)] ?? null }
           class="card__quick-btn"
           :class="{ 'card__quick-btn--out': !tallaConStock(t) }"
           :disabled="!tallaConStock(t)"
-          :aria-label="`Añadir talla ${t}`"
+          :aria-label="esMulticolor ? `Elegir color · talla ${t}` : `Añadir talla ${t}`"
           @click.prevent.stop="quickAdd(t)"
         >{{ t }}</button>
       </div>

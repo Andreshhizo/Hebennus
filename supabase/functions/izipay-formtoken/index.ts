@@ -64,7 +64,7 @@ Deno.serve(async (req: Request) => {
   // Leer el pedido por order_number (datos validados en create-order).
   const { data: order, error: orderError } = await admin
     .from('orders')
-    .select('total, customer_email, customer_name, doc_numero, doc_tipo, customer_phone, notes')
+    .select('total, customer_email, customer_name, doc_numero, doc_tipo, customer_phone, notes, payment_status, status')
     .eq('order_number', orderNumber)
     .maybeSingle()
 
@@ -72,7 +72,24 @@ Deno.serve(async (req: Request) => {
     console.error('[izipay-formtoken] Error leyendo pedido:', orderError.message)
     return json({ error: 'No se pudo leer el pedido' }, 500)
   }
-  if (!order) return json({ error: 'Pedido no encontrado' }, 404)
+  // Mensaje genérico ante pedido inexistente: no confirmamos si el número existe
+  // (order numbers secuenciales → evita enumeración/IDOR).
+  if (!order) return json({ error: 'No se pudo iniciar el pago para este pedido' }, 404)
+
+  // ── Guard IDOR (M1) ──────────────────────────────────────────────────────────
+  // Sin JWT de usuario garantizado en guest checkout, la defensa principal es el
+  // ESTADO del pedido: solo generamos form-token (CreatePayment real) para pedidos
+  // pagables. Un pedido ya 'pagado' (o con payment_status distinto de 'pendiente')
+  // o 'cancelado' NO debe poder generar cobros nuevos. Rechazamos ANTES de llamar
+  // a Izipay, con mensaje genérico (sin filtrar el estado interno al cliente).
+  const paymentStatus = String(order.payment_status ?? '')
+  const orderStatus   = String(order.status ?? '')
+  if (paymentStatus !== 'pendiente' || orderStatus === 'cancelado') {
+    console.error(
+      `[izipay-formtoken] Pedido no pagable ${orderNumber}: payment_status=${paymentStatus} status=${orderStatus}`,
+    )
+    return json({ error: 'Este pedido no admite pago en este momento' }, 409)
+  }
 
   const total = Number(order.total)
   if (!(total > 0)) return json({ error: 'Monto de pedido inválido' }, 400)

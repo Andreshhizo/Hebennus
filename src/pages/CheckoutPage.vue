@@ -38,7 +38,6 @@ const esIzipay   = computed(() => metodoPago.value === 'tarjeta' || metodoPago.v
 const procesando = ref(false)
 const mostrarPago = ref(false)
 const errorPago  = ref(null)
-const avisoCuenta = ref(null)
 
 // ── Éxito ──
 const enviado     = ref(false)
@@ -47,6 +46,11 @@ const orderNumber = ref('')
 const yapeLink    = ref('')
 const yapeTotal   = ref(0)
 const yapeDisponible = !!WHATSAPP_NUMERO
+
+// ── Totales AUTORITATIVOS del servidor (para que lo mostrado = lo cobrado) ──
+// Se llenan tras createOrder(); null mientras no los conozcamos.
+const totalServidor     = ref(null)
+const descuentoServidor = ref(null)
 
 // ── Pedido pendiente reusable (anti-duplicados) ──
 const pedidoActual = ref(null)      // { orderNumber, hash }
@@ -91,6 +95,17 @@ const descuento = computed(() => aplicaDescuento.value ? round2(subtotal.value *
 const total = computed(() => Math.max(0, subtotal.value + envio.value - descuento.value))
 const vacio = computed(() => !cart.value.length)
 
+// Total a MOSTRAR al pagar: el del servidor si ya lo conocemos (autoritativo);
+// si no, la vista previa local. Así lo mostrado coincide con lo que se cobra.
+const totalAPagar = computed(() => totalServidor.value != null ? totalServidor.value : total.value)
+// Descuento a MOSTRAR: el real del servidor si ya lo conocemos; si no, la vista previa.
+const descuentoMostrado = computed(() => descuentoServidor.value != null ? descuentoServidor.value : descuento.value)
+// El cliente pidió el 10% pero el servidor NO lo aplicó (no es su 1ª compra real).
+const avisoDescuento = computed(() =>
+  aplicaDescuento.value && descuentoServidor.value === 0
+    ? 'El 10% aplica solo en tu primera compra.' : '',
+)
+
 // ── Prellenar si ya inició sesión ──
 watchEffect(() => {
   if (!user.value) return
@@ -111,11 +126,23 @@ watchEffect(() => {
 watch(subtotal, () => {
   if (enviado.value) return
   if (mostrarPago.value || pedidoActual.value) {
+    const estabaPagando = mostrarPago.value   // guardamos el estado ANTES de resetear
     removeForms()
     mostrarPago.value = false
     pedidoActual.value = null
-    if (mostrarPago.value) errorPago.value = 'Tu carrito cambió. Revisa el resumen y vuelve a pagar.'
+    // Los totales del servidor quedan obsoletos: se recalcularán al re-crear el pedido.
+    totalServidor.value = null
+    descuentoServidor.value = null
+    if (estabaPagando) errorPago.value = 'Tu carrito cambió. Revisa el resumen y vuelve a pagar.'
   }
+})
+
+// Si cambia el opt-in del 10%, el pedido pendiente y los totales del servidor quedan
+// obsoletos: los reseteamos para que el resumen vuelva a la vista previa local hasta
+// re-crear el pedido (el hash del pedido ya fuerza un createOrder nuevo al pagar).
+watch(beneficio, () => {
+  totalServidor.value = null
+  descuentoServidor.value = null
 })
 
 // ── Validación (todos los campos; se muestran según "tocado") ──
@@ -130,7 +157,9 @@ const errores = computed(() => {
   if (!validarTexto(form.provincia))    e.provincia = 'Falta la provincia.'
   if (!validarTexto(form.distrito))     e.distrito = 'Falta el distrito.'
   if (!validarTexto(form.calle))        e.calle = 'Falta la calle / avenida.'
-  if (!/^\d+$/.test(form.numero))       e.numero = 'Ingresa el número (solo dígitos).'
+  // Número: alfanumérico común en Perú ("123", "S/N", "Mz B Lt 5", "123-A"). Solo
+  // exigimos que no esté vacío; el detalle exacto va en la dirección/referencias.
+  if (!validarTexto(form.numero))       e.numero = 'Ingresa el número (o pon S/N).'
   return e
 })
 function marcar(campo) { tocado[campo] = true }
@@ -264,6 +293,10 @@ async function iniciarPagoIzipay() {
     if (!orderNum) {
       const res = await createOrder(pedido)
       orderNum = res?.order_number ?? ''
+      // Totales AUTORITATIVOS del servidor: Izipay cobra el total del pedido guardado,
+      // así que mostramos exactamente eso (y avisamos si el 10% no aplicó).
+      totalServidor.value = Number(res?.total ?? total.value)
+      descuentoServidor.value = Number(res?.discount ?? 0)
       pedidoActual.value = { orderNumber: orderNum, hash: h }
     }
     const tok = await getFormToken(orderNum)
@@ -311,7 +344,10 @@ async function pagarYapeManual() {
   try {
     const res = await createOrder(construirPedido())
     orderNumber.value = res?.order_number ?? ''
-    yapeTotal.value = Number(res?.total ?? total.value)
+    // Total AUTORITATIVO del servidor: es el monto que coordinaremos por Yape.
+    totalServidor.value = Number(res?.total ?? total.value)
+    descuentoServidor.value = Number(res?.discount ?? 0)
+    yapeTotal.value = totalServidor.value
     const msg = `¡Holaa Hebennus! 👋 Acabo de hacer mi pedido ${orderNumber.value} y lo quiero pagar con Yape (S/ ${yapeTotal.value.toFixed(2)}). ¿Me pasas el QR porfa? ¡Gracias! 🙌`
     yapeLink.value = yapeDisponible ? `https://wa.me/${WHATSAPP_NUMERO}?text=${encodeURIComponent(msg)}` : ''
     modoExito.value = 'yape'
@@ -323,7 +359,7 @@ async function pagarYapeManual() {
 }
 
 const metodoLabel = computed(() =>
-  metodoPago.value === 'yape_manual' ? `Continuar con Yape` : `Pagar S/ ${total.value.toFixed(2)}`,
+  metodoPago.value === 'yape_manual' ? `Continuar con Yape` : `Pagar S/ ${totalAPagar.value.toFixed(2)}`,
 )
 </script>
 
@@ -337,6 +373,7 @@ const metodoLabel = computed(() =>
       </svg>
       <h1 class="state__title">¡Pedido reservado!</h1>
       <p class="state__num">N.° de pedido: <strong>{{ orderNumber }}</strong> · Total: <strong>S/ {{ yapeTotal.toFixed(2) }}</strong></p>
+      <p v-if="avisoDescuento" class="state__note">{{ avisoDescuento }}</p>
       <p class="state__msg">
         Tu pedido quedó <strong>reservado</strong>. Para completar el pago por <strong>Yape</strong>,
         escríbenos por WhatsApp y te enviamos el QR. Confirmaremos tu pedido al recibir el pago.
@@ -472,9 +509,9 @@ const metodoLabel = computed(() =>
                 </div>
                 <div class="form__group">
                   <label class="field__label" for="f-num">Número</label>
-                  <input id="f-num" v-model="form.numero" type="text" inputmode="numeric"
+                  <input id="f-num" v-model="form.numero" type="text" maxlength="20"
                     class="field__input" :class="{ 'field__input--err': errorDe('numero') }"
-                    @input="form.numero = form.numero.replace(/\D/g, '')" @blur="marcar('numero')" />
+                    placeholder="123, S/N, Mz B Lt 5…" @blur="marcar('numero')" />
                   <span v-if="errorDe('numero')" class="field__error" role="alert">{{ errores.numero }}</span>
                 </div>
               </div>
@@ -535,7 +572,7 @@ const metodoLabel = computed(() =>
                 <RouterLink to="/privacidad" target="_blank" class="ship-note__link">Ver más →</RouterLink>
               </div>
 
-              <p v-if="avisoCuenta" class="summary__note-ok" role="status" aria-live="polite">{{ avisoCuenta }}</p>
+              <p v-if="avisoDescuento" class="summary__note-info" role="status" aria-live="polite">{{ avisoDescuento }}</p>
               <p v-if="errorPago" class="summary__send-err" role="alert">{{ errorPago }}</p>
 
               <button v-if="!mostrarPago" type="button" class="checkout__submit"
@@ -569,7 +606,7 @@ const metodoLabel = computed(() =>
             :aria-expanded="resumenAbierto" aria-controls="resumen-items"
             @click="resumenAbierto = !resumenAbierto">
             <span>{{ resumenAbierto ? 'Ocultar' : 'Ver' }} resumen</span>
-            <span class="summary__toggle-total">S/ {{ total.toFixed(2) }}</span>
+            <span class="summary__toggle-total">S/ {{ totalAPagar.toFixed(2) }}</span>
           </button>
           <h2 v-else class="summary__title">Tu pedido</h2>
 
@@ -591,8 +628,8 @@ const metodoLabel = computed(() =>
 
             <div class="summary__lines">
               <div class="summary__line"><span>Subtotal</span><span>S/ {{ subtotal.toFixed(2) }}</span></div>
-              <div v-if="descuento > 0" class="summary__line summary__line--disc">
-                <span>Descuento 10% 🎁</span><span>- S/ {{ descuento.toFixed(2) }}</span>
+              <div v-if="descuentoMostrado > 0" class="summary__line summary__line--disc">
+                <span>Descuento 10% 🎁</span><span>- S/ {{ descuentoMostrado.toFixed(2) }}</span>
               </div>
               <div class="summary__line">
                 <span>Envío <small class="summary__note-inline">(Lima)</small></span>
@@ -605,7 +642,7 @@ const metodoLabel = computed(() =>
 
           <div class="summary__total">
             <span>Total</span>
-            <span class="summary__total-amt">S/ {{ total.toFixed(2) }}</span>
+            <span class="summary__total-amt">S/ {{ totalAPagar.toFixed(2) }}</span>
           </div>
 
           <div class="trust">
@@ -633,6 +670,8 @@ const metodoLabel = computed(() =>
 
         <p class="pay-modal__eyebrow">Pago 100% seguro</p>
         <h3 class="pay-modal__title">Pagar con tarjeta</h3>
+        <p class="pay-modal__amount">Total a pagar: <strong>S/ {{ totalAPagar.toFixed(2) }}</strong></p>
+        <p v-if="avisoDescuento" class="pay-modal__note">{{ avisoDescuento }}</p>
         <div id="izipay-form" class="izipay-form" kr-popin></div>
         <p v-if="errorPago" class="pay-modal__err field__error" role="alert">{{ errorPago }}</p>
 
@@ -776,6 +815,9 @@ const metodoLabel = computed(() =>
 .pay-modal__close:hover { background: var(--surface-3); color: var(--text-1); transform: scale(1.08); }
 .pay-modal__eyebrow { font-size: 0.64rem; letter-spacing: 0.2em; text-transform: uppercase; color: var(--accent-3); }
 .pay-modal__title { font-family: var(--font-display); font-size: 1.4rem; font-weight: 800; color: var(--text-1); margin: 0.2rem 0 0.6rem; }
+.pay-modal__amount { font-size: 0.9rem; color: var(--text-2); margin: 0 0 0.2rem; }
+.pay-modal__amount strong { color: var(--text-1); font-weight: 700; }
+.pay-modal__note { font-size: 0.74rem; color: var(--accent-3); line-height: 1.5; margin: 0 0 0.4rem; }
 .pay-modal__err { margin-top: 0.8rem; }
 
 /* Combo de marcas: Hebennus × Izipay */
@@ -826,6 +868,7 @@ const metodoLabel = computed(() =>
 .ship-note strong { color: var(--text-1); font-weight: 600; }
 .ship-note__link { display: inline-block; margin-top: 0.3rem; color: var(--accent-3); text-decoration: underline; text-underline-offset: 2px; font-weight: 600; }
 .summary__note-ok { font-size: 0.76rem; color: var(--accent-2); line-height: 1.5; }
+.summary__note-info { font-size: 0.76rem; color: var(--accent-3); line-height: 1.5; }
 .summary__note { text-align: center; font-size: 0.68rem; color: var(--text-3); letter-spacing: 0.03em; }
 .trust { display: flex; flex-wrap: wrap; gap: 0.5rem 0.9rem; border-top: 1px solid var(--border); padding-top: 0.9rem; font-size: 0.68rem; color: var(--text-3); }
 
@@ -842,6 +885,7 @@ const metodoLabel = computed(() =>
 .state__title { font-family: var(--font-display); font-size: 1.7rem; font-weight: 800; text-transform: uppercase; letter-spacing: -0.01em; color: var(--text-1); }
 .state__num { font-size: 0.9rem; color: var(--text-2); letter-spacing: 0.04em; }
 .state__msg { font-size: 0.9rem; color: var(--text-2); line-height: 1.7; }
+.state__note { font-size: 0.8rem; color: var(--accent-3); line-height: 1.5; }
 .state__cta { margin-top: 0.5rem; padding: 0.9rem 2.2rem; background: var(--text-1); color: var(--ink); border-radius: var(--radius-pill); box-shadow: var(--shadow-soft); font-family: var(--font-display); font-size: 0.75rem; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; transition: background 0.25s var(--ease-out), color 0.25s var(--ease-out), transform 0.25s var(--ease-out), box-shadow 0.25s var(--ease-out); }
 .state__cta:hover { background: var(--accent); color: var(--ink); transform: translateY(-2px); box-shadow: var(--shadow-hover); }
 .state__cta:active { transform: scale(0.97); }

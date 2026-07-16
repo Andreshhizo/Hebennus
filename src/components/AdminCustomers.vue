@@ -9,6 +9,8 @@ import { ESTADOS, ESTADO_COLOR, ESTADO_LABEL, ESTADOS_DEVUELVE_STOCK } from '../
 
 const emit = defineEmits(['ver-pedido'])
 
+const CANCELADOS = new Set(['cancelado', 'reembolsado'])   // no cuentan como gasto
+
 const estadoBusy = ref(null)   // id del pedido cuyo estado se está cambiando
 
 const profiles = ref([])
@@ -37,7 +39,8 @@ function statsDe(pedidos) {
   return {
     nPedidos: pedidos.length,
     nPrendas: pedidos.reduce((s, o) => s + (o.order_items?.reduce((a, it) => a + (it.qty || 0), 0) || 0), 0),
-    total:    pedidos.reduce((s, o) => s + Number(o.total || 0), 0),
+    // Gasto total: excluye cancelados/reembolsados (no es dinero cobrado al cliente).
+    total:    pedidos.reduce((s, o) => s + (CANCELADOS.has(o.status) ? 0 : Number(o.total || 0)), 0),
   }
 }
 
@@ -52,11 +55,22 @@ const clientes = computed(() =>
 )
 
 const invitados = computed(() => {
-  const regs = new Set(profiles.value.map((p) => (p.email || '').toLowerCase()))
-  const sinCuenta = orders.value.filter((o) => !o.user_id && !regs.has((o.customer_email || '').toLowerCase()))
+  // Solo emails reales cuentan como "registrado" (evita que perfiles sin email
+  // arrastren a todos los invitados sin correo a la clave vacía '').
+  const regs = new Set(profiles.value.map((p) => (p.email || '').toLowerCase()).filter(Boolean))
+  const sinCuenta = orders.value.filter(
+    (o) => !o.user_id && !(o.customer_email && regs.has(o.customer_email.toLowerCase())),
+  )
   const map = {}
   for (const o of sinCuenta) {
-    const k = (o.customer_email || '').toLowerCase()
+    const email = (o.customer_email || '').toLowerCase()
+    // Sin email → agrupar por nombre+teléfono; si tampoco hay, clave única por
+    // pedido para no fusionar clientes distintos ni atribuir compras ajenas.
+    const alt = [
+      (o.customer_name || '').trim().toLowerCase(),
+      (o.customer_phone || '').replace(/\D/g, ''),
+    ].filter(Boolean).join('|')
+    const k = email || alt || `pedido:${o.id}`
     if (!map[k]) map[k] = { email: o.customer_email, full_name: o.customer_name, pedidos: [] }
     map[k].pedidos.push(o)
   }
@@ -65,14 +79,19 @@ const invitados = computed(() => {
 
 // Cambia estado vía RPC admin_set_order_status (repone/descuenta stock según toque).
 // Confirma al cancelar/reembolsar y avisa al cliente por correo al marcar 'enviado'.
-async function cambiarEstado(order, nuevo) {
-  if (!nuevo || nuevo === order.status || estadoBusy.value) return
+async function cambiarEstado(order, ev) {
+  const nuevo = ev?.target?.value
+  // El <select> usa :value (no v-model): si no aplicamos el cambio hay que
+  // devolver el control a order.status, o queda mostrando un valor irreal.
+  const revertir = () => { if (ev?.target) ev.target.value = order.status }
+  if (!nuevo || nuevo === order.status) return revertir()
+  if (estadoBusy.value) return revertir()   // otro cambio en curso: no encolar
   if (ESTADOS_DEVUELVE_STOCK.includes(nuevo)) {
     const ok = confirm(
       `¿Marcar el pedido ${order.order_number || ('#' + order.id)} como "${ESTADO_LABEL[nuevo]}"?\n` +
       `Si tenía stock descontado, se repondrá al inventario.`,
     )
-    if (!ok) return
+    if (!ok) return revertir()
   }
   const ant = order.status
   estadoBusy.value = order.id
@@ -166,7 +185,7 @@ onMounted(cargar)
                 <select class="ord__estado" :value="o.status"
                         :style="{ color: ESTADO_COLOR[o.status] }"
                         :disabled="estadoBusy === o.id"
-                        @change="cambiarEstado(o, $event.target.value)">
+                        @change="cambiarEstado(o, $event)">
                   <option v-for="e in ESTADOS" :key="e" :value="e">{{ ESTADO_LABEL[e] }}</option>
                 </select>
                 <button class="ord__ver" @click="emit('ver-pedido', o.id)">Ver detalle →</button>
@@ -210,7 +229,7 @@ onMounted(cargar)
                   <span class="ord__total">{{ money(o.total) }}</span>
                   <select class="ord__estado" :value="o.status" :style="{ color: ESTADO_COLOR[o.status] }"
                           :disabled="estadoBusy === o.id"
-                          @change="cambiarEstado(o, $event.target.value)">
+                          @change="cambiarEstado(o, $event)">
                     <option v-for="e in ESTADOS" :key="e" :value="e">{{ ESTADO_LABEL[e] }}</option>
                   </select>
                 </div>
