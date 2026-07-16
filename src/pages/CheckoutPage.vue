@@ -302,7 +302,7 @@ async function pagarYapeManual() {
     const res = await createOrder(construirPedido())
     orderNumber.value = res?.order_number ?? ''
     yapeTotal.value = Number(res?.total ?? total.value)
-    const msg = `Hola Hebennus! Deseo pagar mi pedido ${orderNumber.value} por S/ ${yapeTotal.value.toFixed(2)} mediante Yape. ¿Me comparten el QR? 🙏`
+    const msg = `¡Holaa Hebennus! 👋 Acabo de hacer mi pedido ${orderNumber.value} y lo quiero pagar con Yape (S/ ${yapeTotal.value.toFixed(2)}). ¿Me pasas el QR porfa? ¡Gracias! 🙌`
     yapeLink.value = yapeDisponible ? `https://wa.me/${WHATSAPP_NUMERO}?text=${encodeURIComponent(msg)}` : ''
     modoExito.value = 'yape'
     enviado.value = true
