@@ -8,6 +8,7 @@ import AppFooter     from './components/AppFooter.vue'
 import CartDrawer    from './components/CartDrawer.vue'
 import ToastNotif    from './components/ToastNotif.vue'
 import QuickBuyModal from './components/QuickBuyModal.vue'
+import SoporteWidget from './components/SoporteWidget.vue'
 
 // JSON-LD de Organización (global) para Google — logo + redes.
 useHead({
@@ -198,6 +199,8 @@ onUnmounted(() => {
     :product="quickBuyProduct"
     @close="quickBuyProduct = null"
   />
+
+  <SoporteWidget v-if="mostrarTienda" />
 </template>
 
 <style scoped>

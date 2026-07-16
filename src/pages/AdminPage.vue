@@ -10,6 +10,7 @@ import { validarTelefonoPE } from '../lib/validation.js'
 import AdminDashboard from '../components/AdminDashboard.vue'
 import AdminCustomers from '../components/AdminCustomers.vue'
 import AdminProducts from '../components/AdminProducts.vue'
+import AdminTickets from '../components/AdminTickets.vue'
 import AdminPaymentTests from '../components/AdminPaymentTests.vue'
 
 // Solo en desarrollo mostramos la pestaña "Tests de pago" (la tabla payment_tests
@@ -19,7 +20,7 @@ const DEV = import.meta.env.DEV
 
 const vista = ref('resumen')   // 'resumen' | 'pedidos' | 'clientes' | 'productos' | 'tests' (solo en dev)
 
-const TITULOS = { resumen: 'Resumen', pedidos: 'Pedidos', clientes: 'Clientes', productos: 'Productos', tests: 'Tests de pago' }
+const TITULOS = { resumen: 'Resumen', pedidos: 'Pedidos', clientes: 'Clientes', productos: 'Productos', reclamos: 'Reclamos', tests: 'Tests de pago' }
 // Método de pago en formato legible para el panel
 const METODO_PAGO_LABEL = {
   izipay:        'Tarjeta/Izipay',
@@ -339,6 +340,7 @@ onMounted(async () => {
     <div class="dash__tabs">
       <button :class="['dtab', { 'dtab--on': vista === 'resumen' }]" @click="vista = 'resumen'">Resumen</button>
       <button :class="['dtab', { 'dtab--on': vista === 'pedidos' }]" @click="vista = 'pedidos'">Pedidos</button>
+      <button :class="['dtab', { 'dtab--on': vista === 'reclamos' }]" @click="vista = 'reclamos'">Reclamos</button>
       <button :class="['dtab', { 'dtab--on': vista === 'clientes' }]" @click="vista = 'clientes'">Clientes</button>
       <button :class="['dtab', { 'dtab--on': vista === 'productos' }]" @click="vista = 'productos'">Productos</button>
       <!-- Solo en desarrollo: la tabla payment_tests no existe en producción. -->
@@ -483,6 +485,8 @@ onMounted(async () => {
       </Transition>
     </Teleport>
     </template>
+
+    <AdminTickets v-else-if="vista === 'reclamos'" />
 
     <AdminCustomers v-else-if="vista === 'clientes'" @ver-pedido="verPedido" />
 

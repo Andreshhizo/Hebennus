@@ -235,6 +235,80 @@ export function buildHtmlYapePendiente(customerName: string, orderNumber: string
   return wrap(inner)
 }
 
+// Correo de reclamo/ticket. Lo usa create-ticket:
+//   • 'cliente': acuse de recibo cálido para quien envió el reclamo.
+//   • 'tienda' : aviso interno con TODOS los datos para atenderlo.
+// Reutiliza los bloques del resto de correos (wrap, eyebrow, boton, escapeHtml, C).
+export function buildHtmlReclamo(
+  t: {
+    ticket_number: string
+    name: string
+    email: string
+    phone?: string | null
+    order_number?: string | null
+    category?: string | null
+    message: string
+  },
+  dest: 'cliente' | 'tienda',
+): string {
+  const esCliente = dest === 'cliente'
+
+  // Bloque del mensaje (respeta los saltos de línea del cliente, ya escapados).
+  const mensajeHtml = escapeHtml(t.message).replace(/\n/g, '<br/>')
+
+  if (esCliente) {
+    const resumen = `
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:16px 0 4px;">
+        <tr><td style="background:${C.bg};border-radius:12px;padding:16px 18px;font-family:Arial,Helvetica,sans-serif;">
+          ${t.category ? `<p style="margin:0 0 8px;font-size:13px;color:${C.text};"><strong>Categoría:</strong> ${escapeHtml(t.category)}</p>` : ''}
+          <p style="margin:0;font-size:13px;line-height:1.6;color:${C.text};"><strong>Tu mensaje:</strong><br/>${mensajeHtml}</p>
+        </td></tr>
+      </table>`
+
+    const inner = `
+      ${eyebrow('Reclamo recibido', t.ticket_number)}
+      <h1 style="font-family:Arial,Helvetica,sans-serif;font-size:24px;font-weight:800;color:${C.ink};margin:0 0 10px;line-height:1.2;">¡Recibimos tu reclamo! 🙌</h1>
+      <p style="font-size:14px;line-height:1.6;color:${C.text};margin:0 0 8px;">Hola <strong>${escapeHtml(t.name)}</strong>, registramos tu reclamo <strong>${escapeHtml(t.ticket_number)}</strong>. Te responderemos lo antes posible por este correo.</p>
+      ${resumen}
+      <p style="font-size:13px;line-height:1.7;color:${C.muted};margin:20px 0 0;">Gracias por tu paciencia y por confiar en Hebennus. Estamos para ayudarte. 🧡</p>`
+
+    return wrap(inner)
+  }
+
+  // ── Tienda: bloque con TODOS los datos del reclamo ──
+  const fila = (label: string, value?: string | null): string =>
+    value
+      ? `<tr>
+          <td valign="top" style="padding:8px 12px 8px 0;font-family:Arial,Helvetica,sans-serif;font-size:12px;color:${C.muted};white-space:nowrap;">${label}</td>
+          <td valign="top" style="padding:8px 0;font-family:Arial,Helvetica,sans-serif;font-size:14px;color:${C.text};">${escapeHtml(value)}</td>
+        </tr>`
+      : ''
+
+  const datos = `
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:14px 0 0;border-top:1px solid ${C.border};">
+      ${fila('Nombre', t.name)}
+      ${fila('Email', t.email)}
+      ${fila('Teléfono', t.phone)}
+      ${fila('N° de pedido', t.order_number)}
+      ${fila('Categoría', t.category)}
+    </table>`
+
+  const mensaje = `
+    <h2 style="font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:${C.muted};margin:24px 0 8px;">Mensaje</h2>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+      <tr><td style="background:${C.bg};border-radius:12px;padding:16px 18px;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.6;color:${C.text};">${mensajeHtml}</td></tr>
+    </table>`
+
+  const inner = `
+    ${eyebrow('Nuevo reclamo', t.ticket_number)}
+    <h1 style="font-family:Arial,Helvetica,sans-serif;font-size:24px;font-weight:800;color:${C.ink};margin:0 0 10px;line-height:1.2;">Nuevo reclamo 📩</h1>
+    <p style="font-size:14px;line-height:1.6;color:${C.text};margin:0 0 8px;"><strong>${escapeHtml(t.name)}</strong> envió un reclamo. Detalle abajo — responde a este correo para contactarlo.</p>
+    ${datos}
+    ${mensaje}`
+
+  return wrap(inner)
+}
+
 export async function enviarResend(apiKey: string, payload: Record<string, unknown>): Promise<void> {
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
