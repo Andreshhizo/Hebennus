@@ -184,6 +184,48 @@ export function buildHtml(
   return wrap(inner)
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Correo de SOBREVENTA: el pedido se PAGÓ pero no había stock suficiente.
+//   • 'cliente': mensaje suave y honesto — confirmamos que recibimos el pago pero
+//     NUNCA decimos "confirmado"; avisamos que estamos verificando disponibilidad.
+//   • 'tienda' : alerta interna para gestionar reposición o reembolso.
+// Reutiliza los bloques del resto de correos (wrap, eyebrow, filaItem, escapeHtml, C).
+// ─────────────────────────────────────────────────────────────────────────────
+export function buildHtmlSobreventa(
+  c: ClientePedido,
+  items: ItemPedido[],
+  orderNumber: string,
+  dest: 'cliente' | 'tienda',
+): string {
+  const filas = items.map(filaItem).join('')
+  const n = escapeHtml(orderNumber)
+
+  if (dest === 'cliente') {
+    const inner = `
+      ${eyebrow('Pago recibido', orderNumber)}
+      <h1 style="font-family:Arial,Helvetica,sans-serif;font-size:24px;font-weight:800;color:${C.ink};margin:0 0 10px;line-height:1.2;">¡Recibimos tu pago! 🙌</h1>
+      <p style="font-size:14px;line-height:1.6;color:${C.text};margin:0 0 8px;">Hola <strong>${escapeHtml(c.customer_name)}</strong>, estamos verificando la disponibilidad de tu pedido <strong>${n}</strong>. Te contactaremos por WhatsApp en breve para confirmarlo o, si no hubiera stock, reembolsarte de inmediato.</p>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:14px 0 0;">${filas}</table>
+      <p style="font-size:12px;color:${C.muted};margin:22px 0 0;">Gracias por tu paciencia y por confiar en Hebennus. 🧡</p>`
+    return wrap(inner)
+  }
+
+  // ── Tienda: alerta con datos del cliente + ítems ──
+  const inner = `
+    ${eyebrow('⚠️ Revisar', orderNumber)}
+    <h1 style="font-family:Arial,Helvetica,sans-serif;font-size:24px;font-weight:800;color:${C.ink};margin:0 0 10px;line-height:1.2;">Pago recibido SIN stock</h1>
+    <p style="font-size:14px;line-height:1.6;color:${C.text};margin:0 0 8px;">El pedido <strong>${n}</strong> se <strong>PAGÓ</strong> pero no hay stock suficiente. Gestiona reposición o reembolso.</p>
+    <h2 style="font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:${C.muted};margin:24px 0 8px;">Datos del cliente</h2>
+    <p style="font-size:14px;line-height:1.7;margin:0;color:${C.text};">
+      <strong>${escapeHtml(c.customer_name)}</strong><br/>
+      ${escapeHtml(c.customer_email)} · ${escapeHtml(c.customer_phone)}<br/>
+      ${escapeHtml(c.notes ?? '')}
+    </p>
+    <h2 style="font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:${C.muted};margin:24px 0 8px;">Ítems del pedido</h2>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0;">${filas}</table>`
+  return wrap(inner)
+}
+
 // Correo de cambio de estado (lo dispara el admin al marcar confirmado/enviado/
 // entregado). Devuelve '' si el estado no lleva correo.
 export function buildHtmlEstado(customerName: string, orderNumber: string, status: string): string {

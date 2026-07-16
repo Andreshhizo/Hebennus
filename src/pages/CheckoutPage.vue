@@ -280,6 +280,16 @@ async function iniciarPagoIzipay() {
         enviado.value = true          // antes de limpiar el carrito (evita el redirect)
         clearCart()
       },
+      // Se cobró el pago PERO ya no hay stock (oversold): NO decimos "confirmado".
+      // Mostramos una pantalla honesta de "en revisión" (coordinamos por WhatsApp).
+      onOversold: () => {
+        removeForms()
+        mostrarPago.value = false
+        modoExito.value = 'revision'
+        orderNumber.value = orderNum
+        enviado.value = true          // antes de limpiar el carrito (evita el redirect)
+        clearCart()
+      },
       onError: (m) => { errorPago.value = m || 'El pago no se completó. Intenta nuevamente.' },
       onClosed: () => { mostrarPago.value = false },   // cerró el popup nativo → resetea
     })
@@ -336,6 +346,19 @@ const metodoLabel = computed(() =>
       </a>
       <p v-else class="state__msg">Escríbenos por WhatsApp mencionando tu N.° de pedido para coordinar el pago por Yape.</p>
       <RouterLink to="/coleccion" class="state__link">Seguir comprando</RouterLink>
+    </template>
+    <!-- Pago cobrado pero SIN stock (oversold): pantalla honesta, sin "confirmado". -->
+    <template v-else-if="modoExito === 'revision'">
+      <svg class="state__icon state__icon--yape" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true">
+        <circle cx="12" cy="12" r="10"/><path d="M12 7v5l3 2"/>
+      </svg>
+      <h1 class="state__title">¡Recibimos tu pago! 🙌</h1>
+      <p class="state__num">N.° de pedido: <strong>{{ orderNumber }}</strong></p>
+      <p class="state__msg">
+        Estamos verificando el stock de tu pedido {{ orderNumber }} y te escribiremos por
+        <strong>WhatsApp</strong> para confirmarlo o reembolsarte.
+      </p>
+      <RouterLink to="/coleccion" class="state__cta">Seguir comprando</RouterLink>
     </template>
     <template v-else>
       <svg class="state__icon" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true">

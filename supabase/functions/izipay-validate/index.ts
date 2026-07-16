@@ -19,12 +19,65 @@
 
 import { verifyHmac } from '../_shared/hmac.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { enviarCorreoConfirmacion, type ItemPedido } from '../_shared/email.ts'
+import {
+  buildHtmlSobreventa,
+  enviarCorreoConfirmacion,
+  enviarResend,
+  type ClientePedido,
+  type ItemPedido,
+} from '../_shared/email.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Correos de SOBREVENTA (el pedido se PAGÓ pero faltó stock): aviso suave al
+// cliente (SIN confirmar) + alerta a la tienda para reposición/reembolso.
+// Best-effort: no lanza. Mismo patrón que enviarCorreoConfirmacion.
+// ─────────────────────────────────────────────────────────────────────────────
+async function enviarCorreosSobreventa(
+  cliente: ClientePedido,
+  items: ItemPedido[],
+  orderNumber: string,
+): Promise<void> {
+  const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
+  if (!RESEND_API_KEY) {
+    console.error('[izipay-validate] RESEND_API_KEY no configurada — no se envía correo')
+    return
+  }
+  const FROM  = Deno.env.get('RESEND_FROM') ?? 'Hebennus <onboarding@resend.dev>'
+  const STORE = Deno.env.get('STORE_EMAIL')
+
+  // Aviso suave al cliente (SIN confirmar el pedido).
+  try {
+    await enviarResend(RESEND_API_KEY, {
+      from: FROM,
+      to: [cliente.customer_email.trim()],
+      subject: `Recibimos tu pago ${orderNumber} — Hebennus`,
+      html: buildHtmlSobreventa(cliente, items, orderNumber, 'cliente'),
+      reply_to: STORE || undefined,
+    })
+  } catch (e) {
+    console.error(`[izipay-validate] Aviso sobreventa cliente falló (${orderNumber}):`, (e as Error).message)
+  }
+
+  // Alerta a la tienda (reposición o reembolso).
+  if (STORE) {
+    try {
+      await enviarResend(RESEND_API_KEY, {
+        from: FROM,
+        to: [STORE],
+        subject: `⚠️ Pedido ${orderNumber} PAGADO SIN STOCK — ${cliente.customer_name}`,
+        html: buildHtmlSobreventa(cliente, items, orderNumber, 'tienda'),
+        reply_to: cliente.customer_email.trim(),
+      })
+    } catch (e) {
+      console.error(`[izipay-validate] Alerta sobreventa tienda falló (${orderNumber}):`, (e as Error).message)
+    }
+  }
 }
 
 function json(obj: unknown, status = 200): Response {
@@ -69,7 +122,10 @@ Deno.serve(async (req: Request) => {
   const paid = answer?.orderStatus === 'PAID'
   if (!paid) return json({ valid: true, paid: false })
 
-  // Firma válida + pagado → confirmar el pedido (idempotente) y enviar correo.
+  // Firma válida + pagado → registrar el pago (idempotente) y enviar el correo
+  // que corresponda. `oversold` viaja al navegador para avisar en la UI. Si el
+  // RPC falla o no devuelve nada, oversold queda en false.
+  let oversold = false
   try {
     const orderId = answer?.orderDetails?.orderId
     const txn     = answer?.transactions?.[0]?.uuid ?? null
@@ -80,9 +136,15 @@ Deno.serve(async (req: Request) => {
         p_txn_id: txn,
       })
       if (rpcErr) console.error('[izipay-validate] marcar_pedido_pagado:', rpcErr.message)
+      oversold = result?.oversold === true
 
-      // Solo en la PRIMERA confirmación (no idempotente) enviamos el correo.
-      if (result && result.idempotent === false) {
+      // Correo según el RESULTADO del RPC (nunca por excepción). Nunca enviamos
+      // "Confirmación" si el RPC falló o si hubo sobreventa:
+      //   • RPC con error       → no enviamos nada.
+      //   • idempotent === true → notificación repetida: no reenviamos.
+      //   • oversold  === true  → pagó sin stock: aviso suave cliente + alerta tienda.
+      //   • resto (1ª vez, OK)  → correo de confirmación normal.
+      if (!rpcErr && result && result.idempotent === false) {
         const { data: order } = await admin
           .from('orders').select('*, order_items(*)').eq('order_number', orderId).single()
         if (order) {
@@ -98,11 +160,17 @@ Deno.serve(async (req: Request) => {
             product_id: it.product_id, name: it.name, size: it.size, color: it.color,
             qty: it.qty, unit_price: it.unit_price, subtotal: it.subtotal,
           }))
-          const totals = {
-            subtotal: Number(order.subtotal), shipping: Number(order.shipping),
-            discount: Number(order.discount ?? 0), total: Number(order.total),
+
+          if (oversold) {
+            // Pagó sin stock: NO confirmamos; aviso suave al cliente + alerta a la tienda.
+            await enviarCorreosSobreventa(cliente, items, orderId)
+          } else {
+            const totals = {
+              subtotal: Number(order.subtotal), shipping: Number(order.shipping),
+              discount: Number(order.discount ?? 0), total: Number(order.total),
+            }
+            await enviarCorreoConfirmacion(cliente, items, totals, orderId)
           }
-          await enviarCorreoConfirmacion(cliente, items, totals, orderId)
         }
       }
     }
@@ -111,5 +179,5 @@ Deno.serve(async (req: Request) => {
     console.error('[izipay-validate] confirmación:', (e as Error).message)
   }
 
-  return json({ valid: true, paid: true })
+  return json({ valid: true, paid: true, oversold })
 })

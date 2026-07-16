@@ -213,7 +213,7 @@ async function marcarPagado(pedido) {
   marcandoPagado.value = pedido.id
   pedidosError.value = ''
   try {
-    const { error } = await supabase.rpc('admin_marcar_pagado', { p_order_number: pedido.order_number })
+    const { data, error } = await supabase.rpc('admin_marcar_pagado', { p_order_number: pedido.order_number })
     if (error) {
       const msg = error.message || ''
       if (msg.includes('STOCK_INSUFICIENTE')) {
@@ -225,12 +225,21 @@ async function marcarPagado(pedido) {
       }
       return
     }
+    // El RPC puede devolver oversold=true: el pago quedó marcado PAGADO pero YA NO
+    // hay stock. Somos honestos: avisamos que hay que revisar/reembolsar en vez de
+    // tratarlo como confirmado (NO enviamos el correo de "confirmado" al cliente).
+    if (data?.oversold === true) {
+      pedMsg.value = { tipo: 'error', texto: '⚠️ Pagado, pero SIN stock: revisar/reembolsar este pedido.' }
+      await cargarPedidos() // refresca para reflejar payment_status='pagado'
+      return
+    }
     // Avisar al cliente que confirmamos su pago (best-effort; no bloquea).
     try {
       await supabase.functions.invoke('admin-notificar-envio', {
         body: { order_number: pedido.order_number, status: 'confirmado' },
       })
     } catch (_) { /* correo best-effort */ }
+    pedMsg.value = { tipo: 'ok', texto: '✓ Pago confirmado' }
     await cargarPedidos() // refresca para reflejar payment_status='pagado'
   } finally {
     marcandoPagado.value = null

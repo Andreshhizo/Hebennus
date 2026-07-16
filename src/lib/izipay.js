@@ -64,7 +64,7 @@ function cargarTemaIzipay(endpoint) {
 // CADA montaje: krypton REEMPLAZA el onSubmit (no lo apila), y removeForms() puede
 // quitar los handlers previos. Re-registrar evita que un 2º pago en la misma sesión
 // reciba el "PAID" de Izipay sin que la UI avance (se quedaba colgado).
-let callbacksIzipay = { onPaid: null, onError: null, onClosed: null, onResult: null }
+let callbacksIzipay = { onPaid: null, onError: null, onClosed: null, onResult: null, onOversold: null }
 
 // Carga la librería krypton + el tema neon y renderiza el SMART FORM embebido en
 // `selector` (un <div class="kr-smart-form"> dentro de nuestro propio modal). Muestra
@@ -75,9 +75,9 @@ let callbacksIzipay = { onPaid: null, onError: null, onClosed: null, onResult: n
 // cliente reintenta con otro monto, hay que LIMPIAR el form previo (removeForms)
 // antes de reconfigurar con el nuevo formToken; si no, seguiría cobrando el monto
 // viejo aunque el pedido nuevo sea distinto.
-export async function montarFormularioIzipay({ endpoint, publicKey, formToken, selector, onPaid, onError, onClosed, onResult }) {
+export async function montarFormularioIzipay({ endpoint, publicKey, formToken, selector, onPaid, onError, onClosed, onResult, onOversold }) {
   // Callbacks por referencia: siempre apuntan al intento actual.
-  callbacksIzipay = { onPaid, onError, onClosed, onResult }
+  callbacksIzipay = { onPaid, onError, onClosed, onResult, onOversold }
 
   await cargarTemaIzipay(endpoint)
   const { KR } = await KRGlue.loadLibrary(endpoint, publicKey)
@@ -102,17 +102,36 @@ export async function montarFormularioIzipay({ endpoint, publicKey, formToken, s
     // checkout no pasa onResult, así que no le afecta).
     callbacksIzipay.onResult?.({ status, clientAnswer, hash: resp.hash, raw: krAnswer })
 
-    // Confirmación server-side (verifica la firma HMAC → marca pagado + correo).
-    // Se dispara SIN bloquear la UI; si falla/tarda, la IPN (servidor-a-servidor)
-    // confirma el pedido igual. Así la pantalla nunca se queda congelada.
+    // Si el estado local NO es PAID, no hubo cobro: avisamos y salimos.
+    if (status !== 'PAID') {
+      callbacksIzipay.onError?.('El pago no se completó. Intenta nuevamente.')
+      return false
+    }
+
+    // Pago cobrado (status local PAID). Confirmamos SERVER-SIDE con `izipay-validate`
+    // (verifica la firma HMAC → marca pagado + correo) y leemos su respuesta
+    // { valid, paid, oversold }. oversold=true = se cobró pero YA NO hay stock:
+    // en ese caso la pantalla debe ser HONESTA (revisión), no "confirmado".
+    //
+    // Damos ~4s: si validate FALLA o TARDA (red/timeout), caemos a un optimismo
+    // respaldado por la IPN (servidor-a-servidor), para que la UI nunca se cuelgue.
+    // El guard `finalizar` garantiza que se dispare UN solo callback (el primero).
+    let resuelto = false
+    const finalizar = (fn) => { if (resuelto) return; resuelto = true; fn?.() }
+
     supabase.functions
       .invoke('izipay-validate', { body: { krAnswer, krHash: resp.hash } })
-      .catch(() => { /* la IPN confirmará igual */ })
+      .then(({ data, error }) => {
+        if (error) { finalizar(callbacksIzipay.onPaid); return }   // la IPN respalda
+        if (data?.oversold === true) finalizar(callbacksIzipay.onOversold)
+        else finalizar(callbacksIzipay.onPaid)
+      })
+      .catch(() => { finalizar(callbacksIzipay.onPaid) })          // error de red → optimista
 
-    if (status === 'PAID') callbacksIzipay.onPaid?.()
-    else callbacksIzipay.onError?.('El pago no se completó. Intenta nuevamente.')
+    // Timeout de seguridad: si validate tarda demasiado, avanzamos optimistas.
+    setTimeout(() => finalizar(callbacksIzipay.onPaid), 4000)
 
-    // Evita que krypton recargue/redirija: la UX la maneja onPaid()/onError().
+    // Evita que krypton recargue/redirija: la UX la maneja onPaid()/onOversold()/onError().
     return false
   })
 
