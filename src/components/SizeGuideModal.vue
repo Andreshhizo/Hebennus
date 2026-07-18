@@ -1,8 +1,10 @@
 <script setup>
+import { ref } from 'vue'
 import { useModalUX } from '../lib/useModal.js'
 const props = defineProps({ open: { type: Boolean, default: false } })
 const emit = defineEmits(['close'])
-useModalUX(() => props.open, () => emit('close'))
+const panel = ref(null)
+useModalUX(() => props.open, () => emit('close'), panel)
 </script>
 
 <template>
@@ -11,7 +13,7 @@ useModalUX(() => props.open, () => emit('close'))
       <div v-if="open" class="overlay" @click="emit('close')" aria-hidden="true"></div>
     </Transition>
     <Transition name="slide-up">
-      <div v-if="open" class="modal" role="dialog" aria-modal="true" aria-label="Guía de tallas">
+      <div v-if="open" ref="panel" class="modal" role="dialog" aria-modal="true" aria-label="Guía de tallas">
         <div class="modal__head">
           <span class="modal__title">Guía de tallas</span>
           <button class="modal__close" @click="emit('close')" aria-label="Cerrar">
@@ -105,8 +107,10 @@ useModalUX(() => props.open, () => emit('close'))
 }
 .modal__close {
   color: var(--text-2);
-  display: flex;
-  align-items: center;
+  display: grid;
+  place-items: center;
+  min-width: 44px;
+  min-height: 44px;
   transition: color 0.2s;
 }
 .modal__close:hover { color: var(--text-1); }

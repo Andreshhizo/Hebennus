@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useModalUX } from '../lib/useModal.js'
 
 const props = defineProps({
@@ -7,7 +7,8 @@ const props = defineProps({
   open:  { type: Boolean, default: false },
 })
 const emit = defineEmits(['close', 'remove', 'update-qty', 'clear-all', 'go-checkout'])
-useModalUX(() => props.open, () => emit('close'))
+const drawerPanel = ref(null)
+useModalUX(() => props.open, () => emit('close'), drawerPanel)
 
 const total = computed(() =>
   props.items.reduce((sum, item) => sum + Number(item.price) * (item.qty ?? 1), 0)
@@ -21,8 +22,10 @@ const total = computed(() =>
     </Transition>
 
     <div
+      ref="drawerPanel"
       class="drawer"
       :class="{ 'drawer--open': open }"
+      :inert="!open"
       role="dialog"
       aria-modal="true"
       aria-label="Carrito de compras"
@@ -158,8 +161,10 @@ const total = computed(() =>
 .drawer__clear:hover { color: var(--text-1); }
 .drawer__close {
   color: var(--text-2);
-  display: flex;
-  align-items: center;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
   transition: color 0.2s;
 }
 .drawer__close:hover { color: var(--text-1); }
@@ -239,7 +244,7 @@ const total = computed(() =>
   flex-shrink: 0;
 }
 .qty-btn {
-  width: 36px; height: 36px;
+  width: 44px; height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;

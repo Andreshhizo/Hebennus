@@ -364,6 +364,104 @@ export async function enviarResend(apiKey: string, payload: Record<string, unkno
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Envío por LOTES (Resend Batch API): hasta 100 correos por request. Lo usa
+// admin-enviar-campana para mandar una campaña a muchos destinatarios de forma
+// eficiente. `batch` es el array de mensajes (cada uno con from/to/subject/html…).
+// Mismo manejo de error que enviarResend: lanza con el texto del error si !res.ok.
+// ─────────────────────────────────────────────────────────────────────────────
+export async function enviarResendBatch(apiKey: string, batch: Record<string, unknown>[]): Promise<void> {
+  const res = await fetch('https://api.resend.com/emails/batch', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(batch),
+  })
+  if (!res.ok) {
+    const detail = await res.text().catch(() => '')
+    throw new Error(`Resend batch ${res.status}: ${detail.slice(0, 300)}`)
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Campañas de marketing (Fase 4)
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Variante de wrap() para campañas: idéntica al layout de marca pero con un
+// footer que incluye el enlace de baja (obligatorio para email masivo / Ley 29733).
+function wrapCampana(inner: string, unsubscribeUrl: string): string {
+  return `<!doctype html><html lang="es"><head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <meta name="color-scheme" content="light"/>
+  <meta name="supported-color-schemes" content="light"/>
+  </head>
+  <body style="margin:0;padding:0;background:${C.bg};">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${C.bg};">
+      <tr><td align="center" style="padding:24px 12px;">
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="width:600px;max-width:100%;background:${C.card};border-radius:16px;overflow:hidden;">
+          ${header()}
+          <tr><td style="padding:30px 32px 6px;font-family:Arial,Helvetica,sans-serif;color:${C.text};">${inner}</td></tr>
+          <tr><td style="padding:22px 32px 6px;text-align:center;border-top:1px solid ${C.border};">
+            <a href="${IG}" style="color:${C.denim};font-family:Arial,Helvetica,sans-serif;font-size:12px;font-weight:bold;text-decoration:none;margin:0 10px;">Instagram</a>
+            <a href="${TT}" style="color:${C.denim};font-family:Arial,Helvetica,sans-serif;font-size:12px;font-weight:bold;text-decoration:none;margin:0 10px;">TikTok</a>
+          </td></tr>
+          <tr><td style="padding:6px 32px 28px;text-align:center;">
+            <p style="font-family:Arial,Helvetica,sans-serif;color:${C.muted};font-size:11px;line-height:1.7;margin:0 0 8px;">Hebennus · Lima, Perú<br/>Make it real, Make it with Hebennus.</p>
+            <p style="font-family:Arial,Helvetica,sans-serif;color:${C.muted};font-size:11px;line-height:1.7;margin:0;">¿Ya no quieres recibir estos correos? <a href="${escapeHtml(unsubscribeUrl)}" style="color:${C.muted};text-decoration:underline;">Darme de baja</a></p>
+          </td></tr>
+        </table>
+      </td></tr>
+    </table>
+  </body></html>`
+}
+
+// Construye el HTML de un correo de campaña. El contenido lo escribe el admin en
+// TEXTO PLANO: aquí se escapa (buildHtml no permite HTML crudo → evita XSS) y solo
+// se convierten los saltos de línea en <br/>. Si hay cta_text + cta_url, añade el
+// botón de marca. El unsubscribeUrl va en el footer (enlace "Darme de baja").
+export function buildHtmlCampana(
+  { title, body, cta_text, cta_url, unsubscribeUrl }: {
+    title?: string | null
+    body: string
+    cta_text?: string | null
+    cta_url?: string | null
+    unsubscribeUrl: string
+  },
+): string {
+  const tituloHtml = title && title.trim()
+    ? `<h1 style="font-family:Arial,Helvetica,sans-serif;font-size:24px;font-weight:800;color:${C.ink};margin:0 0 14px;line-height:1.25;">${escapeHtml(title)}</h1>`
+    : ''
+
+  const cuerpoHtml = escapeHtml(body).replace(/\n/g, '<br/>')
+  const bloqueCta = (cta_text && cta_text.trim() && cta_url && cta_url.trim())
+    ? `<div style="text-align:center;margin:28px 0 6px;">${boton(escapeHtml(cta_text), encodeURI(cta_url))}</div>`
+    : ''
+
+  const inner = `
+    <p style="color:${C.denim};font-size:11px;font-weight:bold;letter-spacing:2px;text-transform:uppercase;margin:0 0 8px;">Hebennus</p>
+    ${tituloHtml}
+    <p style="font-size:14px;line-height:1.7;color:${C.text};margin:0 0 8px;">${cuerpoHtml}</p>
+    ${bloqueCta}`
+
+  return wrapCampana(inner, unsubscribeUrl)
+}
+
+// HTML de la página de confirmación de baja (la sirve baja-marketing en un GET).
+// Español, con la marca; sin datos personales (mismo mensaje exista o no el token).
+export function buildHtmlBaja(): string {
+  const inner = `
+    <p style="color:${C.denim};font-size:11px;font-weight:bold;letter-spacing:2px;text-transform:uppercase;margin:0 0 8px;">Suscripción</p>
+    <h1 style="font-family:Arial,Helvetica,sans-serif;font-size:24px;font-weight:800;color:${C.ink};margin:0 0 12px;line-height:1.25;">Listo, ya no recibirás más correos de Hebennus</h1>
+    <p style="font-size:14px;line-height:1.7;color:${C.text};margin:0 0 8px;">Cancelamos tu suscripción a nuestros correos de novedades y promociones. Puede tardar unos minutos en aplicarse por completo.</p>
+    <p style="font-size:14px;line-height:1.7;color:${C.text};margin:0 0 8px;">Si fue un error o cambias de opinión, siempre puedes volver a suscribirte en tu próxima compra. 🧡</p>
+    <div style="text-align:center;margin:28px 0 6px;">${boton('Volver a la tienda →', SITE)}</div>
+    <p style="font-size:12px;color:${C.muted};margin:22px 0 0;text-align:center;">
+      <a href="${SITE}" style="color:${C.muted};text-decoration:underline;margin:0 8px;">Inicio</a>
+      <a href="${SITE}/privacidad" style="color:${C.muted};text-decoration:underline;margin:0 8px;">Privacidad</a>
+    </p>`
+  return wrap(inner)
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Envío del par de correos (cliente + copia a la tienda). Idéntico al flujo que
 // usaba create-order; centralizado para reutilizarlo en la IPN de Izipay.
 // No lanza: devuelve { sent, error } para no tumbar el pedido si Resend falla.

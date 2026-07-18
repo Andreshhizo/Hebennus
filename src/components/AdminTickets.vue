@@ -125,6 +125,7 @@ onMounted(cargar)
   <!-- Buscador -->
   <div class="tk__search">
     <input v-model="busqueda" type="search" class="tk__searchinput"
+           aria-label="Buscar reclamos por número, nombre, correo o número de pedido"
            placeholder="Buscar por N° de reclamo, nombre, correo o N° de pedido…" />
     <span v-if="busqueda.trim()" class="tk__searchcount">{{ ticketsBuscados.length }} resultado(s)</span>
   </div>

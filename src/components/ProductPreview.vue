@@ -50,7 +50,7 @@ const agotado = computed(() => {
       <span class="pp__label">Ficha (detalle)</span>
       <div class="gallery">
         <div class="gallery__main">
-          <img v-if="imagenPrincipal" :src="imagenPrincipal" alt="" class="gallery__img" :class="{ 'gallery__img--out': agotado }" />
+          <img v-if="imagenPrincipal" :src="imagenPrincipal" :alt="product?.name ? ('Vista previa: ' + product.name) : 'Vista previa del producto'" class="gallery__img" :class="{ 'gallery__img--out': agotado }" />
           <div v-else class="gallery__placeholder"><span>HEBENNUS</span></div>
           <div v-if="agotado" class="gallery__soldout"><span>Sold Out</span></div>
         </div>

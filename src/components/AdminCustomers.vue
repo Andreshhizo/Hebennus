@@ -183,6 +183,7 @@ onMounted(cargar)
                 <span class="ord__date">{{ fmtFecha(o.created_at) }}</span>
                 <span class="ord__total">{{ money(o.total) }}</span>
                 <select class="ord__estado" :value="o.status"
+                        aria-label="Estado del pedido"
                         :style="{ color: ESTADO_COLOR[o.status] }"
                         :disabled="estadoBusy === o.id"
                         @change="cambiarEstado(o, $event)">
@@ -228,6 +229,7 @@ onMounted(cargar)
                   <span class="ord__date">{{ fmtFecha(o.created_at) }}</span>
                   <span class="ord__total">{{ money(o.total) }}</span>
                   <select class="ord__estado" :value="o.status" :style="{ color: ESTADO_COLOR[o.status] }"
+                          aria-label="Estado del pedido"
                           :disabled="estadoBusy === o.id"
                           @change="cambiarEstado(o, $event)">
                     <option v-for="e in ESTADOS" :key="e" :value="e">{{ ESTADO_LABEL[e] }}</option>

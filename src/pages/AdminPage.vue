@@ -11,6 +11,7 @@ import AdminDashboard from '../components/AdminDashboard.vue'
 import AdminCustomers from '../components/AdminCustomers.vue'
 import AdminProducts from '../components/AdminProducts.vue'
 import AdminTickets from '../components/AdminTickets.vue'
+import AdminCampaigns from '../components/AdminCampaigns.vue'
 import AdminPaymentTests from '../components/AdminPaymentTests.vue'
 
 // Solo en desarrollo mostramos la pestaña "Tests de pago" (la tabla payment_tests
@@ -18,9 +19,9 @@ import AdminPaymentTests from '../components/AdminPaymentTests.vue'
 // por eso lo exponemos como constante.
 const DEV = import.meta.env.DEV
 
-const vista = ref('resumen')   // 'resumen' | 'pedidos' | 'clientes' | 'productos' | 'tests' (solo en dev)
+const vista = ref('resumen')   // 'resumen' | 'pedidos' | 'clientes' | 'productos' | 'campanas' | 'tests' (solo en dev)
 
-const TITULOS = { resumen: 'Resumen', pedidos: 'Pedidos', clientes: 'Clientes', productos: 'Productos', reclamos: 'Reclamos', tests: 'Tests de pago' }
+const TITULOS = { resumen: 'Resumen', pedidos: 'Pedidos', clientes: 'Clientes', productos: 'Productos', reclamos: 'Reclamos', campanas: 'Campañas', tests: 'Tests de pago' }
 // Método de pago en formato legible para el panel
 const METODO_PAGO_LABEL = {
   izipay:        'Tarjeta/Izipay',
@@ -393,6 +394,7 @@ onMounted(async () => {
       <button :class="['dtab', { 'dtab--on': vista === 'reclamos' }]" @click="vista = 'reclamos'">Reclamos</button>
       <button :class="['dtab', { 'dtab--on': vista === 'clientes' }]" @click="vista = 'clientes'">Clientes</button>
       <button :class="['dtab', { 'dtab--on': vista === 'productos' }]" @click="vista = 'productos'">Productos</button>
+      <button :class="['dtab', { 'dtab--on': vista === 'campanas' }]" @click="vista = 'campanas'">Campañas</button>
       <!-- Solo en desarrollo: la tabla payment_tests no existe en producción. -->
       <button v-if="DEV" :class="['dtab', { 'dtab--on': vista === 'tests' }]" @click="vista = 'tests'">Tests de pago</button>
     </div>
@@ -411,6 +413,7 @@ onMounted(async () => {
 
     <div class="dash__search">
       <input v-model="busqueda" type="search" class="dash__searchinput"
+             aria-label="Buscar pedidos por número, nombre, correo o teléfono"
              placeholder="Buscar por N° de pedido, nombre, correo o teléfono…" />
       <span v-if="busqueda.trim()" class="dash__searchcount">{{ pedidosBuscados.length }} resultado(s)</span>
     </div>
@@ -497,7 +500,7 @@ onMounted(async () => {
                 </button>
                 <label class="order__estado">
                   Estado:
-                  <select :value="detalle.status" :disabled="estadoBusy === detalle.id" @change="cambiarEstado(detalle, $event.target.value, $event)">
+                  <select :value="detalle.status" :disabled="estadoBusy === detalle.id" aria-label="Estado del pedido" @change="cambiarEstado(detalle, $event.target.value, $event)">
                     <option v-for="e in ESTADOS" :key="e" :value="e">{{ ESTADO_LABEL[e] }}</option>
                   </select>
                   <span v-if="estadoBusy === detalle.id" class="spinner spinner--sm"></span>
@@ -542,6 +545,8 @@ onMounted(async () => {
 
     <AdminProducts v-else-if="vista === 'productos'" />
 
+    <AdminCampaigns v-else-if="vista === 'campanas'" />
+
     <!-- Solo en desarrollo: registro de pruebas de pago. -->
     <AdminPaymentTests v-else-if="DEV && vista === 'tests'" />
   </div>
@@ -561,7 +566,7 @@ onMounted(async () => {
 .login__sub { text-align: center; font-size: 0.72rem; letter-spacing: 0.18em; text-transform: uppercase; color: var(--text-3); margin-bottom: 1rem; }
 .login__label { font-size: 0.68rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-2); font-weight: 600; margin-top: 0.5rem; }
 .login__input { background: var(--surface-2); border: 1px solid var(--border-mid); color: var(--text-1); padding: 0.7rem 0.8rem; font-size: 0.95rem; outline: none; }
-.login__input:focus-visible { border-color: var(--accent); }
+.login__input:focus-visible { border-color: var(--accent); box-shadow: 0 0 0 3px var(--glow-color); }
 .login__error { color: var(--danger); font-size: 0.78rem; }
 .login__btn {
   margin-top: 1rem; padding: 0.85rem; background: var(--accent); color: var(--ink);
@@ -662,7 +667,7 @@ onMounted(async () => {
 .odm__f { display: flex; flex-direction: column; gap: 0.25rem; }
 .odm__f > span { font-size: 0.64rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-3); font-weight: 600; }
 .odm__input { background: var(--surface-2); border: 1px solid var(--border-mid); color: var(--text-1); padding: 0.5rem 0.6rem; font-size: 0.88rem; outline: none; border-radius: 6px; font-family: inherit; }
-.odm__input:focus-visible { border-color: var(--accent); }
+.odm__input:focus-visible { border-color: var(--accent); box-shadow: 0 0 0 3px var(--glow-color); }
 .odm__msg { font-size: 0.78rem; margin-top: 0.2rem; }
 .odm__msg--ok { color: var(--success); }
 .odm__msg--err { color: var(--danger); }

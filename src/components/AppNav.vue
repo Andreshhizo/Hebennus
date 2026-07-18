@@ -117,7 +117,7 @@ onUnmounted(() => document.removeEventListener('click', onDocClick))
       <div v-if="menuOpen" class="mob-overlay" @click="menuOpen = false" aria-hidden="true"></div>
     </Transition>
 
-    <div class="mob-menu" :class="{ 'mob-menu--open': menuOpen }" role="dialog" aria-modal="true" aria-label="Menú">
+    <div class="mob-menu" :class="{ 'mob-menu--open': menuOpen }" :inert="!menuOpen" role="dialog" aria-modal="true" aria-label="Menú">
       <div class="mob-menu__head">
         <span class="mob-menu__logo">HEBENNUS</span>
         <button class="mob-menu__close" @click="menuOpen = false" aria-label="Cerrar menú">
@@ -236,6 +236,9 @@ onUnmounted(() => document.removeEventListener('click', onDocClick))
 .nav__theme {
   display: flex;
   align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
   color: var(--text-2);
   padding: 0.5rem;
   transition: color 0.2s;
@@ -245,6 +248,9 @@ onUnmounted(() => document.removeEventListener('click', onDocClick))
   position: relative;
   display: flex;
   align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
   color: var(--text-1);
   padding: 0.5rem;
   transition: color 0.2s;
@@ -273,7 +279,7 @@ onUnmounted(() => document.removeEventListener('click', onDocClick))
 
 /* ── ACCOUNT ── */
 .nav__account { position: relative; display: flex; align-items: center; }
-.nav__acct { position: relative; display: flex; align-items: center; color: var(--text-2); padding: 0.5rem; transition: color 0.2s; cursor: pointer; }
+.nav__acct { position: relative; display: flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; color: var(--text-2); padding: 0.5rem; transition: color 0.2s; cursor: pointer; }
 .nav__acct:hover { color: var(--text-1); }
 .nav__acct-dot { position: absolute; top: 0; right: 0; width: 7px; height: 7px; background: var(--copper); border-radius: 50%; }
 .nav__menu {
@@ -297,6 +303,10 @@ onUnmounted(() => document.removeEventListener('click', onDocClick))
 .nav__burger {
   display: none;
   flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
   gap: 5px;
   padding: 4px;
   cursor: pointer;
@@ -360,8 +370,10 @@ onUnmounted(() => document.removeEventListener('click', onDocClick))
 }
 .mob-menu__close {
   color: var(--text-2);
-  display: flex;
-  align-items: center;
+  display: grid;
+  place-items: center;
+  min-width: 44px;
+  min-height: 44px;
   transition: color 0.2s;
 }
 .mob-menu__close:hover { color: var(--text-1); }

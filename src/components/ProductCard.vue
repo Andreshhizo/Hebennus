@@ -273,7 +273,8 @@ function colorHex(c) { return COLOR_HEX[normColor(c)] ?? null }
   transition: opacity 0.28s var(--ease-out), transform 0.28s var(--ease-out);
   pointer-events: none;
 }
-.card:hover .card__quick { opacity: 1; transform: translateY(0); pointer-events: auto; }
+.card:hover .card__quick,
+.card:focus-within .card__quick { opacity: 1; transform: translateY(0); pointer-events: auto; }
 .card__quick-btn {
   min-width: 2rem;
   padding: 0.42rem 0.55rem;

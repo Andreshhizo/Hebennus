@@ -11,7 +11,8 @@ const emit = defineEmits(['close'])
 
 const addToCart  = inject('addToCart')
 const isOpen     = computed(() => !!props.product)
-useModalUX(isOpen, () => emit('close'))
+const qbPanel    = ref(null)
+useModalUX(isOpen, () => emit('close'), qbPanel)
 const guideOpen  = ref(false)
 const imagenIdx    = ref(0)
 const tallaElegida = ref(null)
@@ -98,7 +99,7 @@ function handleAdd() {
     </Transition>
 
     <Transition name="qb-slide">
-      <div v-if="isOpen" class="qb" role="dialog" aria-modal="true" :aria-label="`Compra rápida: ${product?.name}`">
+      <div v-if="isOpen" ref="qbPanel" class="qb" role="dialog" aria-modal="true" :aria-label="`Compra rápida: ${product?.name}`">
         <!-- Close -->
         <button class="qb__close" @click="emit('close')" aria-label="Cerrar">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -234,7 +235,7 @@ function handleAdd() {
 .qb__close {
   position: absolute;
   top: 1rem; right: 1rem;
-  width: 2.1rem; height: 2.1rem;
+  width: 44px; height: 44px;
   display: grid;
   place-items: center;
   color: var(--text-2);
@@ -350,6 +351,7 @@ function handleAdd() {
 }
 .size-btn {
   min-width: 2.5rem;
+  min-height: 44px;
   padding: 0.45rem 0.7rem;
   background: transparent;
   color: var(--text-2);

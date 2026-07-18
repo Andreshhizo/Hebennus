@@ -292,6 +292,7 @@ function handleAdd() {
               :key="i"
               class="gallery__dot"
               :class="{ 'gallery__dot--active': imagenIdx === i }"
+              tabindex="-1"
               @click="imagenIdx = i"
             ></button>
           </div>
@@ -580,8 +581,8 @@ function handleAdd() {
   top: 50%;
   transform: translateY(-50%) scale(0.95);
   z-index: 5;
-  width: 2.6rem;
-  height: 2.6rem;
+  width: 2.75rem;
+  height: 2.75rem;
   display: grid;
   place-items: center;
   background: rgba(0,0,0,0.4);
@@ -737,6 +738,7 @@ function handleAdd() {
 
 .size-btn {
   min-width: 2.6rem;
+  min-height: 44px;
   padding: 0.5rem 0.85rem;
   background: transparent;
   color: var(--text-2);

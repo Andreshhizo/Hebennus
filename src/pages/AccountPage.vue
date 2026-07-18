@@ -4,6 +4,7 @@ import { ref, reactive, computed, onUnmounted } from 'vue'
 import { useRouter, RouterLink } from 'vue-router'
 import { useAuth } from '../lib/useAuth.js'
 import { validarPassword, validarTelefonoPE } from '../lib/validation.js'
+import { GOOGLE_OAUTH_ENABLED } from '../lib/config.js'
 
 const router = useRouter()
 const { signUp, signIn, signInWithGoogle, resendConfirmation, verifyEmailCode,
@@ -206,9 +207,10 @@ function cambiarModo(m) {
 
     <p v-if="modo === 'registro'" class="acc__promo">🎁 Crea tu cuenta y sigue tus pedidos en un solo lugar.</p>
 
-    <!-- Login con Google OCULTO: el proveedor no está habilitado en Supabase (necesita
-         OAuth de Google Cloud). Reactivar quitando el v-if="false" cuando esté configurado. -->
-    <template v-if="false">
+    <!-- Login con Google: controlado por env var VITE_GOOGLE_OAUTH_ENABLED (ver
+         GOOGLE_OAUTH_ENABLED en ../lib/config.js). Requiere tener el proveedor
+         Google habilitado en Supabase (OAuth de Google Cloud) antes de activarlo. -->
+    <template v-if="GOOGLE_OAUTH_ENABLED">
       <button type="button" class="acc__google" :disabled="googleLoading" @click="conGoogle">
         <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
           <path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.92c1.7-1.57 2.68-3.88 2.68-6.62z"/>

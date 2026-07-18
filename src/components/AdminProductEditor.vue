@@ -557,7 +557,7 @@ function volver() {
 .edit__f { display: flex; flex-direction: column; gap: 0.25rem; margin-bottom: 0.6rem; }
 .edit__f > span { font-size: 0.64rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-3); font-weight: 600; }
 .edit__input { background: var(--surface-2); border: 1px solid var(--border-mid); color: var(--text-1); padding: 0.5rem 0.6rem; font-size: 0.88rem; outline: none; border-radius: 6px; font-family: inherit; }
-.edit__input:focus-visible { border-color: var(--accent); }
+.edit__input:focus-visible { border-color: var(--accent); box-shadow: 0 0 0 3px var(--glow-color); }
 .edit__input--sm { max-width: 110px; }
 .cats { display: flex; flex-wrap: wrap; gap: 0.4rem; }
 .cats__chip { padding: 0.4rem 0.85rem; font-size: 0.78rem; font-weight: 600; background: var(--surface-2); border: 1px solid var(--border-mid); color: var(--text-2); border-radius: var(--radius-pill); cursor: pointer; }
@@ -579,7 +579,7 @@ function volver() {
 .ape__addvar:hover { color: var(--text-1); border-color: var(--accent); }
 .addvar { display: flex; gap: 0.5rem; align-items: center; margin-top: 0.7rem; flex-wrap: wrap; }
 .addvar__input { background: var(--surface-2); border: 1px solid var(--border-mid); color: var(--text-1); padding: 0.4rem 0.55rem; font-size: 0.82rem; outline: none; border-radius: 6px; font-family: inherit; }
-.addvar__input:focus-visible { border-color: var(--accent); }
+.addvar__input:focus-visible { border-color: var(--accent); box-shadow: 0 0 0 3px var(--glow-color); }
 .addvar__stock { width: 90px; }
 
 .vtab { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
@@ -587,7 +587,7 @@ function volver() {
 .vtab td { padding: 0.5rem 0.6rem; border-bottom: 1px solid var(--border); color: var(--text-2); vertical-align: middle; }
 .vtab tbody tr:last-child td { border-bottom: none; }
 .vtab__input { width: 84px; background: var(--surface-2); border: 1px solid var(--border-mid); color: var(--text-1); padding: 0.4rem 0.55rem; font-size: 0.85rem; outline: none; border-radius: 6px; }
-.vtab__input:focus-visible { border-color: var(--accent); }
+.vtab__input:focus-visible { border-color: var(--accent); box-shadow: 0 0 0 3px var(--glow-color); }
 .vtab__input--bad { border-color: var(--danger); }
 .vtab__action { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
 .vtab__ok { font-size: 0.8rem; color: var(--success); }

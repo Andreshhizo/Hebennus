@@ -1,7 +1,8 @@
 <script setup>
 // ─── Pop-up de error del admin (qué pasó + cómo arreglarlo) ─────────────────
-import { computed } from 'vue'
+import { ref, computed } from 'vue'
 import { explicarError } from '../lib/adminErrors.js'
+import { useModalUX } from '../lib/useModal.js'
 
 const props = defineProps({
   open:  { type: Boolean, default: false },
@@ -10,13 +11,18 @@ const props = defineProps({
 const emit = defineEmits(['close'])
 
 const info = computed(() => explicarError(props.error))
+
+// UX de modal: Escape + bloqueo de scroll + gestión de foco (entra al abrir,
+// atrapa Tab, y devuelve el foco al cerrar).
+const emPanel = ref(null)
+useModalUX(() => props.open, () => emit('close'), emPanel)
 </script>
 
 <template>
   <Teleport to="body">
     <Transition name="fade">
       <div v-if="open" class="em__overlay" @click.self="emit('close')">
-        <div class="em" role="alertdialog" aria-modal="true" aria-label="Error">
+        <div ref="emPanel" class="em" role="alertdialog" aria-modal="true" aria-label="Error">
           <div class="em__head">
             <span class="em__icon" aria-hidden="true">⚠️</span>
             <h3 class="em__title">{{ info.titulo }}</h3>
@@ -64,7 +70,7 @@ const info = computed(() => explicarError(props.error))
 }
 .em__icon { font-size: 1.1rem; }
 .em__title { flex: 1; font-family: var(--font-display); font-weight: 800; font-size: 1rem; color: var(--text-1); }
-.em__x { background: transparent; border: none; font-size: 1.05rem; color: var(--text-3); cursor: pointer; }
+.em__x { width: 44px; height: 44px; display: grid; place-items: center; background: transparent; border: none; font-size: 1.05rem; color: var(--text-3); cursor: pointer; }
 .em__x:hover { color: var(--text-1); }
 .em__body { padding: 1.1rem 1.2rem; display: flex; flex-direction: column; gap: 0.9rem; }
 .em__block { display: flex; flex-direction: column; gap: 0.25rem; }

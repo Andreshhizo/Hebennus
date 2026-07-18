@@ -11,7 +11,8 @@ import { enviarReclamo } from '../lib/soporte.js'
 
 // ── Estado del modal ──
 const abierto = ref(false)
-useModalUX(abierto, () => cerrar())
+const spPanel = ref(null)
+useModalUX(abierto, () => cerrar(), spPanel)
 
 // ── Formulario ──
 const form = reactive({
@@ -108,7 +109,7 @@ async function enviar() {
     </Transition>
 
     <Transition name="fade">
-      <div v-if="abierto" class="sp" role="dialog" aria-modal="true" aria-label="Formulario de reclamos">
+      <div v-if="abierto" ref="spPanel" class="sp" role="dialog" aria-modal="true" aria-label="Formulario de reclamos">
         <!-- Cerrar -->
         <button class="sp__close" @click="cerrar" aria-label="Cerrar">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -253,7 +254,7 @@ async function enviar() {
 .sp__close {
   position: absolute;
   top: 0.9rem; right: 0.9rem;
-  width: 2.1rem; height: 2.1rem;
+  width: 44px; height: 44px;
   display: grid; place-items: center;
   color: var(--text-2);
   background: var(--surface-2);

@@ -28,3 +28,9 @@ export const COSTO_ENVIO        = 10
 // Solo se controla aquí si la pasarela está habilitada y el endpoint de la API.
 export const IZIPAY_ENABLED  = import.meta.env.VITE_IZIPAY_ENABLED === 'true'
 export const IZIPAY_ENDPOINT = 'https://api.micuentaweb.pe'
+
+// ── Login con Google (OAuth) ──
+// Requiere tener el proveedor Google habilitado en Supabase (OAuth de Google
+// Cloud). Mientras esté en 'false' (o sin definir), el botón "Continuar con
+// Google" no se muestra.
+export const GOOGLE_OAUTH_ENABLED = import.meta.env.VITE_GOOGLE_OAUTH_ENABLED === 'true'
