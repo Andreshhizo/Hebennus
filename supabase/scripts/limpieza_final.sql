@@ -3,6 +3,13 @@
 -- Ejecutar en el SQL Editor del proyecto PROD (Hebennus). NO hay clientes reales.
 -- ═══════════════════════════════════════════════════════════════════════
 
+do $phase0_guard$
+begin
+  raise exception 'SCRIPT_CONGELADO: limpieza destructiva bloqueada en producción';
+end
+$phase0_guard$;
+
+/* HISTÓRICO — mantenido solo como referencia; no ejecutar.
 begin;
 
 -- 1) Borrar TODOS los pedidos (son todos de prueba/diagnóstico).
@@ -19,3 +26,4 @@ alter table public.orders alter column id restart with 1;
 drop schema if exists backup_old cascade;
 
 commit;
+*/

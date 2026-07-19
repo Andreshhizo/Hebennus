@@ -10,8 +10,21 @@
 import { supabase } from './supabase.js'
 import { FunctionsHttpError } from '@supabase/supabase-js'
 
+// Conserva la misma clave mientras una solicitud idéntica no obtenga respuesta
+// exitosa. Si la red se corta después del INSERT, el reintento recupera el pedido
+// existente en vez de crear otro o reenviar correos.
+const pendingKeys = new Map()
+const newKey = () => globalThis.crypto?.randomUUID?.()
+  ?? `hb-${Date.now()}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`
+
 export async function createOrder(pedido) {
-  const { data, error } = await supabase.functions.invoke('create-order', { body: pedido })
+  const fingerprint = JSON.stringify(pedido)
+  const idempotencyKey = pendingKeys.get(fingerprint) ?? newKey()
+  pendingKeys.set(fingerprint, idempotencyKey)
+  const { data, error } = await supabase.functions.invoke('create-order', {
+    body: pedido,
+    headers: { 'Idempotency-Key': idempotencyKey },
+  })
 
   // La función SÍ corrió y devolvió un status no-2xx: es un error REAL del
   // backend (validación, RLS, etc.). Propagar siempre, incluso en DEV.
@@ -44,5 +57,6 @@ export async function createOrder(pedido) {
     throw new Error(data.error)
   }
 
+  pendingKeys.delete(fingerprint)
   return data // { order_number, ... }
 }

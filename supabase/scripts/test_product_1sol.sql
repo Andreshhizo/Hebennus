@@ -4,6 +4,13 @@
 -- Ejecutar en el SQL Editor del proyecto PROD (Hebennus).
 -- ═══════════════════════════════════════════════════════════════════════
 
+do $phase0_guard$
+begin
+  raise exception 'SCRIPT_CONGELADO: no crear productos de prueba manualmente en producción';
+end
+$phase0_guard$;
+
+/* HISTÓRICO — mantenido solo como referencia; no ejecutar.
 with new_product as (
   insert into public.products
     (name, slug, description, price, is_active, category, tipo_prenda, images)
@@ -19,3 +26,4 @@ with new_product as (
 insert into public.product_variants (product_id, size, color, stock)
 select id, 'Única', null, 20 from new_product
 returning product_id, size, color, stock;
+*/

@@ -8,7 +8,7 @@ import { GOOGLE_OAUTH_ENABLED } from '../lib/config.js'
 
 const router = useRouter()
 const { signUp, signIn, signInWithGoogle, resendConfirmation, verifyEmailCode,
-        emailExiste, sendPasswordReset, verifyRecoveryCode, updatePassword } = useAuth()
+        sendPasswordReset, verifyRecoveryCode, updatePassword } = useAuth()
 
 const modo = ref('login')   // 'login' | 'registro'
 const paso = ref('form')    // 'form' | 'verificar' | 'recuperar' | 'reset'
@@ -144,19 +144,16 @@ function irARecuperar() {
   error.value = ''; aviso.value = ''; codigo.value = ''; newPassword.value = ''
 }
 
-// Paso 1: verifica que el correo exista y pide el código.
+// Paso 1: solicita el código sin revelar si la cuenta existe. Supabase mantiene
+// una respuesta indistinguible para evitar enumeración de correos.
 async function pedirReset() {
   error.value = ''
   if (!EMAIL_RE.test(form.email.trim())) { error.value = 'Ingresa un correo válido.'; return }
   if (enviando.value || cooldown.value > 0) return
   enviando.value = true
   try {
-    const existe = await emailExiste(form.email)
-    if (!existe) {
-      error.value = 'Ese correo no está registrado. Revisa que esté bien escrito o crea una cuenta.'
-      return
-    }
     await sendPasswordReset(form.email)
+    aviso.value = 'Si existe una cuenta con ese correo, recibirás un código en unos minutos.'
     paso.value = 'reset'; startCooldown()
   } catch (err) {
     error.value = err?.message || 'No se pudo enviar el código. Inténtalo de nuevo.'

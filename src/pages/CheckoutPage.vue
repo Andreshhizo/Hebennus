@@ -64,7 +64,13 @@ try {
   if (saved) {
     if (saved.form) Object.assign(form, saved.form)
     if (saved.beneficio) beneficio.value = saved.beneficio
-    if (saved.metodoPago) metodoPago.value = saved.metodoPago
+    if (saved.metodoPago && (IZIPAY_ENABLED || saved.metodoPago === 'yape_manual')) {
+      metodoPago.value = saved.metodoPago
+    } else if (!IZIPAY_ENABLED) {
+      // Un borrador creado cuando Izipay estaba habilitado no debe intentar
+      // abrir una pasarela desactivada tras un cambio de configuración.
+      metodoPago.value = 'yape_manual'
+    }
     if (typeof saved.paso === 'number') paso.value = saved.paso
   }
 } catch { /* borrador inválido → lo ignoramos */ }
@@ -321,6 +327,16 @@ async function iniciarPagoIzipay() {
         modoExito.value = 'revision'
         orderNumber.value = orderNum
         enviado.value = true          // antes de limpiar el carrito (evita el redirect)
+        clearCart()
+      },
+      // El proveedor reportó cobro, pero la confirmación durable todavía no
+      // terminó. La IPN reintentará; mostramos revisión, nunca éxito falso.
+      onPending: () => {
+        removeForms()
+        mostrarPago.value = false
+        modoExito.value = 'revision'
+        orderNumber.value = orderNum
+        enviado.value = true
         clearCart()
       },
       onError: (m) => { errorPago.value = m || 'El pago no se completó. Intenta nuevamente.' },

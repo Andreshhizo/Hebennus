@@ -20,6 +20,15 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { buildHtml, buildHtmlYapePendiente, enviarResend, type ItemPedido } from '../_shared/email.ts'
+import {
+  assertAllowedOrigin,
+  corsHeaders,
+  enforceRateLimit,
+  handleRequestError,
+  idempotencyData,
+  jsonResponse,
+  readJsonLimited,
+} from '../_shared/security.ts'
 
 const ENVIO_GRATIS_DESDE = 119  // Lima: gratis desde este subtotal; por debajo, COSTO_ENVIO.
 const COSTO_ENVIO        = 10
@@ -42,34 +51,25 @@ interface Pedido {
   payment_method?: string
 }
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-}
-
-function json(obj: unknown, status = 200): Response {
-  return new Response(JSON.stringify(obj), {
-    status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-  })
-}
-
 const round2 = (n: number) => Math.round(n * 100) / 100
 
 Deno.serve(async (req: Request) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
-  if (req.method !== 'POST') return json({ error: 'Método no permitido' }, 405)
+  try {
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders(req) })
+  assertAllowedOrigin(req)
+  if (req.method !== 'POST') return jsonResponse(req, { error: 'Método no permitido' }, 405)
 
-  let pedido: Pedido
-  try { pedido = await req.json() } catch { return json({ error: 'JSON inválido' }, 400) }
+  const pedido = await readJsonLimited<Pedido>(req, 64_000)
 
   // Validación mínima del payload.
   const c = pedido?.cliente
   const emailOk = typeof c?.customer_email === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(c.customer_email)
   const phoneOk = typeof c?.customer_phone === 'string' && /^9\d{8}$/.test(c.customer_phone)
-  if (!c?.customer_name?.trim() || !emailOk || !phoneOk || !Array.isArray(pedido.items) || pedido.items.length === 0) {
-    return json({ error: 'Pedido inválido' }, 400)
+  if (!c?.customer_name?.trim() || c.customer_name.trim().length > 120
+      || !emailOk || c.customer_email.length > 254 || !phoneOk
+      || String(c.notes ?? '').length > 500
+      || !Array.isArray(pedido.items) || pedido.items.length === 0 || pedido.items.length > 20) {
+    return jsonResponse(req, { error: 'Pedido inválido' }, 400)
   }
 
   // Método de pago: 'izipay' (tarjeta/Yape automático), 'yape_manual' (WhatsApp)
@@ -86,12 +86,14 @@ Deno.serve(async (req: Request) => {
   const comprobanteTipo = c?.comprobante_tipo === 'factura' ? 'factura' : 'boleta'
   const docNum = String(c?.doc_numero ?? '').replace(/\D/g, '')
   if (deferStock && comprobanteTipo === 'factura' && !/^\d{11}$/.test(docNum)) {
-    return json({ error: 'RUC inválido (11 dígitos)' }, 400)
+    return jsonResponse(req, { error: 'RUC inválido (11 dígitos)' }, 400)
   }
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!
   const serviceKey  = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
   const admin = createClient(supabaseUrl, serviceKey)
+  await enforceRateLimit(admin, req, 'create-order', 10, 600)
+  const idempotency = await idempotencyData(req, pedido)
 
   // 1) Usuario por JWT (si inició sesión; si es anon, queda null).
   let userId: string | null = null
@@ -117,14 +119,21 @@ Deno.serve(async (req: Request) => {
     // SEGURIDAD: todo ítem DEBE referenciar un producto real y activo. El precio y
     // el nombre se toman SIEMPRE de la BD, nunca del navegador (evita que alguien
     // llame al endpoint con un unit_price arbitrario para un producto real).
-    if (!it.product_id) return json({ error: 'Ítem inválido: falta el producto.' }, 400)
+    if (!it.product_id) return jsonResponse(req, { error: 'Ítem inválido: falta el producto.' }, 400)
     const p = priceMap.get(it.product_id)
     if (!p || p.is_active === false) {
-      return json({ error: `Producto no disponible: ${it.name ?? ''}` }, 409)
+      return jsonResponse(req, { error: `Producto no disponible: ${it.name ?? ''}` }, 409)
     }
-    const qty  = Math.max(1, Math.min(50, Math.trunc(Number(it.qty) || 1)))
+    const rawQty = Number(it.qty)
+    if (!Number.isInteger(rawQty) || rawQty < 1 || rawQty > 50) {
+      return jsonResponse(req, { error: 'Cantidad de producto inválida' }, 400)
+    }
+    if (String(it.size ?? '').length > 40 || String(it.color ?? '').length > 80) {
+      return jsonResponse(req, { error: 'Variante de producto inválida' }, 400)
+    }
+    const qty  = rawQty
     const unit = p.price
-    if (!(unit >= 0)) return json({ error: 'Precio inválido' }, 400)
+    if (!(unit >= 0)) return jsonResponse(req, { error: 'Precio inválido' }, 400)
     const sub  = round2(unit * qty)
     subtotal  += sub
     items.push({ ...it, name: p.name, qty, unit_price: unit, subtotal: sub, image: p.image })
@@ -180,18 +189,24 @@ Deno.serve(async (req: Request) => {
     user_id: userId,
     payment_method: paymentMethod,
     defer_stock: deferStock,
+    idempotency_key_hash: idempotency.keyHash,
+    idempotency_request_hash: idempotency.requestHash,
   }
   const { data: result, error: rpcError } = await admin.rpc('create_order', { payload: rpcPayload })
   if (rpcError) {
     // No filtramos el detalle del error al cliente (puede exponer internals de la BD).
     // Lo logueamos en el servidor y devolvemos un mensaje genérico en español.
     console.error('[create-order] RPC create_order falló:', rpcError.message)
-    return json({ error: 'No se pudo registrar el pedido. Inténtalo de nuevo.' }, 500)
+    const status = rpcError.message.includes('IDEMPOTENCY_CONFLICT') ? 409 : 500
+    return jsonResponse(req, { error: status === 409
+      ? 'La clave de reintento ya fue usada para otro pedido.'
+      : 'No se pudo registrar el pedido. Inténtalo de nuevo.' }, status)
   }
   const orderNumber: string = result?.order_number ?? '—'
+  const replayed = result?.replayed === true
 
   // 7) Contacto de marketing (con consentimiento, Ley 29733).
-  if (pedido.consent === true) {
+  if (!replayed && pedido.consent === true) {
     try {
       await admin.from('marketing_contacts').upsert(
         {
@@ -217,7 +232,7 @@ Deno.serve(async (req: Request) => {
     // Yape manual: avisar a la TIENDA (para preparar el QR / no perder el pedido)
     // y al CLIENTE (pedido reservado, coordinar pago por WhatsApp). Best-effort:
     // no debe tumbar el pedido si Resend falla. Izipay NO envía aquí (lo hace la IPN).
-    if (paymentMethod === 'yape_manual') {
+    if (!replayed && paymentMethod === 'yape_manual') {
       const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
       const FROM  = Deno.env.get('RESEND_FROM') ?? 'Hebennus <onboarding@resend.dev>'
       const STORE = Deno.env.get('STORE_EMAIL')
@@ -246,7 +261,13 @@ Deno.serve(async (req: Request) => {
         }
       }
     }
-    return json({ order_number: orderNumber, total, discount, payment_method: paymentMethod })
+    return jsonResponse(req, { order_number: orderNumber, total, discount, payment_method: paymentMethod, replayed })
+  }
+
+  // Un reintento con la misma Idempotency-Key devuelve el pedido existente y no
+  // vuelve a enviar correos.
+  if (replayed) {
+    return jsonResponse(req, { order_number: orderNumber, total, discount, payment_method: paymentMethod, replayed: true })
   }
 
   // 9) Correo de confirmación (contraentrega; no debe tumbar el pedido si falla).
@@ -284,5 +305,8 @@ Deno.serve(async (req: Request) => {
     emailError = 'RESEND_API_KEY no configurada'
   }
 
-  return json({ order_number: orderNumber, total, discount, email_sent: emailSent, email_error: emailError })
+  return jsonResponse(req, { order_number: orderNumber, total, discount, email_sent: emailSent, email_error: emailError, replayed: false })
+  } catch (error) {
+    return handleRequestError(req, error)
+  }
 })

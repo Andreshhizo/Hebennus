@@ -1,7 +1,8 @@
 # Scripts SQL de un solo uso
 
-Scripts SQL de un solo uso (deploy / limpieza / pruebas). **NO son migraciones.**
-Ejecutar manualmente en el **SQL Editor** del proyecto (Supabase) si aplica.
+Scripts SQL históricos de un solo uso. **No ejecutarlos en producción.** La única
+fuente autorizada del esquema es `supabase/migrations/`, aplicada primero en
+staging y reconciliada con `supabase db diff`.
 
 A diferencia de `supabase/migrations/` (versionadas, idempotentes y aplicadas con
 `npx supabase db push`), estos scripts son puntuales y no se aplican
@@ -10,12 +11,16 @@ automáticamente.
 > ⚠️ `limpieza_final.sql` es **DESTRUCTIVO** (borra pedidos y reinicia la
 > numeración). **No re-ejecutar.**
 
-## Scripts
+## Scripts congelados
 
-- **`fix_prod_orders_schema.sql`** — Fix PROD: mueve las tablas `orders` /
-  `order_items` con esquema viejo a un schema `backup_old` (no destructivo) para
-  liberar los nombres en `public` y poder recrearlas limpias con
-  `deploy_prod_consolidado.sql`.
+Todos los `.sql` de este directorio son históricos y abortan intencionalmente.
+No ejecutar ninguno en producción, aunque el contenido antiguo aparezca debajo
+del guard de seguridad.
+
+- **`fix_prod_orders_schema.sql`** — CONGELADO: aborta intencionalmente. No usar.
+- **`borrar_producto_test.sql`** — CONGELADO: no borrar productos manualmente.
+- **`test_product_1sol.sql`** — CONGELADO: no crear productos de prueba.
+- **`limpieza_final.sql`** — CONGELADO: limpieza destructiva bloqueada.
 - **`limpieza_final.sql`** — ⚠️ DESTRUCTIVO. Borra TODOS los pedidos de prueba,
   reinicia la numeración (el próximo pedido será `HB-000001`) y limpia
   `backup_old`. Ejecutar una sola vez sobre PROD sin clientes reales.

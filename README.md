@@ -25,8 +25,7 @@ Copia `.env.example` a `.env` y rellena los valores (el `.env` NO se sube al rep
 VITE_SUPABASE_URL=https://TU-PROYECTO.supabase.co
 VITE_SUPABASE_ANON_KEY=tu-anon-key            # Supabase → Settings → API → anon public
 VITE_WHATSAPP_NUMERO=51XXXXXXXXX              # formato internacional sin "+" ni espacios
-VITE_IZIPAY_MERCHANT_CODE=tu_merchant_code    # opcional — pasarela Izipay (valores públicos)
-VITE_IZIPAY_PUBLIC_KEY=tu_public_key          # si están vacíos, el checkout no usa pasarela
+VITE_IZIPAY_ENABLED=false                     # true solo cuando backend+webhook estén desplegados
 ```
 La anon key es pública por diseño (la seguridad real es RLS). **Nunca** uses la `service_role` key en el frontend.
 
@@ -48,20 +47,39 @@ El checkout inserta el pedido y envía la confirmación de forma segura en el se
    ```
    `SUPABASE_URL` y `SUPABASE_SERVICE_ROLE_KEY` los inyecta Supabase automáticamente.
 
-## Pasarela de pago (Izipay — Web Core, opcional)
-Si defines `VITE_IZIPAY_MERCHANT_CODE` + `VITE_IZIPAY_PUBLIC_KEY`, el checkout muestra el
-formulario de pago embebido de Izipay; el pedido se registra **tras** el pago exitoso.
-1. **Edge Function** — `supabase functions deploy izipay-token`
-2. **Secrets** (servidor):
+## Pasarela de pago (Izipay — Web Payment Form V4)
+
+El pedido se crea primero con stock diferido. `izipay-formtoken` obtiene el monto
+desde la base de datos; callback e IPN persisten un `payment_event` firmado y la
+base valida monto, moneda, comercio, método y transacción antes de confirmar.
+
+1. Aplica migraciones versionadas con `npx supabase db push` sobre staging y
+   valida el diff antes de producción. No uses SQL consolidados/manuales.
+2. Configura los secrets del servidor:
    ```bash
-   supabase secrets set IZIPAY_MERCHANT_CODE=...   # mismo del frontend
-   supabase secrets set IZIPAY_PUBLIC_KEY=...       # mismo del frontend
-   # IZIPAY_API_URL es opcional (por defecto el sandbox).
+   supabase secrets set IZIPAY_USERNAME=...
+   supabase secrets set IZIPAY_PASSWORD=...
+   supabase secrets set IZIPAY_PUBLIC_KEY=...
+   supabase secrets set IZIPAY_HMAC=...
+   # Solo si el shopId firmado difiere de IZIPAY_USERNAME:
+   supabase secrets set IZIPAY_SHOP_ID=...
+   supabase secrets set IZIPAY_ALLOWED_PAYMENT_METHODS="CARD,YAPE,QR"
+   supabase secrets set ALLOWED_ORIGINS="https://www.hebennus.com,https://hebennus.com"
    ```
-3. ⚠️ **Verifica contra el panel/Postman de tu cuenta Izipay**: el contrato exacto de
-   `generate_token` (en `supabase/functions/izipay-token/index.ts`), los campos requeridos de
-   `billing` (p. ej. DNI real), el `código` de éxito del callback y la validación de firma (IPN)
-   en `onPagoRespuesta` (en `CheckoutPage.vue`). El scaffold sigue el flujo documentado.
+3. Despliega únicamente las funciones vigentes:
+   ```bash
+   supabase functions deploy create-order
+   supabase functions deploy izipay-formtoken
+   supabase functions deploy izipay-validate
+   supabase functions deploy izipay-ipn --no-verify-jwt
+   supabase functions deploy track-product-view
+   ```
+4. Configura `izipay-ipn` como URL de notificación de fin de pago en Izipay y
+   comprueba la lista de funciones desplegadas.
+5. Activa `VITE_IZIPAY_ENABLED=true` solo después de superar los smoke tests.
+
+> `izipay-token` e `izipay-formtoken-test` fueron retiradas por seguridad. No
+> deben recrearse ni desplegarse.
 
 ## Deploy (frontend)
 1. Sube el repo a GitHub y conéctalo en Vercel o Netlify.
@@ -78,7 +96,9 @@ src/
   style.css     -> sistema de diseño (tokens, tema claro/oscuro)
 supabase/
   functions/create-order/    -> Edge Function (inserta pedido + envía correo)
-  functions/izipay-token/    -> Edge Function (token de sesión Izipay, server-side)
+  functions/izipay-formtoken/ -> Form token desde un pedido persistido
+  functions/izipay-ipn/       -> webhook firmado y durable
+  functions/track-product-view/ -> tracking público con rate-limit
   migrations/                -> tablas, función transaccional, RLS, marketing y campos de comprobante
 ```
 

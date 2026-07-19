@@ -19,11 +19,6 @@ const routes = [
   { path: '/mis-pedidos',     component: () => import('../pages/MyOrdersPage.vue'), meta: { title: 'Mis pedidos — Hebennus' } },
   { path: '/admin',           component: () => import('../pages/AdminPage.vue'), meta: { title: 'Panel — Hebennus', requiresAdmin: true } },
   { path: '/privacidad',      component: () => import('../pages/PrivacidadPage.vue'), meta: { title: 'Política de privacidad — Hebennus' } },
-  // SOLO DEV: laboratorio para probar métodos/escenarios de pago de Izipay. En el
-  // build de producción esta ruta no se incluye (import.meta.env.DEV es false).
-  ...(import.meta.env.DEV
-    ? [{ path: '/lab-pagos', component: () => import('../pages/PagosLabPage.vue'), meta: { title: 'Lab de pagos — Hebennus' } }]
-    : []),
   { path: '/:pathMatch(.*)*', component: NotFoundPage,      meta: { title: 'Página no encontrada — Hebennus' } },
 ]
 

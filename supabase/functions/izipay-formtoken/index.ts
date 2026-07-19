@@ -15,21 +15,16 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import {
+  assertAllowedOrigin,
+  corsHeaders,
+  enforceRateLimit,
+  handleRequestError,
+  jsonResponse,
+  readJsonLimited,
+} from '../_shared/security.ts'
 
 const IZIPAY_ENDPOINT = 'https://api.micuentaweb.pe'
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-}
-
-function json(obj: unknown, status = 200): Response {
-  return new Response(JSON.stringify(obj), {
-    status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-  })
-}
 
 // Separa "Nombre Apellido(s)" en firstName / lastName para billingDetails.
 function splitName(full: string): { firstName: string; lastName: string } {
@@ -40,41 +35,45 @@ function splitName(full: string): { firstName: string; lastName: string } {
 }
 
 Deno.serve(async (req: Request) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
-  if (req.method !== 'POST') return json({ error: 'Método no permitido' }, 405)
+  try {
+    if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders(req) })
+    assertAllowedOrigin(req)
+    if (req.method !== 'POST') return jsonResponse(req, { error: 'Método no permitido' }, 405)
 
-  let body: { order_number?: string }
-  try { body = await req.json() } catch { return json({ error: 'JSON inválido' }, 400) }
+    const body = await readJsonLimited<{ order_number?: string }>(req, 8_192)
+    const orderNumber = String(body?.order_number ?? '').trim()
+    if (!/^HB-\d{6,12}$/.test(orderNumber)) {
+      return jsonResponse(req, { error: 'No se pudo iniciar el pago para este pedido' }, 400)
+    }
 
-  const orderNumber = String(body?.order_number ?? '').trim()
-  if (!orderNumber) return json({ error: 'Falta order_number' }, 400)
+    const USERNAME   = Deno.env.get('IZIPAY_USERNAME')
+    const PASSWORD   = Deno.env.get('IZIPAY_PASSWORD')
+    const PUBLIC_KEY = Deno.env.get('IZIPAY_PUBLIC_KEY')
+    if (!USERNAME || !PASSWORD || !PUBLIC_KEY) {
+      console.error('[izipay-formtoken] Faltan secrets IZIPAY_USERNAME/PASSWORD/PUBLIC_KEY')
+      return jsonResponse(req, { error: 'Pasarela no configurada' }, 500)
+    }
 
-  const USERNAME   = Deno.env.get('IZIPAY_USERNAME')
-  const PASSWORD   = Deno.env.get('IZIPAY_PASSWORD')
-  const PUBLIC_KEY = Deno.env.get('IZIPAY_PUBLIC_KEY')
-  if (!USERNAME || !PASSWORD || !PUBLIC_KEY) {
-    console.error('[izipay-formtoken] Faltan secrets IZIPAY_USERNAME/PASSWORD/PUBLIC_KEY')
-    return json({ error: 'Pasarela no configurada' }, 500)
-  }
+    const admin = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+    )
+    await enforceRateLimit(admin, req, 'izipay-formtoken', 20, 600)
 
-  const supabaseUrl = Deno.env.get('SUPABASE_URL')!
-  const serviceKey  = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-  const admin = createClient(supabaseUrl, serviceKey)
+    // Leer el pedido por order_number (datos validados en create-order).
+    const { data: order, error: orderError } = await admin
+      .from('orders')
+      .select('total, customer_email, customer_name, doc_numero, doc_tipo, customer_phone, notes, payment_status, status, payment_method')
+      .eq('order_number', orderNumber)
+      .maybeSingle()
 
-  // Leer el pedido por order_number (datos validados en create-order).
-  const { data: order, error: orderError } = await admin
-    .from('orders')
-    .select('total, customer_email, customer_name, doc_numero, doc_tipo, customer_phone, notes, payment_status, status')
-    .eq('order_number', orderNumber)
-    .maybeSingle()
-
-  if (orderError) {
-    console.error('[izipay-formtoken] Error leyendo pedido:', orderError.message)
-    return json({ error: 'No se pudo leer el pedido' }, 500)
-  }
+    if (orderError) {
+      console.error('[izipay-formtoken] Error leyendo pedido:', orderError.message)
+      return jsonResponse(req, { error: 'No se pudo leer el pedido' }, 500)
+    }
   // Mensaje genérico ante pedido inexistente: no confirmamos si el número existe
   // (order numbers secuenciales → evita enumeración/IDOR).
-  if (!order) return json({ error: 'No se pudo iniciar el pago para este pedido' }, 404)
+    if (!order) return jsonResponse(req, { error: 'No se pudo iniciar el pago para este pedido' }, 404)
 
   // ── Guard IDOR (M1) ──────────────────────────────────────────────────────────
   // Sin JWT de usuario garantizado en guest checkout, la defensa principal es el
@@ -82,36 +81,36 @@ Deno.serve(async (req: Request) => {
   // pagables. Un pedido ya 'pagado' (o con payment_status distinto de 'pendiente')
   // o 'cancelado' NO debe poder generar cobros nuevos. Rechazamos ANTES de llamar
   // a Izipay, con mensaje genérico (sin filtrar el estado interno al cliente).
-  const paymentStatus = String(order.payment_status ?? '')
-  const orderStatus   = String(order.status ?? '')
-  if (paymentStatus !== 'pendiente' || orderStatus === 'cancelado') {
+    const paymentStatus = String(order.payment_status ?? '')
+    const orderStatus   = String(order.status ?? '')
+    if (paymentStatus !== 'pendiente' || orderStatus === 'cancelado' || order.payment_method !== 'izipay') {
     console.error(
       `[izipay-formtoken] Pedido no pagable ${orderNumber}: payment_status=${paymentStatus} status=${orderStatus}`,
     )
-    return json({ error: 'Este pedido no admite pago en este momento' }, 409)
-  }
+      return jsonResponse(req, { error: 'Este pedido no admite pago en este momento' }, 409)
+    }
 
-  const total = Number(order.total)
-  if (!(total > 0)) return json({ error: 'Monto de pedido inválido' }, 400)
+    const total = Number(order.total)
+    if (!(total > 0)) return jsonResponse(req, { error: 'Monto de pedido inválido' }, 400)
 
-  const { firstName, lastName } = splitName(order.customer_name)
+    const { firstName, lastName } = splitName(order.customer_name)
 
   // Solo mandamos el documento si el pedido lo tiene (factura RUC / boleta con DNI).
   // Para boleta a consumidor final (sin DNI) omitimos identityType/identityCode.
-  const billingDetails: Record<string, unknown> = {
+    const billingDetails: Record<string, unknown> = {
     firstName,
     lastName,
     phoneNumber: order.customer_phone,
     country: 'PE',
     language: 'es',
   }
-  if (order.doc_numero) {
+    if (order.doc_numero) {
     billingDetails.identityType = order.doc_tipo === 'RUC' ? 'RUC' : 'DNI'
     billingDetails.identityCode = order.doc_numero
   }
 
   // amount va en CÉNTIMOS (S/ 1.00 → 100).
-  const izipayBody = {
+    const izipayBody = {
     amount: Math.round(total * 100),
     currency: 'PEN',
     orderId: orderNumber,
@@ -121,9 +120,9 @@ Deno.serve(async (req: Request) => {
     },
   }
 
-  let r: Response
-  try {
-    r = await fetch(`${IZIPAY_ENDPOINT}/api-payment/V4/Charge/CreatePayment`, {
+    let response: Response
+    try {
+      response = await fetch(`${IZIPAY_ENDPOINT}/api-payment/V4/Charge/CreatePayment`, {
       method: 'POST',
       headers: {
         Authorization: 'Basic ' + btoa(`${USERNAME}:${PASSWORD}`),
@@ -131,19 +130,22 @@ Deno.serve(async (req: Request) => {
       },
       body: JSON.stringify(izipayBody),
     })
-  } catch (err) {
-    console.error('[izipay-formtoken] No se pudo contactar a Izipay:', String(err))
-    return json({ error: 'No se pudo contactar a la pasarela de pago' }, 502)
-  }
+    } catch (error) {
+      console.error('[izipay-formtoken] No se pudo contactar a Izipay:', String(error))
+      return jsonResponse(req, { error: 'No se pudo contactar a la pasarela de pago' }, 502)
+    }
 
-  const data = await r.json().catch(() => null)
-  const formToken = data?.answer?.formToken
+    const data = await response.json().catch(() => null)
+    const formToken = data?.answer?.formToken
 
-  if (data?.status === 'SUCCESS' && formToken) {
-    return json({ formToken, publicKey: PUBLIC_KEY, endpoint: IZIPAY_ENDPOINT })
-  }
+    if (data?.status === 'SUCCESS' && formToken) {
+      return jsonResponse(req, { formToken, publicKey: PUBLIC_KEY, endpoint: IZIPAY_ENDPOINT })
+    }
 
   // Loguear el detalle real solo en consola; nunca exponerlo crudo al navegador.
-  console.error('[izipay-formtoken] CreatePayment no exitoso:', r.status, JSON.stringify(data))
-  return json({ error: 'No se pudo iniciar el pago' }, 502)
+    console.error('[izipay-formtoken] CreatePayment no exitoso:', response.status, JSON.stringify(data))
+    return jsonResponse(req, { error: 'No se pudo iniciar el pago' }, 502)
+  } catch (error) {
+    return handleRequestError(req, error)
+  }
 })

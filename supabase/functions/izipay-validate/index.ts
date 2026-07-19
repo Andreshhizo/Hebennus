@@ -5,13 +5,13 @@
 //
 //   1) Verifica la FIRMA de la respuesta con la clave HMAC (IZIPAY_HMAC) →
 //      imposible falsear "pagado" sin la clave secreta.
-//   2) Si la firma es válida y orderStatus === 'PAID', confirma el pedido de forma
-//      IDEMPOTENTE (marcar_pedido_pagado: marca pagado/confirmado + descuenta stock)
-//      y envía el correo de confirmación.
+//   2) Si la firma es válida y orderStatus === 'PAID', persiste un evento y el RPC
+//      valida monto/moneda/comercio/método/transacción antes de confirmar de forma
+//      idempotente y descontar stock mediante el ledger exacto.
 //
 //   Es seguro porque la firma se valida en el servidor. La IPN (izipay-ipn) sigue
-//   siendo el respaldo servidor-a-servidor; como marcar_pedido_pagado es idempotente,
-//   si ambos llegan no hay doble efecto.
+//   siendo el respaldo servidor-a-servidor; el lock del pedido y la transacción
+//   única evitan doble efecto si ambos llegan concurrentemente.
 //
 // Secrets: IZIPAY_HMAC, RESEND_API_KEY (correo). SUPABASE_* los inyecta Supabase.
 // Deploy:  supabase functions deploy izipay-validate
@@ -26,12 +26,19 @@ import {
   type ClientePedido,
   type ItemPedido,
 } from '../_shared/email.ts'
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-}
+import {
+  assertAllowedOrigin,
+  corsHeaders,
+  enforceRateLimit,
+  handleRequestError,
+  jsonResponse,
+  readJsonLimited,
+} from '../_shared/security.ts'
+import {
+  parseIzipayAnswer,
+  persistIzipayEvent,
+  processIzipayEvent,
+} from '../_shared/izipay-event.ts'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Correos de SOBREVENTA (el pedido se PAGÓ pero faltó stock): aviso suave al
@@ -80,104 +87,82 @@ async function enviarCorreosSobreventa(
   }
 }
 
-function json(obj: unknown, status = 200): Response {
-  return new Response(JSON.stringify(obj), {
-    status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-  })
-}
-
 Deno.serve(async (req: Request) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
-  if (req.method !== 'POST') return json({ error: 'Método no permitido' }, 405)
-
-  const HMAC = Deno.env.get('IZIPAY_HMAC')
-  if (!HMAC) {
-    console.error('[izipay-validate] Falta secret IZIPAY_HMAC')
-    return json({ error: 'Pasarela no configurada' }, 500)
-  }
-
-  let body: { krAnswer?: string; krHash?: string }
-  try { body = await req.json() } catch { return json({ error: 'JSON inválido' }, 400) }
-
-  const krAnswer = String(body?.krAnswer ?? '')
-  const krHash   = String(body?.krHash ?? '')
-  if (!krAnswer || !krHash) return json({ valid: false, paid: false })
-
-  // La respuesta del navegador se firma con la clave HMAC.
-  const valid = await verifyHmac(krAnswer, HMAC, krHash)
-  if (!valid) return json({ valid: false, paid: false })
-
-  let answer: {
-    orderStatus?: string
-    orderDetails?: { orderId?: string }
-    transactions?: Array<{ uuid?: string }>
-  }
   try {
-    answer = JSON.parse(krAnswer)
-  } catch {
-    return json({ valid: true, paid: false })
-  }
+    if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders(req) })
+    assertAllowedOrigin(req)
+    if (req.method !== 'POST') return jsonResponse(req, { error: 'Método no permitido' }, 405)
 
-  const paid = answer?.orderStatus === 'PAID'
-  if (!paid) return json({ valid: true, paid: false })
+    const HMAC = Deno.env.get('IZIPAY_HMAC')
+    if (!HMAC) {
+      console.error('[izipay-validate] Falta secret IZIPAY_HMAC')
+      return jsonResponse(req, { error: 'Pasarela no configurada' }, 500)
+    }
 
-  // Firma válida + pagado → registrar el pago (idempotente) y enviar el correo
-  // que corresponda. `oversold` viaja al navegador para avisar en la UI. Si el
-  // RPC falla o no devuelve nada, oversold queda en false.
-  let oversold = false
-  try {
-    const orderId = answer?.orderDetails?.orderId
-    const txn     = answer?.transactions?.[0]?.uuid ?? null
-    if (orderId) {
-      const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
-      const { data: result, error: rpcErr } = await admin.rpc('marcar_pedido_pagado', {
-        p_order_number: orderId,
-        p_txn_id: txn,
-      })
-      if (rpcErr) console.error('[izipay-validate] marcar_pedido_pagado:', rpcErr.message)
-      oversold = result?.oversold === true
+    const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
+    await enforceRateLimit(admin, req, 'izipay-validate', 30, 600)
 
-      // Correo según el RESULTADO del RPC (nunca por excepción). Nunca enviamos
-      // "Confirmación" si el RPC falló o si hubo sobreventa:
-      //   • RPC con error       → no enviamos nada.
-      //   • idempotent === true → notificación repetida: no reenviamos.
-      //   • oversold  === true  → pagó sin stock: aviso suave cliente + alerta tienda.
-      //   • resto (1ª vez, OK)  → correo de confirmación normal.
-      if (!rpcErr && result && result.idempotent === false) {
-        const { data: order } = await admin
-          .from('orders').select('*, order_items(*)').eq('order_number', orderId).single()
-        if (order) {
-          const cliente = {
-            customer_name: order.customer_name,
-            customer_phone: order.customer_phone,
-            customer_email: order.customer_email,
-            notes: order.notes,
-            doc_tipo: order.doc_tipo,
-            doc_numero: order.doc_numero,
+    const body = await readJsonLimited<{ krAnswer?: string; krHash?: string }>(req, 300_000)
+    const krAnswer = String(body?.krAnswer ?? '')
+    const krHash = String(body?.krHash ?? '')
+    if (!krAnswer || !krHash) return jsonResponse(req, { valid: false, paid: false }, 400)
+
+    const valid = await verifyHmac(krAnswer, HMAC, krHash)
+    if (!valid) return jsonResponse(req, { valid: false, paid: false }, 401)
+
+    let answer
+    try {
+      answer = parseIzipayAnswer(krAnswer)
+    } catch {
+      return jsonResponse(req, { valid: true, paid: false, error: 'Respuesta inválida' }, 422)
+    }
+
+    // La firma ya es válida. Persistimos el evento ANTES de tocar pedido/stock.
+    // Si la persistencia falla, respondemos 503 y nunca afirmamos que se confirmó.
+    const eventId = await persistIzipayEvent(admin, 'callback', krAnswer, answer)
+    const result = await processIzipayEvent(admin, eventId)
+    if (result.accepted !== true) {
+      console.error(`[izipay-validate] Evento rechazado ${eventId}: ${result.error}`)
+      return jsonResponse(req, { valid: true, paid: false, confirmed: false }, 422)
+    }
+
+    const orderId = result.order_number ?? answer.orderDetails?.orderId ?? ''
+    const oversold = result.oversold === true
+
+    // Solo el primer procesador envía correo; callback e IPN concurrentes quedan
+    // deduplicados por evento/transacción y por el lock del pedido.
+    if (result.idempotent === false && orderId) {
+      const { data: order } = await admin
+        .from('orders').select('*, order_items(*)').eq('order_number', orderId).single()
+      if (order) {
+        const cliente = {
+          customer_name: order.customer_name,
+          customer_phone: order.customer_phone,
+          customer_email: order.customer_email,
+          notes: order.notes,
+          doc_tipo: order.doc_tipo,
+          doc_numero: order.doc_numero,
+        }
+        const items: ItemPedido[] = (order.order_items ?? []).map((it: ItemPedido) => ({
+          product_id: it.product_id, name: it.name, size: it.size, color: it.color,
+          qty: it.qty, unit_price: it.unit_price, subtotal: it.subtotal,
+        }))
+
+        if (oversold) {
+          await enviarCorreosSobreventa(cliente, items, orderId)
+        } else {
+          const totals = {
+            subtotal: Number(order.subtotal), shipping: Number(order.shipping),
+            discount: Number(order.discount ?? 0), total: Number(order.total),
           }
-          const items: ItemPedido[] = (order.order_items ?? []).map((it: ItemPedido) => ({
-            product_id: it.product_id, name: it.name, size: it.size, color: it.color,
-            qty: it.qty, unit_price: it.unit_price, subtotal: it.subtotal,
-          }))
-
-          if (oversold) {
-            // Pagó sin stock: NO confirmamos; aviso suave al cliente + alerta a la tienda.
-            await enviarCorreosSobreventa(cliente, items, orderId)
-          } else {
-            const totals = {
-              subtotal: Number(order.subtotal), shipping: Number(order.shipping),
-              discount: Number(order.discount ?? 0), total: Number(order.total),
-            }
-            await enviarCorreoConfirmacion(cliente, items, totals, orderId)
-          }
+          await enviarCorreoConfirmacion(cliente, items, totals, orderId)
         }
       }
     }
-  } catch (e) {
-    // No rompemos la UX: el pago fue válido; la IPN servirá de respaldo.
-    console.error('[izipay-validate] confirmación:', (e as Error).message)
-  }
 
-  return json({ valid: true, paid: true, oversold })
+    return jsonResponse(req, { valid: true, paid: true, confirmed: true, oversold })
+  } catch (error) {
+    console.error('[izipay-validate] procesamiento:', (error as Error).message)
+    return handleRequestError(req, error)
+  }
 })

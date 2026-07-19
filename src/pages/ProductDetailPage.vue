@@ -60,7 +60,7 @@ function registrarVista(id) {
     const key = 'hb-viewed-' + id
     if (sessionStorage.getItem(key)) return
     sessionStorage.setItem(key, '1')
-    supabase.rpc('log_product_view', { p_product_id: id }).then(() => {}, () => {})
+    supabase.functions.invoke('track-product-view', { body: { product_id: id } }).then(() => {}, () => {})
   } catch (_) { /* noop */ }
 }
 

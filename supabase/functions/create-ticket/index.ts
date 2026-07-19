@@ -15,6 +15,15 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { buildHtmlReclamo, enviarResend } from '../_shared/email.ts'
+import {
+  assertAllowedOrigin,
+  corsHeaders,
+  enforceRateLimit,
+  handleRequestError,
+  idempotencyData,
+  jsonResponse,
+  readJsonLimited,
+} from '../_shared/security.ts'
 
 interface Reclamo {
   name?: string
@@ -25,19 +34,6 @@ interface Reclamo {
   message?: string
 }
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-}
-
-function json(obj: unknown, status = 200): Response {
-  return new Response(JSON.stringify(obj), {
-    status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-  })
-}
-
 // Recorta un string largo a `max` caracteres (o null si no es string).
 const recorta = (v: unknown, max: number): string | null => {
   if (typeof v !== 'string') return null
@@ -46,21 +42,23 @@ const recorta = (v: unknown, max: number): string | null => {
 }
 
 Deno.serve(async (req: Request) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
-  if (req.method !== 'POST') return json({ error: 'Método no permitido' }, 405)
+  try {
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders(req) })
+  assertAllowedOrigin(req)
+  if (req.method !== 'POST') return jsonResponse(req, { error: 'Método no permitido' }, 405)
 
-  let body: Reclamo
-  try { body = await req.json() } catch { return json({ error: 'JSON inválido' }, 400) }
+  const body = await readJsonLimited<Reclamo>(req, 16_384)
 
   // ── Validación del payload ──
   const name = typeof body?.name === 'string' ? body.name.trim() : ''
   const email = typeof body?.email === 'string' ? body.email.trim() : ''
   const message = typeof body?.message === 'string' ? body.message.trim() : ''
   const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
-  if (!name) return json({ error: 'El nombre es obligatorio' }, 400)
-  if (!emailOk) return json({ error: 'Email inválido' }, 400)
-  if (!message) return json({ error: 'El mensaje es obligatorio' }, 400)
-  if (message.length > 2000) return json({ error: 'El mensaje es demasiado largo (máx 2000)' }, 400)
+  if (!name) return jsonResponse(req, { error: 'El nombre es obligatorio' }, 400)
+  if (name.length > 120) return jsonResponse(req, { error: 'El nombre es demasiado largo' }, 400)
+  if (!emailOk || email.length > 254) return jsonResponse(req, { error: 'Email inválido' }, 400)
+  if (!message) return jsonResponse(req, { error: 'El mensaje es obligatorio' }, 400)
+  if (message.length > 2000) return jsonResponse(req, { error: 'El mensaje es demasiado largo (máx 2000)' }, 400)
 
   // Campos opcionales (recortados por seguridad).
   const nombre       = name.slice(0, 120)
@@ -71,6 +69,8 @@ Deno.serve(async (req: Request) => {
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!
   const serviceKey  = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
   const admin = createClient(supabaseUrl, serviceKey)
+  await enforceRateLimit(admin, req, 'create-ticket', 5, 3600)
+  const idempotency = await idempotencyData(req, body)
 
   // Usuario por JWT (si inició sesión; si es anon, queda null).
   let userId: string | null = null
@@ -89,14 +89,20 @@ Deno.serve(async (req: Request) => {
       category: categoria,
       message: message.slice(0, 2000),
       user_id: userId,
+      idempotency_key_hash: idempotency.keyHash,
+      idempotency_request_hash: idempotency.requestHash,
     },
   })
   if (error) {
     // No exponer el mensaje interno de Postgres/RPC al cliente; solo en servidor.
     console.error('[create-ticket] Error en RPC create_ticket:', error.message)
-    return json({ error: 'No se pudo registrar el reclamo' }, 500)
+    const status = error.message.includes('IDEMPOTENCY_CONFLICT') ? 409 : 500
+    return jsonResponse(req, { error: status === 409
+      ? 'La clave de reintento ya fue usada para otro reclamo.'
+      : 'No se pudo registrar el reclamo' }, status)
   }
   const ticketNumber: string = data?.ticket_number ?? '—'
+  const replayed = data?.replayed === true
 
   // ── Correos best-effort (no deben tumbar el reclamo si Resend falla) ──
   const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
@@ -111,7 +117,7 @@ Deno.serve(async (req: Request) => {
     category: categoria,
     message: message.slice(0, 2000),
   }
-  if (RESEND_API_KEY) {
+  if (!replayed && RESEND_API_KEY) {
     // Aviso a la tienda (con todos los datos; responder al cliente).
     if (STORE) {
       try {
@@ -136,5 +142,8 @@ Deno.serve(async (req: Request) => {
     } catch (_) { /* best-effort */ }
   }
 
-  return json({ ticket_number: ticketNumber })
+  return jsonResponse(req, { ticket_number: ticketNumber, replayed })
+  } catch (error) {
+    return handleRequestError(req, error)
+  }
 })

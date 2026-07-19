@@ -94,17 +94,6 @@ export function useAuth() {
     if (error) throw error
   }
 
-  // ¿El correo ya está registrado? (server-side, vía edge function check-email).
-  // Se usa antes de mandar el código de recuperación para no decir "te enviamos un
-  // código" si el correo no existe.
-  async function emailExiste(email) {
-    const { data, error } = await supabase.functions.invoke('check-email', {
-      body: { email: email.trim() },
-    })
-    if (error) throw error
-    return data?.exists === true
-  }
-
   // ── Recuperar contraseña ("olvidé mi contraseña") ──
   // Envía un correo con un código de 6 dígitos (plantilla "Recovery" con {{ .Token }}).
   async function sendPasswordReset(email) {
@@ -147,5 +136,5 @@ export function useAuth() {
     purgeSupabaseTokens()
   }
 
-  return { user, isAdmin, ready, signUp, signIn, signOut, signInWithGoogle, resendConfirmation, verifyEmailCode, emailExiste, sendPasswordReset, verifyRecoveryCode, updatePassword }
+  return { user, isAdmin, ready, signUp, signIn, signOut, signInWithGoogle, resendConfirmation, verifyEmailCode, sendPasswordReset, verifyRecoveryCode, updatePassword }
 }

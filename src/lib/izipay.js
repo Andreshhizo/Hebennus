@@ -24,17 +24,6 @@ export async function getFormToken(orderNumber) {
   return data // { formToken, publicKey, endpoint }
 }
 
-// SOLO DEV: pide un formToken de PRUEBA (pedido ficticio, sin tocar la BD ni el stock).
-// Lo usa la página /lab-pagos para probar todos los métodos/escenarios de Izipay.
-export async function getFormTokenTest(amount) {
-  const { data, error } = await supabase.functions.invoke('izipay-formtoken-test', {
-    body: { amount },
-  })
-  if (error) throw error
-  if (data?.error) throw new Error(data.error)
-  return data // { formToken, publicKey, endpoint, orderId, amount }
-}
-
 // Carga el TEMA visual de krypton (CSS + JS) una sola vez. Sin esto el formulario
 // se ve crudo. Usamos el tema "classic" (el del ejemplo oficial de Izipay): se ve
 // limpio para el formulario de tarjeta embebido dentro del popup nativo.
@@ -64,7 +53,7 @@ function cargarTemaIzipay(endpoint) {
 // CADA montaje: krypton REEMPLAZA el onSubmit (no lo apila), y removeForms() puede
 // quitar los handlers previos. Re-registrar evita que un 2º pago en la misma sesión
 // reciba el "PAID" de Izipay sin que la UI avance (se quedaba colgado).
-let callbacksIzipay = { onPaid: null, onError: null, onClosed: null, onResult: null, onOversold: null }
+let callbacksIzipay = { onPaid: null, onPending: null, onError: null, onClosed: null, onResult: null, onOversold: null }
 
 // Carga la librería krypton + el tema neon y renderiza el SMART FORM embebido en
 // `selector` (un <div class="kr-smart-form"> dentro de nuestro propio modal). Muestra
@@ -75,9 +64,9 @@ let callbacksIzipay = { onPaid: null, onError: null, onClosed: null, onResult: n
 // cliente reintenta con otro monto, hay que LIMPIAR el form previo (removeForms)
 // antes de reconfigurar con el nuevo formToken; si no, seguiría cobrando el monto
 // viejo aunque el pedido nuevo sea distinto.
-export async function montarFormularioIzipay({ endpoint, publicKey, formToken, selector, onPaid, onError, onClosed, onResult, onOversold }) {
+export async function montarFormularioIzipay({ endpoint, publicKey, formToken, selector, onPaid, onPending, onError, onClosed, onResult, onOversold }) {
   // Callbacks por referencia: siempre apuntan al intento actual.
-  callbacksIzipay = { onPaid, onError, onClosed, onResult, onOversold }
+  callbacksIzipay = { onPaid, onPending, onError, onClosed, onResult, onOversold }
 
   await cargarTemaIzipay(endpoint)
   const { KR } = await KRGlue.loadLibrary(endpoint, publicKey)
@@ -113,8 +102,8 @@ export async function montarFormularioIzipay({ endpoint, publicKey, formToken, s
     // { valid, paid, oversold }. oversold=true = se cobró pero YA NO hay stock:
     // en ese caso la pantalla debe ser HONESTA (revisión), no "confirmado".
     //
-    // Damos ~4s: si validate FALLA o TARDA (red/timeout), caemos a un optimismo
-    // respaldado por la IPN (servidor-a-servidor), para que la UI nunca se cuelgue.
+    // Si validate falla o tarda, mostramos "en revisión": nunca afirmamos que el
+    // pedido quedó confirmado antes de que el backend lo persista.
     // El guard `finalizar` garantiza que se dispare UN solo callback (el primero).
     let resuelto = false
     const finalizar = (fn) => { if (resuelto) return; resuelto = true; fn?.() }
@@ -122,14 +111,13 @@ export async function montarFormularioIzipay({ endpoint, publicKey, formToken, s
     supabase.functions
       .invoke('izipay-validate', { body: { krAnswer, krHash: resp.hash } })
       .then(({ data, error }) => {
-        if (error) { finalizar(callbacksIzipay.onPaid); return }   // la IPN respalda
+        if (error || data?.confirmed !== true) { finalizar(callbacksIzipay.onPending); return }
         if (data?.oversold === true) finalizar(callbacksIzipay.onOversold)
         else finalizar(callbacksIzipay.onPaid)
       })
-      .catch(() => { finalizar(callbacksIzipay.onPaid) })          // error de red → optimista
+      .catch(() => { finalizar(callbacksIzipay.onPending) })
 
-    // Timeout de seguridad: si validate tarda demasiado, avanzamos optimistas.
-    setTimeout(() => finalizar(callbacksIzipay.onPaid), 4000)
+    setTimeout(() => finalizar(callbacksIzipay.onPending), 6000)
 
     // Evita que krypton recargue/redirija: la UX la maneja onPaid()/onOversold()/onError().
     return false

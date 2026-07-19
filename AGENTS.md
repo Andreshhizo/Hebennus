@@ -1,6 +1,6 @@
-# CLAUDE.md
+# AGENTS.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Codex (Codex.ai/code) when working with code in this repository.
 
 ## Project
 
@@ -37,7 +37,7 @@ The anon key is **public by design**; the real security boundary is **Row Level 
 
 **Frontend** (`src/`, Vue 3 `<script setup>`):
 - `main.js` — mounts the app, registers `@unhead/vue` (per-page `<head>`/SEO) and the global `v-reveal` directive (fade-up-on-scroll; `.stagger` modifier reveals children in sequence).
-- `router/index.js` — vue-router in **history mode** (clean URLs; `vercel.json` rewrites all routes to `index.html` so `/admin` etc. don't 404 on reload). Home/Colección/Producto/404 are eager; everything else is lazy (Checkout pulls in the heavy Izipay SDK). `/admin` has a `requiresAdmin` guard using `useAuth`.
+- `router/index.js` — vue-router in **history mode** (clean URLs; `vercel.json` rewrites all routes to `index.html` so `/admin` etc. don't 404 on reload). Home/Colección/Producto/404 are eager; everything else is lazy (Checkout pulls in the heavy Izipay SDK). `/admin` has a `requiresAdmin` guard using `useAuth`. `/lab-pagos` exists **only in DEV** (`import.meta.env.DEV`).
 - `App.vue` — owns the **cart** (persisted to `localStorage` key `hebennus-cart`, strictly validated/sanitized on load via `isValidItem`/`sanitizeCart`, synced across tabs via the `storage` event). Cart ops are exposed with `provide`/`inject` (`addToCart`, `openQuickBuy`, `cart`, `clearCart`) — child pages inject rather than emit. The store chrome (nav/footer/cart/toast) is hidden on `/admin`.
 
 **`src/lib/`** — singletons and helpers:
@@ -49,8 +49,7 @@ The anon key is **public by design**; the real security boundary is **Row Level 
 
 **Backend** (`supabase/`):
 - `functions/create-order/` — validates payload + prices, applies shipping and the first-order 10% welcome discount server-side, inserts atomically via the `create_order` RPC, records marketing consent, sends confirmation email (Resend). **Payment-method-aware:** `contraentrega` (default) decrements stock + emails immediately; `izipay` and `yape_manual` set `defer_stock=true` → order stays `pendiente`, stock is NOT decremented, and no confirmation email is sent here.
-- `functions/izipay-*` — `izipay-formtoken` (create session token for a real pending order), `izipay-validate` (HMAC-verify + durably persist the browser callback), `izipay-ipn` (server-to-server notification, durably persisted before confirmation). Both call `process_izipay_payment_event`, which validates amount/currency/shop/method/transaction and records exact per-item inventory movements. Legacy/test payment functions were removed.
-- `functions/track-product-view` — rate-limited public entrypoint for product analytics; the underlying RPC is service-role only.
+- `functions/izipay-*` — `izipay-formtoken` (create session token for a real pending order), `izipay-validate` (HMAC-verify the browser callback), `izipay-ipn` (server-to-server confirmation → `marcar_pedido_pagado` → decrement stock + email; the authoritative confirmation). `*-test` variants back `/lab-pagos`.
 - `functions/admin-*`, `check-email`, `_shared/` (`email.ts` HTML builders, `hmac.ts`).
 - `migrations/` — timestamped, **idempotent** (`create if not exists`, `create or replace`, `pg_policies` guards) so they're safe to re-run against prod. Order status values live in `pedidos.js` on the frontend and must stay in sync with the DB.
 

@@ -13,11 +13,12 @@
 //   NO con la clave HMAC (esa es para la respuesta del navegador).
 //
 //   Si la firma es válida y orderStatus === 'PAID':
-//     1) marcar_pedido_pagado (idempotente): pago 'pagado', estado 'confirmado',
-//        descuento de stock.
-//     2) correo de confirmación (cliente + tienda).
-//   Siempre responde 200 'OK' cuando la firma es válida, para que Izipay no entre
-//   en bucle de reintentos. Si la firma NO coincide → 401.
+//     1) persiste un payment_event durable antes de tocar el pedido;
+//     2) valida monto/moneda/comercio/método/transacción y aplica el ledger;
+//     3) envía el correo correspondiente (cliente + tienda).
+//   Responde 200 solo cuando el evento quedó procesado o rechazado de forma
+//   definitiva. Un fallo interno devuelve 503 para que Izipay reintente.
+//   Si la firma NO coincide → 401.
 //
 // Secrets: IZIPAY_PASSWORD (firma IPN), + RESEND_* (correo).
 //          SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY los inyecta Supabase.
@@ -28,6 +29,12 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { verifyHmac } from '../_shared/hmac.ts'
 import { buildHtml, buildHtmlSobreventa, enviarResend, type ItemPedido } from '../_shared/email.ts'
+import { enforceRateLimit, readBodyLimited } from '../_shared/security.ts'
+import {
+  parseIzipayAnswer,
+  persistIzipayEvent,
+  processIzipayEvent,
+} from '../_shared/izipay-event.ts'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Carga el pedido + ítems (con miniaturas) y envía el par de correos que
@@ -169,91 +176,72 @@ async function enviarCorreosPedido(
 Deno.serve(async (req: Request) => {
   if (req.method !== 'POST') return new Response('Método no permitido', { status: 405 })
 
-  const PASSWORD = Deno.env.get('IZIPAY_PASSWORD')
-  if (!PASSWORD) {
-    console.error('[izipay-ipn] Falta secret IZIPAY_PASSWORD')
-    return new Response('Pasarela no configurada', { status: 500 })
-  }
+  try {
+    const PASSWORD = Deno.env.get('IZIPAY_PASSWORD')
+    if (!PASSWORD) {
+      console.error('[izipay-ipn] Falta secret IZIPAY_PASSWORD')
+      return new Response('Pasarela no configurada', { status: 500 })
+    }
 
-  // 1) Leer el cuerpo urlencoded.
-  let form: FormData
-  try { form = await req.formData() } catch {
-    console.error('[izipay-ipn] Cuerpo inválido (no es formData)')
-    return new Response('Bad request', { status: 400 })
-  }
+    const admin = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+    )
+    await enforceRateLimit(admin, req, 'izipay-ipn', 120, 600)
 
-  const krAnswer = String(form.get('kr-answer') ?? '')
-  const krHash   = String(form.get('kr-hash') ?? '')
+    const contentType = req.headers.get('Content-Type') ?? ''
+    if (!contentType.toLowerCase().includes('application/x-www-form-urlencoded')) {
+      return new Response('Bad request', { status: 400 })
+    }
+    const rawBody = await readBodyLimited(req, 300_000)
+    const form = new URLSearchParams(rawBody)
+    const krAnswer = form.get('kr-answer') ?? ''
+    const krHash = form.get('kr-hash') ?? ''
+    if (!krAnswer || !krHash) return new Response('Bad request', { status: 400 })
 
-  if (!krAnswer || !krHash) {
-    console.error('[izipay-ipn] Faltan kr-answer / kr-hash')
-    return new Response('Bad request', { status: 400 })
-  }
+    const firmaOk = await verifyHmac(krAnswer, PASSWORD, krHash)
+    if (!firmaOk) {
+      console.error('[izipay-ipn] Firma inválida — se rechaza la notificación')
+      return new Response('Invalid signature', { status: 401 })
+    }
 
-  // 2) Validar la firma: la IPN usa la PASSWORD (no la clave HMAC).
-  const firmaOk = await verifyHmac(krAnswer, PASSWORD, krHash)
-  if (!firmaOk) {
-    console.error('[izipay-ipn] Firma inválida — se rechaza la notificación')
-    return new Response('Invalid signature', { status: 401 })
-  }
+    let answer
+    try {
+      answer = parseIzipayAnswer(krAnswer)
+    } catch {
+      // Una carga firmada pero corrupta no puede considerarse procesada.
+      console.error('[izipay-ipn] kr-answer firmado no es JSON válido')
+      return new Response('Invalid payload', { status: 422 })
+    }
 
-  // 3) Parsear kr-answer.
-  let answer: {
-    orderStatus?: string
-    orderDetails?: { orderId?: string }
-    transactions?: Array<{ uuid?: string }>
-  }
-  try { answer = JSON.parse(krAnswer) } catch {
-    console.error('[izipay-ipn] kr-answer no es JSON válido')
-    // Firma válida pero payload corrupto: 200 para no provocar reintentos.
+    // Durabilidad primero: si este INSERT no confirma, devolvemos 503 para que
+    // Izipay reintente. Nunca acusamos 200 por un evento no persistido.
+    const eventId = await persistIzipayEvent(admin, 'ipn', krAnswer, answer)
+    const result = await processIzipayEvent(admin, eventId)
+
+    if (result.accepted !== true) {
+      // El evento sí quedó durable, pero no cumple el contrato del pedido. Un
+      // reintento idéntico no lo volverá válido; se acusa sin confirmar el pago.
+      console.error(`[izipay-ipn] Evento rechazado ${eventId}: ${result.error}`)
+      return new Response('REJECTED', { status: 200 })
+    }
+
+    const orderId = result.order_number ?? answer.orderDetails?.orderId ?? ''
+    if (result.idempotent === true) {
+      console.log(`[izipay-ipn] Pedido ${orderId} ya procesado — sin correo duplicado`)
+    } else if (result.oversold === true) {
+      console.warn(`[izipay-ipn] Pedido ${orderId} PAGADO SIN STOCK — alertando`)
+      await enviarCorreosPedido(admin, orderId, 'sobreventa')
+    } else {
+      console.log(`[izipay-ipn] Pedido ${orderId} confirmado — enviando correo`)
+      await enviarCorreosPedido(admin, orderId, 'confirmacion')
+    }
+
     return new Response('OK', { status: 200 })
+  } catch (error) {
+    // El evento ya persistido queda en failed; si ni siquiera se pudo persistir,
+    // también devolvemos no-2xx. En ambos casos Izipay debe reintentar.
+    console.error('[izipay-ipn] Fallo interno:', (error as Error).message)
+    return new Response('Temporary failure', { status: 503 })
   }
-
-  const orderStatus = answer?.orderStatus
-  const orderId     = answer?.orderDetails?.orderId ?? ''
-  const txnId       = answer?.transactions?.[0]?.uuid ?? ''
-
-  // Solo procesamos pagos confirmados. Cualquier otro estado se acusa con 200.
-  if (orderStatus !== 'PAID') {
-    console.log(`[izipay-ipn] Pedido ${orderId} con estado ${orderStatus} — sin acción`)
-    return new Response('OK', { status: 200 })
-  }
-  if (!orderId) {
-    console.error('[izipay-ipn] PAID sin orderId — no se puede confirmar')
-    return new Response('OK', { status: 200 })
-  }
-
-  const supabaseUrl = Deno.env.get('SUPABASE_URL')!
-  const serviceKey  = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-  const admin = createClient(supabaseUrl, serviceKey)
-
-  // 4) Registrar el pago + descuento de stock (idempotente). El RPC YA NO lanza
-  //    por falta de stock: registra el pago siempre y devuelve oversold=true si
-  //    faltó stock. Decidimos el correo por el RESULTADO del RPC (no por
-  //    excepción): así NUNCA enviamos "Confirmación" si el RPC falla o si hubo
-  //    sobreventa. Respondemos 200 igual al final para que Izipay no reintente.
-  const { data: resultado, error: rpcError } = await admin.rpc('marcar_pedido_pagado', {
-    p_order_number: orderId,
-    p_txn_id: txnId,
-  })
-
-  if (rpcError) {
-    // Fallo del RPC: NO enviamos correo de confirmación. Queda en logs.
-    console.error(`[izipay-ipn] marcar_pedido_pagado falló (${orderId}):`, rpcError.message)
-  } else if (resultado?.idempotent === true) {
-    // Notificación repetida (el pedido ya estaba pagado): no reenviamos nada.
-    console.log(`[izipay-ipn] Pedido ${orderId} ya estaba pagado — sin correo (idempotente)`)
-  } else if (resultado?.oversold === true) {
-    // El pago se registró pero faltó stock: alerta a la tienda + aviso suave al
-    // cliente. NUNCA enviamos confirmación en este caso.
-    console.warn(`[izipay-ipn] Pedido ${orderId} PAGADO SIN STOCK (sobreventa) — alertando`)
-    await enviarCorreosPedido(admin, orderId, 'sobreventa')
-  } else {
-    // Primera confirmación con stock OK: correo de confirmación normal.
-    console.log(`[izipay-ipn] Pedido ${orderId} confirmado — enviando correo`)
-    await enviarCorreosPedido(admin, orderId, 'confirmacion')
-  }
-
-  // Siempre 200 con firma válida, para que Izipay no reintente en bucle.
-  return new Response('OK', { status: 200 })
 })

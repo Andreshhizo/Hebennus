@@ -10,8 +10,18 @@
 import { supabase } from './supabase.js'
 import { FunctionsHttpError } from '@supabase/supabase-js'
 
+const pendingKeys = new Map()
+const newKey = () => globalThis.crypto?.randomUUID?.()
+  ?? `hb-${Date.now()}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`
+
 export async function enviarReclamo(payload) {
-  const { data, error } = await supabase.functions.invoke('create-ticket', { body: payload })
+  const fingerprint = JSON.stringify(payload)
+  const idempotencyKey = pendingKeys.get(fingerprint) ?? newKey()
+  pendingKeys.set(fingerprint, idempotencyKey)
+  const { data, error } = await supabase.functions.invoke('create-ticket', {
+    body: payload,
+    headers: { 'Idempotency-Key': idempotencyKey },
+  })
 
   // La función SÍ corrió y devolvió un status no-2xx: es un error REAL del
   // backend (validación, RLS, etc.). Propagar siempre, incluso en DEV.
@@ -40,5 +50,6 @@ export async function enviarReclamo(payload) {
     throw new Error(data.error)
   }
 
+  pendingKeys.delete(fingerprint)
   return data // { ticket_number }
 }
