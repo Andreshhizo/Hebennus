@@ -5,7 +5,7 @@
 import { ref, reactive, computed, watch, onMounted, nextTick } from 'vue'
 import { supabase } from '../lib/supabase.js'
 import { purgeSupabaseTokens } from '../lib/useAuth.js'
-import { ESTADOS, ESTADO_COLOR, ESTADO_LABEL, ESTADOS_DEVUELVE_STOCK } from '../lib/pedidos.js'
+import { ESTADOS, ESTADO_COLOR, ESTADO_LABEL, ESTADOS_DEVUELVE_STOCK, PAGO_ESTADOS, PAGO_LABEL, pagoLabel, pagoColor } from '../lib/pedidos.js'
 import { validarTelefonoPE } from '../lib/validation.js'
 import AdminDashboard from '../components/AdminDashboard.vue'
 import AdminCustomers from '../components/AdminCustomers.vue'
@@ -51,7 +51,7 @@ const filtro         = ref('todos')
 const busqueda       = ref('')     // buscador por nº pedido / nombre / correo / teléfono
 const pagina         = ref(1)      // paginación (1-based)
 const POR_PAGINA     = 10
-const marcandoPagado = ref(null)   // id del pedido que se está marcando como pagado (evita doble click)
+const pagoBusy = ref(null)   // id del pedido cuyo estado de pago se está cambiando (evita doble click)
 const estadoBusy     = ref(null)   // id del pedido cuyo estado se está cambiando
 const estadoMsg      = ref({})     // { [orderId]: { tipo: 'ok'|'error', texto } }
 
@@ -223,44 +223,51 @@ async function cambiarEstado(pedido, nuevo, ev) {
   }
 }
 
-// Confirmación manual del Yape: llama a la RPC SECURITY DEFINER que marca pagado,
-// descuenta stock y es idempotente. Solo aplica al flujo yape_manual.
-async function marcarPagado(pedido) {
-  if (marcandoPagado.value) return // ya hay uno en proceso
-  if (!confirm(`¿Marcar como PAGADO el pedido ${pedido.order_number || ('#' + pedido.id)}? Esto descontará el stock.`)) return
-  marcandoPagado.value = pedido.id
+// Estado de PAGO (manual, solo Yape): un único selector Pendiente/Pagado/Reembolsado.
+// Delega en admin_set_payment_status, que descuenta ('pagado') o repone ('reembolsado')
+// el stock exacto vía el ledger de Fase 0 (idempotente). La tarjeta la confirma el IPN,
+// por eso este control no se muestra para izipay.
+async function cambiarEstadoPago(pedido, nuevo, ev) {
+  const actual = pedido.payment_status || 'pendiente'
+  if (nuevo === actual || pagoBusy.value) { if (ev?.target) ev.target.value = actual; return }
+  const ref = pedido.order_number || ('#' + pedido.id)
+  if (nuevo === 'pagado' && !confirm(`¿Marcar como PAGADO el pedido ${ref}? Esto descontará el stock.`)) { ev.target.value = actual; return }
+  if (nuevo === 'reembolsado' && !confirm(`¿Marcar como REEMBOLSADO el pedido ${ref}? Se repondrá el stock y el pedido quedará cancelado.`)) { ev.target.value = actual; return }
+  pagoBusy.value = pedido.id
   pedidosError.value = ''
   try {
-    const { data, error } = await supabase.rpc('admin_marcar_pagado', { p_order_number: pedido.order_number })
+    const { data, error } = await supabase.rpc('admin_set_payment_status', { p_order_number: pedido.order_number, p_status: nuevo })
     if (error) {
       const msg = error.message || ''
-      if (msg.includes('STOCK_INSUFICIENTE')) {
-        pedidosError.value = 'No se pudo marcar pagado: ya no hay stock suficiente para este pedido. Revisa el inventario.'
-      } else if (msg.includes('NO_AUTORIZADO')) {
-        pedidosError.value = 'No tienes permisos de administrador.'
-      } else {
-        pedidosError.value = 'No se pudo marcar pagado: ' + msg
-      }
+      if (msg.includes('STOCK_INSUFICIENTE')) pedidosError.value = 'No se pudo marcar pagado: ya no hay stock suficiente para este pedido. Revisa el inventario.'
+      else if (msg.includes('NO_AUTORIZADO')) pedidosError.value = 'No tienes permisos de administrador.'
+      else if (msg.includes('NO_SE_PUEDE_REVERTIR_PAGO')) pedidosError.value = 'No se puede volver a "pendiente" un pago que ya se cobró.'
+      else if (msg.includes('PAGO_MANUAL_SOLO_YAPE')) pedidosError.value = 'El estado de pago manual solo aplica a pedidos por Yape.'
+      else if (msg.includes('CONCILIACION')) pedidosError.value = 'Este pedido tiene inventario legacy sin conciliar; revisar antes de reembolsar.'
+      else pedidosError.value = 'No se pudo cambiar el estado de pago: ' + msg
+      if (ev?.target) ev.target.value = actual
       return
     }
-    // El RPC puede devolver oversold=true: el pago quedó marcado PAGADO pero YA NO
-    // hay stock. Somos honestos: avisamos que hay que revisar/reembolsar en vez de
-    // tratarlo como confirmado (NO enviamos el correo de "confirmado" al cliente).
-    if (data?.oversold === true) {
+    // 'pagado' con oversold=true: pagó pero YA NO hay stock. Honestos: avisar para
+    // revisar/reembolsar (NO enviamos el correo de "confirmado" al cliente).
+    if (nuevo === 'pagado' && data?.oversold === true) {
       pedMsg.value = { tipo: 'error', texto: '⚠️ Pagado, pero SIN stock: revisar/reembolsar este pedido.' }
-      await cargarPedidos() // refresca para reflejar payment_status='pagado'
-      return
+    } else if (nuevo === 'pagado') {
+      // Avisar al cliente que confirmamos su pago (best-effort; no bloquea).
+      try {
+        await supabase.functions.invoke('admin-notificar-envio', {
+          body: { order_number: pedido.order_number, status: 'confirmado' },
+        })
+      } catch (_) { /* correo best-effort */ }
+      pedMsg.value = { tipo: 'ok', texto: '✓ Pago confirmado' }
+    } else if (nuevo === 'reembolsado') {
+      pedMsg.value = { tipo: 'ok', texto: '✓ Reembolsado · stock repuesto · pedido cancelado' }
+    } else {
+      pedMsg.value = { tipo: 'ok', texto: 'Estado de pago actualizado' }
     }
-    // Avisar al cliente que confirmamos su pago (best-effort; no bloquea).
-    try {
-      await supabase.functions.invoke('admin-notificar-envio', {
-        body: { order_number: pedido.order_number, status: 'confirmado' },
-      })
-    } catch (_) { /* correo best-effort */ }
-    pedMsg.value = { tipo: 'ok', texto: '✓ Pago confirmado' }
-    await cargarPedidos() // refresca para reflejar payment_status='pagado'
+    await cargarPedidos()
   } finally {
-    marcandoPagado.value = null
+    pagoBusy.value = null
   }
 }
 
@@ -440,8 +447,8 @@ onMounted(async () => {
             <span class="order__total">{{ money(o.total) }}</span>
             <span
               class="badge"
-              :style="{ '--c': o.payment_status === 'pagado' ? 'var(--success)' : (o.payment_status === 'fallido' ? 'var(--danger)' : '#e0a23b') }"
-            >{{ o.payment_status === 'pagado' ? 'Pagado' : (o.payment_status === 'fallido' ? 'Pago fallido' : 'Pago pendiente') }}</span>
+              :style="{ '--c': pagoColor(o.payment_status) }"
+            >{{ pagoLabel(o.payment_status) }}</span>
             <span class="badge" :style="{ '--c': ESTADO_COLOR[o.status] || '#888' }">{{ ESTADO_LABEL[o.status] || o.status }}</span>
             <button class="order__ver" @click.stop="abrirDetalle(o)">Ver detalle →</button>
           </div>
@@ -484,22 +491,20 @@ onMounted(async () => {
               </div>
 
               <p class="order__p order__p--muted">
-                Pago: {{ metodoPagoLabel(detalle.payment_method) }} · {{ detalle.payment_status === 'pagado' ? 'Pagado' : (detalle.payment_status === 'fallido' ? 'Pago fallido' : 'Pago pendiente') }} · Comprobante: {{ detalle.comprobante_tipo }}
+                Pago: {{ metodoPagoLabel(detalle.payment_method) }} · {{ pagoLabel(detalle.payment_status) }} · Comprobante: {{ detalle.comprobante_tipo }}
                 <template v-if="detalle.doc_numero"> ({{ detalle.doc_tipo }} {{ detalle.doc_numero }})</template>
               </p>
 
               <div class="odm__acciones">
-                <button
-                  v-if="detalle.payment_status !== 'pagado' && detalle.payment_method === 'yape_manual'"
-                  class="order__pagado"
-                  :disabled="marcandoPagado === detalle.id"
-                  @click="marcarPagado(detalle)"
-                >
-                  <span v-if="marcandoPagado === detalle.id" class="spinner spinner--sm"></span>
-                  {{ marcandoPagado === detalle.id ? 'Procesando…' : '✓ Marcar pagado' }}
-                </button>
+                <label v-if="detalle.payment_method === 'yape_manual'" class="order__estado">
+                  Pago:
+                  <select :value="detalle.payment_status || 'pendiente'" :disabled="pagoBusy === detalle.id" aria-label="Estado de pago" @change="cambiarEstadoPago(detalle, $event.target.value, $event)">
+                    <option v-for="p in PAGO_ESTADOS" :key="p" :value="p">{{ PAGO_LABEL[p] }}</option>
+                  </select>
+                  <span v-if="pagoBusy === detalle.id" class="spinner spinner--sm"></span>
+                </label>
                 <label class="order__estado">
-                  Estado:
+                  Estado (pedido):
                   <select :value="detalle.status" :disabled="estadoBusy === detalle.id" aria-label="Estado del pedido" @change="cambiarEstado(detalle, $event.target.value, $event)">
                     <option v-for="e in ESTADOS" :key="e" :value="e">{{ ESTADO_LABEL[e] }}</option>
                   </select>
