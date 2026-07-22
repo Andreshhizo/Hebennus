@@ -16,7 +16,7 @@ export interface IzipayAnswer {
   orderDetails?: {
     orderId?: string
     orderTotalAmount?: number
-    orderPaidAmount?: number
+    orderEffectiveAmount?: number
     orderCurrency?: string
   }
   transactions?: IzipayTransaction[]
@@ -84,7 +84,7 @@ export async function persistIzipayEvent(
     shop_id: String(answer.shopId ?? '').trim() || null,
     transaction_shop_id: String(transaction?.shopId ?? '').trim() || null,
     order_amount_minor: finiteInteger(orderDetails.orderTotalAmount),
-    paid_amount_minor: finiteInteger(orderDetails.orderPaidAmount),
+    paid_amount_minor: finiteInteger(orderDetails.orderEffectiveAmount),
     transaction_amount_minor: finiteInteger(transaction?.amount),
     order_currency: String(orderDetails.orderCurrency ?? '').trim().toUpperCase() || null,
     transaction_currency: String(transaction?.currency ?? '').trim().toUpperCase() || null,

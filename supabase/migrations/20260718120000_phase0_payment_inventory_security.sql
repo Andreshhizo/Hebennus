@@ -811,4 +811,15 @@ create policy product_variants_public_read on public.product_variants
        and p.is_active = true
   ));
 
+-- El admin necesita ver TODAS las variantes, incluidas las de productos desactivados
+-- (fuera de temporada) para gestionar su stock/tallas/fotos. La política pública de
+-- arriba las oculta; sin esta política de SELECT para admin, product_variants no tenía
+-- ninguna vía de lectura para el admin (solo insert/update/delete). Las políticas de
+-- SELECT se combinan con OR: el público sigue viendo solo variantes de productos
+-- activos y el admin ve todas.
+drop policy if exists product_variants_admin_select on public.product_variants;
+create policy product_variants_admin_select on public.product_variants
+  for select to authenticated
+  using (public.is_admin());
+
 commit;
