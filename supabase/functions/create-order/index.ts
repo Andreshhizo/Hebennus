@@ -104,17 +104,21 @@ Deno.serve(async (req: Request) => {
 
   // 2) Validar precios contra la BD (nunca confiar en el navegador).
   const ids = [...new Set(pedido.items.map((i) => i.product_id).filter(Boolean))] as string[]
-  const priceMap = new Map<string, { name: string; price: number; is_active: boolean; image: string | null }>()
+  const priceMap = new Map<string, { name: string; price: number; is_active: boolean; image: string | null; slug: string | null }>()
   if (ids.length) {
-    const { data: prods } = await admin.from('products').select('id, name, price, is_active, card_images, images').in('id', ids)
+    const { data: prods } = await admin.from('products').select('id, name, price, is_active, card_images, images, slug').in('id', ids)
     for (const p of prods ?? []) priceMap.set(p.id, {
       name: p.name, price: Number(p.price), is_active: p.is_active,
       image: (Array.isArray(p.card_images) && p.card_images[0]) || (Array.isArray(p.images) && p.images[0]) || null,
+      slug: p.slug ?? null,
     })
   }
 
   let subtotal = 0
   const items: ItemPedido[] = []
+  // Excepción de PRUEBA: el producto 'test-pago' viaja SIN envío (smoke tests de S/1).
+  // Se vuelve false apenas el carrito incluya cualquier otro producto → clientes reales intactos.
+  let soloTest = pedido.items.length > 0
   for (const it of pedido.items) {
     // SEGURIDAD: todo ítem DEBE referenciar un producto real y activo. El precio y
     // el nombre se toman SIEMPRE de la BD, nunca del navegador (evita que alguien
@@ -124,6 +128,7 @@ Deno.serve(async (req: Request) => {
     if (!p || p.is_active === false) {
       return jsonResponse(req, { error: `Producto no disponible: ${it.name ?? ''}` }, 409)
     }
+    if (p.slug !== 'test-pago') soloTest = false
     const rawQty = Number(it.qty)
     if (!Number.isInteger(rawQty) || rawQty < 1 || rawQty > 50) {
       return jsonResponse(req, { error: 'Cantidad de producto inválida' }, 400)
@@ -142,13 +147,13 @@ Deno.serve(async (req: Request) => {
 
   // 3) Envío (server-side): Lima gratis desde ENVIO_GRATIS_DESDE; si no, COSTO_ENVIO.
   //    Provincia se coordina aparte por WhatsApp.
-  const shipping = subtotal === 0 || subtotal >= ENVIO_GRATIS_DESDE ? 0 : COSTO_ENVIO
+  const shipping = subtotal === 0 || subtotal >= ENVIO_GRATIS_DESDE || soloTest ? 0 : COSTO_ENVIO
 
   // 4) Descuento de bienvenida (server-side): 10% al PRIMER pedido de cada correo
   //    (con o sin cuenta). Autoritativo: recalcula e ignora el discount del cliente.
   let discount = 0
   let discountReason: string | null = null
-  if (pedido.quiere_descuento) {
+  if (pedido.quiere_descuento && !soloTest) {   // el producto de prueba paga S/1 exacto: sin envío ni descuento
     // Normaliza el correo: minúsculas + quita el alias "+..." del local part
     // (estilo Gmail: "juan+promo@gmail.com" → "juan@gmail.com"). Así un cliente no
     // puede regenerar el 10% de bienvenida usando alias con "+".
